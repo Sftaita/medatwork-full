@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php: ['8.2']
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo, pdo_sqlite, pdo_mysql, intl, mbstring, zip
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Check code style (PHP CS Fixer)
+        run: php vendor/bin/php-cs-fixer fix --dry-run --diff
+        continue-on-error: false
+
+      - name: Static analysis (PHPStan)
+        run: php vendor/bin/phpstan.phar analyse --memory-limit=512M --no-progress
+
+      - name: Run tests
+        run: php vendor/bin/phpunit -c phpunit.xml tests/Unit tests/Integration
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///:memory:
+          LOCK_DSN: flock
+          JWT_PASSPHRASE: ci-test-passphrase-not-used-in-prod
+          KERNEL_CLASS: App\Kernel
+
+  # ── Frontend ─────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: ['22']
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Run tests (Vitest)
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: https://api-link.medatwork.be/api/

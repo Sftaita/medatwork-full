@@ -1,0 +1,240 @@
+# Guide de Sécurité — Medatwork
+
+**Dernière mise à jour :** 2026-03-22
+
+## Principes Généraux
+
+Ce document décrit les pratiques de sécurité à respecter sur ce projet, ainsi que les failles identifiées lors de l'audit initial (2026-03-20) et leur état de correction.
+
+---
+
+## Règles Absolues (Non Négociables)
+
+### Tokens et Cryptographie
+```php
+// INTERDIT
+$token = md5(uniqid());
+$token = sha1(time());
+$token = base64_encode(rand());
+
+// OBLIGATOIRE
+$token = bin2hex(random_bytes(32));       // Token URL-safe 64 chars hex
+$token = base64_encode(random_bytes(32)); // Token Base64
+```
+
+### SSL / TLS
+```php
+// INTERDIT — même en développement
+CURLOPT_SSL_VERIFYPEER => false,
+CURLOPT_SSL_VERIFYHOST => 0,
+
+// CORRECT — utiliser les certificats système
+CURLOPT_SSL_VERIFYPEER => true,
+CURLOPT_SSL_VERIFYHOST => 2,
+```
+
+### Variables d'Environnement
+- Ne **jamais** committer `.env` avec de vraies valeurs
+- Utiliser `.env.local` pour les overrides locaux (non versionné)
+- En production : utiliser les variables d'environnement du serveur
+
+### Code de Débogage
+```php
+// INTERDIT en production
+dd($variable);
+var_dump($variable);
+die();
+exit();
+
+// CORRECT — utiliser le logger
+$this->logger->debug('Variable value', ['var' => $variable]);
+```
+
+### Validation des Entrées
+```php
+// INTERDIT — raw json_decode sans validation
+$data = json_decode($request->getContent(), true);
+$email = $data['email']; // pas de vérification
+
+// OBLIGATOIRE — utiliser un DTO typé
+try {
+    $dto = MonDTO::fromRequest($request);
+} catch (\InvalidArgumentException $e) {
+    return new JsonResponse(['message' => $e->getMessage()], 400);
+}
+```
+
+---
+
+## État des Failles (2026-03-22)
+
+### [C1] Tokens Cryptographiquement Faibles — ✅ CORRIGÉ
+
+**Tous les `md5(uniqid())` remplacés par `bin2hex(random_bytes(32))` dans :**
+- `ManagersAPIController` — registration manager
+- `PublicAPIController` — registration résident
+- `ResetPasswordToken` service — reset de mot de passe
+- `ActivationTokenEncoder` event subscriber — activation de compte
+- `YearsManagerSubscriber` — création d'année (token unique)
+
+---
+
+### [C2] SSL Désactivé dans CustomSendGrid — ✅ CORRIGÉ
+
+Options cURL dangereuses supprimées de `CustomSendGrid.php`. SendGrid gère son propre SSL.
+
+---
+
+### [C3] JWT Passphrase — ⚠️ ACTION MANUELLE REQUISE
+
+Vérifier que `JWT_PASSPHRASE` dans `.env.local` fait au moins 32 caractères aléatoires :
+```bash
+openssl rand -base64 64
+```
+
+---
+
+### [C4] Secrets Exposés — ⚠️ ACTION MANUELLE REQUISE
+
+Si le fichier `.env` a été commité avec de vraies clés : révoquer et régénérer immédiatement les clés SendGrid et la passphrase JWT.
+
+---
+
+### [M1] Endpoint `/api/fetchManagers` sans Auth — ⚠️ OUVERT
+
+**Fichier :** `backend/config/packages/security.yaml`
+```yaml
+# À corriger — retire PUBLIC_ACCESS et ajoute ROLE_MANAGER ou ROLE_RESIDENT
+- { path: ^/api/fetchManagers, roles: PUBLIC_ACCESS }
+```
+
+---
+
+### [M2] Tokens d'Activation Sans Expiration — ⚠️ OUVERT
+
+Les tokens d'activation de compte n'expirent pas. Implémentation recommandée :
+```php
+$expiresAt = new \DateTime('+24 hours');
+$entity->setActivationTokenExpiresAt($expiresAt);
+
+// À la vérification
+if ($entity->getActivationTokenExpiresAt() < new \DateTime()) {
+    return new JsonResponse(['error' => 'Token expired'], 400);
+}
+```
+
+---
+
+### [m1] Code de Débogage dans les Contrôleurs — ✅ CORRIGÉ
+
+Tous les `dd()`, `die()`, `exit()` dans les contrôleurs remplacés par des `JsonResponse` appropriées.
+
+**`dd()` restants dans les services (à corriger) :**
+- `Services/ManagerMonthValidation/GetMonthStatus.php`
+- `Services/StaffPlanner/CheckResidentResources.php`
+- `Services/YearsManagement/UpdateYear.php`
+
+---
+
+### [m2] Validation JSON Insuffisante — ✅ CORRIGÉ (2026-03-22)
+
+**19 DTOs** créés avec validation stricte et typage PHP 8.1 :
+
+| DTO | Endpoint(s) |
+|-----|-------------|
+| `TimesheetInputDTO` | Création/mise à jour feuille de temps |
+| `GardeInputDTO` | Création garde résident |
+| `AbsenceInputDTO` | Création absence résident |
+| `ValidationBatchInputDTO` | Validation batch gardes/absences/timesheets |
+| `MonthValidationStatusInputDTO` | Validation mensuelle |
+| `YearResidentStatusInputDTO` | Statut résident-année |
+| `PasswordResetRequestInputDTO` | Demande reset mot de passe |
+| `PasswordResetWithTokenInputDTO` | Reset avec token |
+| `ResidentRegistrationInputDTO` | Inscription résident |
+| `YearTokenInputDTO` | Rejoindre une année |
+| `ContactMessageInputDTO` | Message de contact |
+| `WeekTemplateInputDTO` | Création/maj template hebdo |
+| `WeekTaskInputDTO` | Création/maj tâche hebdo |
+| `IntegerIdsInputDTO` | Tableaux d'IDs entiers (StaffPlanner) |
+| `NewManagerInputDTO` | Inscription manager |
+| `UpdateRightsInputDTO` | Mise à jour des droits manager |
+| `LinkWeekTemplateInputDTO` | Liaison template ↔ année |
+| `AddManagerInputDTO` | Ajout manager à une année |
+| `CreateYearInputDTO` | Création d'une année |
+
+**Pattern standard :**
+```php
+try {
+    $dto = MonDTO::fromRequest($request);
+} catch (\InvalidArgumentException $e) {
+    return new JsonResponse(['message' => $e->getMessage()], 400);
+}
+// Utiliser $dto->champTypé directement
+```
+
+---
+
+### [m3] Rate Limiting — ⚠️ PARTIELLEMENT IMPLÉMENTÉ
+
+Actif sur :
+- Inscription manager (`registerLimiter`)
+- Reset de mot de passe (`passwordResetLimiter`)
+
+Manquant sur :
+- Login (`/api/login_check`)
+- Refresh token (`/api/token/refresh`)
+
+---
+
+## Checklist Sécurité — Avant Chaque Déploiement
+
+```
+[ ] Aucun dd(), var_dump(), die(), exit() dans le code
+[ ] Aucune clé API ou mot de passe dans le code source
+[ ] .env non commité avec de vraies credentials
+[ ] SSL vérifié (CURLOPT_SSL_VERIFYPEER = true)
+[ ] Tous les tokens générés avec bin2hex(random_bytes(32))
+[ ] Tous les endpoints protégés (vérifier security.yaml)
+[ ] Toutes les entrées validées via DTO (pas de json_decode nu)
+[ ] Messages d'erreur génériques (pas de stack trace en prod)
+[ ] APP_ENV=prod en production
+```
+
+---
+
+## Authentification JWT — Bonnes Pratiques
+
+### Durée de Vie des Tokens
+```yaml
+# lexik_jwt_authentication.yaml
+lexik_jwt_authentication:
+    secret_key: '%env(resolve:JWT_SECRET_KEY)%'
+    public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
+    pass_phrase: '%env(JWT_PASSPHRASE)%'
+    token_ttl: 3600  # 1 heure — ne pas mettre > 24h
+```
+
+### Refresh Token
+- Durée de vie : 1 mois maximum
+- Stocké en cookie `HttpOnly` + `SameSite=Strict`
+- Invalider à la déconnexion
+
+### Révocation
+En cas de compromission d'un compte :
+1. Invalider le refresh token en base
+2. Changer la JWT_PASSPHRASE invalide TOUS les JWT actifs (option nucléaire)
+
+---
+
+## Gestion des Mots de Passe
+
+Symfony gère automatiquement le hachage via `UserPasswordHasherInterface`. Ne jamais :
+- Stocker un mot de passe en clair
+- Utiliser MD5 ou SHA1 pour les mots de passe
+- Implémenter son propre algorithme de hachage
+
+L'algorithme par défaut (`auto`) utilise `bcrypt` ou `argon2id` selon la disponibilité.
+
+---
+
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-22*
