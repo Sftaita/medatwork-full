@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-03-22
+**Dernière mise à jour :** 2026-03-28
 
 ## Vue d'Ensemble
 
@@ -54,7 +54,7 @@ backend/
 │   ├── index.php               # Front controller
 │   └── Images/                 # Uploads
 ├── src/
-│   ├── Command/                # Commandes CLI
+│   ├── Command/                # Commandes CLI Symfony
 │   ├── Controller/             # 30+ contrôleurs REST
 │   ├── Doctrine/               # Extensions Doctrine (CurrentUserExtension)
 │   ├── DTO/                    # 19 DTOs d'entrée typés (fromRequest())
@@ -65,13 +65,16 @@ backend/
 │   ├── Exceptions/             # Exceptions métier
 │   ├── Repository/             # 21 repositories
 │   ├── Security/               # Voters d'accès (YearAccessVoter, etc.)
-│   └── Services/               # Logique métier
+│   ├── Services/               # Logique métier
+│   └── Util/                   # Utilitaires purs (FrenchMonths, etc.)
 ├── templates/
 │   └── email/                  # Templates Twig pour emails
 └── tests/
     ├── Unit/
+    │   ├── Command/            # Tests des commandes CLI
     │   ├── DTO/                # 19 fichiers de tests DTO (280 tests)
-    │   └── Services/           # Tests services (CallableGardeMapper, etc.)
+    │   ├── Services/           # Tests services métier
+    │   └── Util/               # Tests utilitaires
     └── Integration/            # Tests d'intégration (SecurityConfigTest, etc.)
 ```
 
@@ -112,7 +115,7 @@ Repository
 MySQL
     │ Données
     ▼
-JsonResponse (array manuel ou json())
+JsonResponse (array_map explicite — pas de sérialisation automatique)
 ```
 
 ### Groupes de Contrôleurs
@@ -135,12 +138,31 @@ JsonResponse (array manuel ou json())
 | `Excel/` | Export Excel |
 | `GeneralAPI/` | Contact, endpoints publics |
 
+### Commandes CLI (`src/Command/`)
+
+| Commande | Description |
+|----------|-------------|
+| `app:update-isEditable-Status` | Met à jour le flag `isEditable` en base |
+| `app:generate-year-intervals` | Génère les intervalles d'une année académique |
+| `app:activate-server` | Active le serveur (usage interne) |
+| `app:notifications:purge` | **Supprime les vieilles notifications** (read > 30j, unread > 90j) |
+
+Usage de la purge :
+```bash
+# Valeurs par défaut (read > 30j, unread > 90j)
+php bin/console app:notifications:purge
+
+# Personnalisé
+php bin/console app:notifications:purge --read-days=60 --unread-days=180
+```
+
 ### Services Principaux
 
 | Service | Responsabilité |
 |---------|----------------|
 | `ManagerMonthValidation/` | Validation mensuelle des périodes |
-| `Notifications/` | Envoi et gestion des notifications |
+| `Notifications/ValidationNotifications` | Notifie après validation/annulation d'une période |
+| `Notifications/UpdateYearResidentNotifications` | Notifie après changement de statut résident |
 | `EmailReset/` | Réinitialisation de mot de passe |
 | `ExcelGenerator/` | Génération de rapports Excel |
 | `ExcelGenerator/CallableGardeMapper` | Calcul des intervalles gardes appelables |
@@ -183,6 +205,25 @@ try {
 }
 ```
 
+### Pattern Sérialisation (notifications)
+
+Pour éviter les références circulaires, les contrôleurs de notification utilisent un `array_map` explicite :
+
+```php
+$data = array_map(fn (NotificationManager $n) => [
+    'id'        => $n->getId(),
+    'object'    => $n->getObject(),
+    'body'      => $n->getBody(),
+    'type'      => $n->getType(),
+    'read'      => $n->getIsRead(),
+    'readAt'    => $n->getReadAt()?->format(\DateTimeInterface::ATOM),
+    'createdAt' => $n->getCreatedAt()->format(\DateTimeInterface::ATOM),
+], $notifications);
+return $this->json($data);
+```
+
+Ne jamais passer directement des entités avec relations bidirectionnelles à `$this->json()`.
+
 ---
 
 ## Frontend — React 17
@@ -195,9 +236,10 @@ frontend/
 │   ├── index.html
 │   └── .htaccess               # Redirection SPA (React Router)
 └── src/
-    ├── App.js                  # Routing principal
-    ├── config.js               # URL API (à externaliser en .env)
-    ├── index.js
+    ├── App.tsx                 # Routing principal
+    ├── config.ts               # URL API (depuis .env)
+    ├── lib/
+    │   └── queryClient.ts      # QueryClient React Query (global error handler)
     ├── pages/                  # Composants de page
     │   ├── LoginPage/
     │   ├── HomePage/
@@ -212,17 +254,22 @@ frontend/
     │   ├── medium/
     │   └── small/
     ├── hooks/                  # Logique réutilisable
-    │   ├── useAuth.js
-    │   ├── useAxiosPrivate.js
-    │   ├── useRefreshToken.js
-    │   └── useLogout.js
-    ├── contexts/               # État global
-    │   └── AuthProvider.js
+    │   ├── useAuth.ts
+    │   ├── useAxiosPrivate.ts  # Intercepteurs JWT + verrou de concurrence refresh
+    │   ├── useRefreshToken.ts  # POST /api/token/refresh
+    │   ├── useNotifications.ts # Polling React Query (refetchInterval 30s)
+    │   ├── useLogout.ts
+    │   └── data/               # Hooks de données (React Query)
+    │       ├── useManagerYears.ts
+    │       └── useNotifications.ts  # Hook page notifications
+    ├── store/                  # État global Zustand
+    │   └── notificationsStore.ts
+    ├── contexts/               # État global auth
+    │   └── AuthProvider.tsx
     └── services/               # Appels API
-        ├── Axios.js
-        ├── AuthAPI.js
-        ├── ManagersAPI.js
-        └── ResidentsAPI.js
+        ├── Axios.ts
+        ├── notificationsApi.ts
+        └── ...
 ```
 
 ### Flux d'Authentification
@@ -236,14 +283,72 @@ Backend → JWT + RefreshToken (cookie HttpOnly)
     ▼
 AuthProvider (Context)
     │ Stocke JWT en mémoire (state React)
-    │ Refresh token en cookie
+    │ Refresh token en cookie HttpOnly
     ▼
 useAxiosPrivate Hook
     │ Intercepte toutes les requêtes
     │ Ajoute "Authorization: Bearer <JWT>"
-    │ Si 401 → appelle useRefreshToken → renouvelle JWT
+    │ Si 401 → verrou de concurrence → un seul refresh en vol à la fois
+    │          → renouvelle JWT via POST /api/token/refresh
     ▼
 API Calls
+```
+
+### Verrou de Concurrence sur le Refresh Token
+
+Le serveur utilise `single_use: true` sur les refresh tokens (chaque token n'est valide qu'une fois). Sans verrou, deux requêtes simultanées recevant un 401 déclenchent deux refreshes en parallèle — le second échoue et déconnecte l'utilisateur.
+
+**Solution** (`useAxiosPrivate.ts`) :
+```ts
+let refreshPromise: Promise<string> | null = null;
+
+// Dans l'intercepteur 401 :
+if (!refreshPromise) {
+  refreshPromise = refresh().finally(() => { refreshPromise = null; });
+}
+const newAccessToken = await refreshPromise;
+```
+
+Toutes les requêtes en attente de 401 attendront la même promesse. Seul un appel `refresh()` est effectué.
+
+### Polling de Notifications (React Query)
+
+Le polling utilise `useQuery` avec `refetchInterval` — plus de `setInterval` manuel :
+
+```ts
+useQuery<Notification[]>({
+  queryKey: ["notifications", role],
+  queryFn: async () => { ... },
+  enabled: role === "manager" || role === "resident",
+  refetchInterval: 30_000,
+  retry: false,
+  meta: { suppressErrorToast: true },  // pas de toast en cas d'erreur réseau
+});
+```
+
+Le flag `meta.suppressErrorToast: true` est interprété par le `QueryCache.onError` global dans `queryClient.ts` pour ne pas afficher de toast sur une erreur de polling en arrière-plan.
+
+### QueryClient Global (`lib/queryClient.ts`)
+
+```ts
+new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (query.meta?.suppressErrorToast) return;  // polling silencieux
+      handleApiError(error);                        // toast + Sentry
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => handleApiError(error),
+  }),
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,   // 5 min
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 ```
 
 ### Protection des Routes
@@ -313,7 +418,7 @@ Résident saisit ses activités (gardes, absences, tâches)
     │
     ▼
 Manager valide les périodes
-    │
+    │ → Notifications envoyées aux autres managers et résidents
     ▼
 Export Excel disponible
 ```
@@ -381,4 +486,4 @@ API Platform 2.7.18 est installé. Les entités utilisent le nouveau namespace `
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-22*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-28*

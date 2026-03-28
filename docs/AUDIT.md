@@ -1,24 +1,25 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-03-22
+**Dernière mise à jour :** 2026-03-28
 **Environnement :** Windows 11, WAMP, MySQL, Symfony 5.4, React 17
-**Statut :** Professionnalisation en cours — failles critiques corrigées, tests en place
+**Statut :** Professionnalisation en cours — failles critiques corrigées, système de notifications refactorisé
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) |
-|----------|------------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 |
-| Fichiers JS/JSX frontend | ~248 | ~248 |
-| Entités Doctrine | 21 | 21 |
-| Contrôleurs | 30+ | 30+ |
-| Services | 15+ | 16+ |
-| DTOs | 0 | 19 |
-| Migrations | 50 | 50 |
-| Tests unitaires | 0 | **364 (703 assertions)** |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) |
+|----------|------------------------|---------------------|---------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 |
+| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 |
+| Entités Doctrine | 21 | 21 | 21 |
+| Contrôleurs | 30+ | 30+ | 30+ |
+| Services | 15+ | 16+ | 16+ |
+| DTOs | 0 | 19 | 19 |
+| Migrations | 50 | 50 | 50 |
+| Tests unitaires backend | 0 | **364 (703 assertions)** | **589 (1 153 assertions)** |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** |
 
 ### Tableau des Risques (mis à jour)
 
@@ -48,12 +49,13 @@
 ### Frontend
 - **Framework:** React 17.0.2
 - **Routage:** React Router v6.0.2
-- **State:** Context API + Hooks
-- **HTTP:** Axios
+- **State:** React Query (TanStack v5) + Zustand + Context API
+- **HTTP:** Axios (intercepteurs JWT)
 - **UI:** Material-UI 5.11.15
 - **Calendrier:** FullCalendar 6.1.8
 - **Charts:** Chart.js 3.7.0, Recharts 2.4.1
 - **Formulaires:** Formik 2.2.9 + Yup 0.32.11
+- **Tests:** Vitest + React Testing Library
 
 ---
 
@@ -63,12 +65,13 @@
 - Utilisation de Symfony 5.4 LTS (framework mature)
 - Services métier bien organisés avec séparation des responsabilités
 - Hooks React modernes (pas de class components)
-- Authentification JWT avec refresh tokens
+- Authentification JWT avec refresh tokens et verrou de concurrence
 - 50 migrations Doctrine gérées
 - Génération de rapports Excel
-- Système de notifications
+- Système de notifications entièrement refactorisé (React Query, PATCH, purge automatique)
 - **19 DTOs d'entrée** avec validation stricte et tests exhaustifs
-- **364 tests unitaires** (0 au départ)
+- **589 tests unitaires backend** (0 au départ)
+- **105 tests Vitest frontend** (0 au départ)
 
 ---
 
@@ -157,11 +160,13 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 7. Plusieurs contrôleurs contiennent encore de la logique métier directement
 
 ### Code
-1. ~~**Aucun test**~~ → **364 tests, 703 assertions** ✅
+1. ~~**Aucun test**~~ → **589 tests backend, 105 tests frontend** ✅
 2. Duplication : logique de création de token identique dans Manager et Resident
 3. Magic numbers et dates hardcodées
 4. ~~`ManagerAccessChecker` service redondant~~ → **supprimé** ✅
 5. ~~Inline callable garde logic (150 lignes)~~ → **`CallableGardeMapper` service extrait** ✅
+6. ~~N+1 queries dans les services de notifications~~ → **éliminé** ✅
+7. ~~Polling notifications via `setInterval`~~ → **React Query `refetchInterval`** ✅
 
 ### Dépendances
 1. React 17 — fin de vie, migrer vers React 18
@@ -188,7 +193,7 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 
 ### Phase 2 — Stabilisation ✅ TERMINÉ
 - [x] Validation stricte des entrées JSON (19 DTOs)
-- [x] Premiers tests unitaires (364 tests)
+- [x] Premiers tests unitaires (589 backend, 105 frontend)
 - [x] Extraction de `CallableGardeMapper` en service pur
 - [x] Suppression de `ManagerAccessChecker` (redondant avec Voters)
 - [ ] Global Exception Handler ← **prochain**
@@ -196,6 +201,11 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 
 ### Phase 3 — Refactoring 🔄 EN COURS
 - [x] DTOs d'entrée (19 DTOs)
+- [x] Refactoring système de notifications (2026-03-28)
+  - Élimination des N+1 queries
+  - Migration polling → React Query
+  - Verrou de concurrence sur le refresh JWT
+  - Commande de purge automatique
 - [ ] Upgrade API Platform 2.7 → 3.x
 - [ ] Découper les services trop longs (StatisticTools, GetPeriodSummary)
 - [ ] Déplacer logique métier des contrôleurs vers services
@@ -204,7 +214,7 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 ### Phase 4 — Modernisation
 - [ ] Docker + docker-compose
 - [ ] GitHub Actions CI/CD
-- [ ] TypeScript Frontend
+- [ ] TypeScript Frontend (en cours : hooks critiques déjà migrés)
 - [ ] Migrer React 17 → React 18
 - [ ] Remplacer Moment.js par date-fns
 - [ ] Configurer ESLint + PHPStan
@@ -212,4 +222,37 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 
 ---
 
-*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-03-22*
+## Journal des Modifications
+
+### 2026-03-28 — Refactoring Système de Notifications
+
+**Backend :**
+- `ValidationNotifications` et `UpdateYearResidentNotifications` : élimination des N+1 queries (un seul `findBy(['id' => $ids])` au lieu d'un `find()` par itération)
+- `FrenchMonths` utility (`src/Util/`) : constante partagée des noms de mois français, remplace les listes dupliquées dans les deux services
+- Routes `mark-all-as-read` passées de `GET` à `PATCH` (sémantique REST correcte)
+- `purgeOld()` ajouté aux deux repositories (DQL bulk-delete)
+- Commande `app:notifications:purge` avec options `--read-days` (défaut 30) et `--unread-days` (défaut 90)
+- Typo corrigée : "maitre" → "maître de stage" dans les corps de notifications
+
+**Frontend :**
+- `useRefreshToken` : `axios.get` → `axios.post` sur `/api/token/refresh`
+- `useAxiosPrivate` : verrou de concurrence module-level (`refreshPromise`) pour éviter les déconnexions intempestives lors de rafales de 401
+- `useNotifications` : migration `setInterval` → `useQuery` + `refetchInterval: 30_000` (React Query v5)
+- `meta: { suppressErrorToast: true }` sur la query de polling + `queryClient.ts` adapté pour respecter ce flag
+- `notificationsApi` : méthodes `markXxxAsRead` passées de `method: "get"` à `method: "patch"`
+
+**Tests ajoutés :**
+- Backend : `FrenchMonthsTest` (15), `ValidationNotificationsTest` (7), `UpdateYearResidentNotificationsTest` (10), `PurgeOldNotificationsCommandTest` (7) → +39 nouveaux tests
+- Frontend : `useAxiosPrivate.test.ts` (7), `useNotifications.test.ts` (8), `notificationsApi.test.ts` (8), `RealtimePage.test.tsx` (9), `useRefreshToken.test.js` mis à jour
+
+### 2026-03-22 — Sécurité et Stabilisation
+- Correction de toutes les failles critiques (tokens, SSL, dd())
+- 19 DTOs d'entrée avec 280+ tests
+- Extraction de services (CallableGardeMapper, suppression ManagerAccessChecker)
+
+### 2026-03-20 — Audit Initial
+- Cartographie complète du code existant
+
+---
+
+*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-03-28*

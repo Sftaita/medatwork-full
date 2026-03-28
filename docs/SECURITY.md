@@ -1,6 +1,6 @@
 # Guide de Sécurité — Medatwork
 
-**Dernière mise à jour :** 2026-03-22
+**Dernière mise à jour :** 2026-03-28
 
 ## Principes Généraux
 
@@ -64,9 +64,24 @@ try {
 }
 ```
 
+### Sérialisation des Entités Doctrine
+```php
+// INTERDIT — référence circulaire possible (Manager → notifications → Manager → ...)
+return $this->json(['notifications' => $notifications]);
+
+// OBLIGATOIRE — array_map explicite avec uniquement les champs nécessaires
+$data = array_map(fn (NotificationManager $n) => [
+    'id'        => $n->getId(),
+    'body'      => $n->getBody(),
+    'read'      => $n->getIsRead(),
+    'createdAt' => $n->getCreatedAt()->format(\DateTimeInterface::ATOM),
+], $notifications);
+return $this->json($data);
+```
+
 ---
 
-## État des Failles (2026-03-22)
+## État des Failles (2026-03-28)
 
 ### [C1] Tokens Cryptographiquement Faibles — ✅ CORRIGÉ
 
@@ -162,16 +177,6 @@ Tous les `dd()`, `die()`, `exit()` dans les contrôleurs remplacés par des `Jso
 | `AddManagerInputDTO` | Ajout manager à une année |
 | `CreateYearInputDTO` | Création d'une année |
 
-**Pattern standard :**
-```php
-try {
-    $dto = MonDTO::fromRequest($request);
-} catch (\InvalidArgumentException $e) {
-    return new JsonResponse(['message' => $e->getMessage()], 400);
-}
-// Utiliser $dto->champTypé directement
-```
-
 ---
 
 ### [m3] Rate Limiting — ⚠️ PARTIELLEMENT IMPLÉMENTÉ
@@ -186,6 +191,30 @@ Manquant sur :
 
 ---
 
+### [m5] Race Condition sur le Refresh Token — ✅ CORRIGÉ (2026-03-28)
+
+Avec `single_use: true` (gesdinet), deux requêtes simultanées recevant un 401 déclenchaient deux refreshes en parallèle. Le second échouait et déconnectait l'utilisateur.
+
+**Correction dans `useAxiosPrivate.ts` :**
+```ts
+let refreshPromise: Promise<string> | null = null;
+
+if (!refreshPromise) {
+  refreshPromise = refresh().finally(() => { refreshPromise = null; });
+}
+const newAccessToken = await refreshPromise;
+```
+
+---
+
+### [m6] Toast d'erreur sur le polling de notifications — ✅ CORRIGÉ (2026-03-28)
+
+Le polling de notifications toutes les 30s affichait un toast "Oups ! Une erreur s'est produite" à chaque échec réseau temporaire (comportement très intrusif).
+
+**Correction :** flag `meta: { suppressErrorToast: true }` sur la query React Query + vérification dans le handler global de `QueryCache`.
+
+---
+
 ## Checklist Sécurité — Avant Chaque Déploiement
 
 ```
@@ -196,6 +225,7 @@ Manquant sur :
 [ ] Tous les tokens générés avec bin2hex(random_bytes(32))
 [ ] Tous les endpoints protégés (vérifier security.yaml)
 [ ] Toutes les entrées validées via DTO (pas de json_decode nu)
+[ ] Pas de $this->json($entity) avec entités liées (référence circulaire)
 [ ] Messages d'erreur génériques (pas de stack trace en prod)
 [ ] APP_ENV=prod en production
 ```
@@ -218,6 +248,7 @@ lexik_jwt_authentication:
 - Durée de vie : 1 mois maximum
 - Stocké en cookie `HttpOnly` + `SameSite=Strict`
 - Invalider à la déconnexion
+- `single_use: true` activé → chaque token n'est utilisable qu'une seule fois
 
 ### Révocation
 En cas de compromission d'un compte :
@@ -237,4 +268,4 @@ L'algorithme par défaut (`auto`) utilise `bcrypt` ou `argon2id` selon la dispon
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-22*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-28*
