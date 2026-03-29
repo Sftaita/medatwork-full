@@ -1,25 +1,25 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-03-28
-**Environnement :** Windows 11, WAMP, MySQL, Symfony 5.4, React 17
-**Statut :** Professionnalisation en cours — failles critiques corrigées, système de notifications refactorisé
+**Dernière mise à jour :** 2026-03-29
+**Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
+**Statut :** Professionnalisation en cours — Symfony 7.4 opérationnel, reset password refactorisé, tests complets
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) |
-|----------|------------------------|---------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 |
-| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 |
-| Entités Doctrine | 21 | 21 | 21 |
-| Contrôleurs | 30+ | 30+ | 30+ |
-| Services | 15+ | 16+ | 16+ |
-| DTOs | 0 | 19 | 19 |
-| Migrations | 50 | 50 | 50 |
-| Tests unitaires backend | 0 | **364 (703 assertions)** | **589 (1 153 assertions)** |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-29) |
+|----------|------------------------|---------------------|---------------------|---------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~137 |
+| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 |
+| Entités Doctrine | 21 | 21 | 21 | 21 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ |
+| Services | 15+ | 16+ | 16+ | 17+ |
+| DTOs | 0 | 19 | 19 | 19 |
+| Migrations | 50 | 50 | 50 | 50 |
+| Tests unitaires backend | 0 | **364 (703 assertions)** | **589 (1 153 assertions)** | **631 (1 245 assertions)** |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** |
 
 ### Tableau des Risques (mis à jour)
 
@@ -38,13 +38,13 @@
 ## Stack Technique
 
 ### Backend
-- **Framework:** Symfony 5.4.x (LTS)
-- **ORM:** Doctrine 2.10
-- **API:** API Platform 2.7.18
+- **Framework:** Symfony 7.4.x (LTS) — migré depuis 5.4 → 6.4 → 7.4
+- **ORM:** Doctrine 2.x
+- **API:** API Platform 3.x
 - **Auth:** Lexik JWT + Gesdinet Refresh Token
 - **BDD:** MySQL (`medcligmedatwork`)
-- **Email:** SendGrid via Symfony Mailer
-- **Migrations:** Doctrine Migrations 3.2
+- **Email:** Hostinger SMTP via Symfony Mailer (+ Mailpit en dev Docker)
+- **Migrations:** Doctrine Migrations 3.x
 
 ### Frontend
 - **Framework:** React 17.0.2
