@@ -1,25 +1,25 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-03-29
+**Dernière mise à jour :** 2026-03-30
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
-**Statut :** Professionnalisation en cours — Symfony 7.4 opérationnel, reset password refactorisé, tests complets
+**Statut :** Professionnalisation en cours — statistiques refactorisées (N+1 éliminé, validation mois, tests)
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-29) |
-|----------|------------------------|---------------------|---------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~137 |
-| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 |
-| Entités Doctrine | 21 | 21 | 21 | 21 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ |
-| Services | 15+ | 16+ | 16+ | 17+ |
-| DTOs | 0 | 19 | 19 | 19 |
-| Migrations | 50 | 50 | 50 | 50 |
-| Tests unitaires backend | 0 | **364 (703 assertions)** | **589 (1 153 assertions)** | **631 (1 245 assertions)** |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-29) | Valeur (2026-03-30) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~137 | ~138 |
+| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 | ~249 |
+| Entités Doctrine | 21 | 21 | 21 | 21 | 21 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | 30+ |
+| Services | 15+ | 16+ | 16+ | 17+ | 17+ |
+| DTOs | 0 | 19 | 19 | 19 | 19 |
+| Migrations | 50 | 50 | 50 | 50 | 50 |
+| Tests unitaires backend | 0 | **364 (703 assertions)** | **589 (1 153 assertions)** | **631 (1 245 assertions)** | **640 (1 286 assertions)** |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** |
 
 ### Tableau des Risques (mis à jour)
 
@@ -206,6 +206,11 @@ Aucune traçabilité des tentatives d'accès non autorisé.
   - Migration polling → React Query
   - Verrou de concurrence sur le refresh JWT
   - Commande de purge automatique
+- [x] Refactoring statistiques (2026-03-30)
+  - N+1 éliminé dans `firstload` et `realtime` : `findByIds` + `findByYearGroupedByResident`
+  - Validation du paramètre `$month` (1–12) dans les 5 endpoints statistiques → 400 propre
+  - `Security $security` supprimé des méthodes qui n'en avaient pas besoin
+  - `boudariesDates` accepte un mois 1-12 au lieu de MMYYYY
 - [ ] Upgrade API Platform 2.7 → 3.x
 - [ ] Découper les services trop longs (StatisticTools, GetPeriodSummary)
 - [ ] Déplacer logique métier des contrôleurs vers services
@@ -223,6 +228,16 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 ---
 
 ## Journal des Modifications
+
+### 2026-03-30 — Refactoring Statistiques
+
+**Backend :**
+- `boudariesDates()` : accepte maintenant un mois brut (1–12) au lieu du format MMYYYY — corrige le 500 sur `/api/managers/statisticsFirstload/{month}`
+- `AbsenceRepository::findByYearGroupedByResident()` : JOIN FETCH + groupement PHP, élimine N queries par résident dans la boucle de stats
+- `YearsResidentRepository::findByIds()` : findBy IN + indexation, même objectif
+- Contrôleurs `GetRealTimeStatisticsAsManager` et `GetRealTimeStatisticController` : validation `$month` (1–12 → 400), suppression `Security $security` inutilisé, `$this->getUser()` idiomatique
+- `StatisticToolsTest` : +4 tests (janvier, décembre, mois 0, mois 13) + correction des 3 tests MMYYYY cassés par la migration
+- Nouveaux tests : `AbsenceRepositoryGroupingTest` (5), `YearsResidentRepositoryIndexingTest` (4)
 
 ### 2026-03-28 — Refactoring Système de Notifications
 
@@ -255,4 +270,4 @@ Aucune traçabilité des tentatives d'accès non autorisé.
 
 ---
 
-*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-03-28*
+*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-03-30*
