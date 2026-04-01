@@ -1,6 +1,6 @@
 # Guide de Sécurité — Medatwork
 
-**Dernière mise à jour :** 2026-03-28
+**Dernière mise à jour :** 2026-04-03
 
 ## Principes Généraux
 
@@ -81,7 +81,7 @@ return $this->json($data);
 
 ---
 
-## État des Failles (2026-03-28)
+## État des Failles (2026-04-03)
 
 ### [C1] Tokens Cryptographiquement Faibles — ✅ CORRIGÉ
 
@@ -115,28 +115,50 @@ Si le fichier `.env` a été commité avec de vraies clés : révoquer et régé
 
 ---
 
-### [M1] Endpoint `/api/fetchManagers` sans Auth — ⚠️ OUVERT
+### [M1] Endpoint `/api/fetchManagers` sans Auth — ✅ CORRIGÉ
 
-**Fichier :** `backend/config/packages/security.yaml`
-```yaml
-# À corriger — retire PUBLIC_ACCESS et ajoute ROLE_MANAGER ou ROLE_RESIDENT
-- { path: ^/api/fetchManagers, roles: PUBLIC_ACCESS }
-```
+`/api/fetchManagers` sécurisé avec `ROLE_MANAGER` dans `security.yaml`.
 
 ---
 
-### [M2] Tokens d'Activation Sans Expiration — ⚠️ OUVERT
+### [M2] Tokens d'Activation Sans Expiration — ✅ CORRIGÉ (2026-04-03)
 
-Les tokens d'activation de compte n'expirent pas. Implémentation recommandée :
-```php
-$expiresAt = new \DateTime('+24 hours');
-$entity->setActivationTokenExpiresAt($expiresAt);
+Les tokens d'activation expirent désormais après **48 heures** dans tous les points d'entrée :
+- `PublicAPIController::createNewResident` — `(new DateTime(...))->modify('+48 hours')`
+- `ManagersAPIController::createNewManager` — idem
+- `TokenActivationController::resendActivation` — idem
 
-// À la vérification
-if ($entity->getActivationTokenExpiresAt() < new \DateTime()) {
-    return new JsonResponse(['error' => 'Token expired'], 400);
-}
-```
+`TokenActivationController` vérifie l'expiration lors de la vérification du token et redirige vers `/token-expired` si expiré.
+
+---
+
+### [M5] Énumération des Utilisateurs — ✅ CORRIGÉ (2026-04-03)
+
+Les endpoints d'inscription retournaient des réponses différentes selon que l'email était déjà enregistré, permettant d'énumérer les comptes existants.
+
+**Correction :** `PublicAPIController` et `ManagersAPIController` retournent toujours `{"message": "ok"}` avec HTTP 200, quelle que soit l'existence de l'email.
+
+---
+
+### [M6] Mailer Fatal sur Inscription — ✅ CORRIGÉ (2026-04-03)
+
+Une exception SMTP lors de l'envoi de l'email d'activation déclenchait une HTTP 500, bloquant la création de compte.
+
+**Correction :** les trois contrôleurs enveloppent `$this->mailer->sendEmail(...)` dans `try { } catch (\Throwable) { }`. L'échec email est non-fatal — l'utilisateur peut redemander un lien via `/api/resend-activation`.
+
+---
+
+### [M7] Pas de mécanisme de renvoi d'activation — ✅ CORRIGÉ (2026-04-03)
+
+Si l'email d'activation n'arrivait pas (SMTP failure, spam), l'utilisateur était bloqué sans recours.
+
+**Correction :** nouvel endpoint `POST /api/resend-activation` (public, rate-limité) :
+- Valide l'adresse email (format)
+- Génère un nouveau token `bin2hex(random_bytes(32))` + expiration +48h
+- Envoie l'email d'activation
+- Retourne toujours `{"message": "ok"}` (pas d'énumération)
+
+**Frontend :** `SuccessRegisterPage` et `TokenExpiredPage` proposent un bouton de renvoi avec gestion des états `idle / loading / done / error`.
 
 ---
 
@@ -268,4 +290,4 @@ L'algorithme par défaut (`auto`) utilise `bcrypt` ou `argon2id` selon la dispon
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-28*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-03*
