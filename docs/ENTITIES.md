@@ -2,7 +2,9 @@
 
 ## Vue d'Ensemble
 
-21 entités Doctrine organisées autour de deux acteurs principaux : **Manager** et **Resident**, liés par une **Year** (année académique).
+25 entités Doctrine organisées autour de deux acteurs principaux (**Manager** et **Resident**), liés par une **Year** (année académique), elle-même rattachée à un **Hospital**.
+
+**Nouvelles entités Sprint 1 (2026-04-02) :** `Hospital`, `AppAdmin`, `HospitalAdmin`, `HospitalRequest`.
 
 ---
 
@@ -57,17 +59,23 @@ Représente un médecin responsable de stage.
 | `id` | int | Clé primaire |
 | `email` | string | Identifiant unique |
 | `password` | string | Mot de passe haché |
-| `firstName` | string | Prénom |
-| `lastName` | string | Nom |
+| `firstname` | string | Prénom |
+| `lastname` | string | Nom |
 | `roles` | json | `["ROLE_MANAGER"]` |
-| `isActivated` | bool | Compte activé |
-| `activationToken` | string | Token d'activation |
-| `resetToken` | string | Token de reset MDP |
-| `resetTokenExpiry` | datetime | Expiration reset token |
+| `token` | string\|null | Token d'activation email (null = validé) |
+| `tokenExpiration` | datetime\|null | Expiration du token |
+| `status` | enum | `active` \| `pending_hospital` |
+| `hospital` | string\|null | ⚠️ Champ legacy — utiliser `hospitals` |
+| `receiveComplianceEmails` | bool | Alertes conformité par email |
 
 **Relations :**
-- `ManagerYears` (ManyToMany avec `Years`)
-- `NotificationManager` (OneToMany)
+- `hospitals` (ManyToMany → `Hospital`, pivot `manager_hospital`)
+- `managerYears` (OneToMany → `ManagerYears`)
+- `notificationManagers` (OneToMany → `NotificationManager`)
+
+**Enum `ManagerStatus` :**
+- `active` — compte actif et lié à au moins un hôpital
+- `pending_hospital` — en attente d'approbation de la demande d'hôpital → connexion bloquée
 
 ---
 
@@ -93,21 +101,29 @@ Représente un médecin en formation (interne).
 ---
 
 ### Years
-Représente une année académique (ex: 2022-2023).
+Représente une année académique (stage dans un hôpital).
 
 | Champ | Type | Description |
 |-------|------|-------------|
 | `id` | int | Clé primaire |
-| `label` | string | Ex: "2022-2023" |
-| `startDate` | date | Début de l'année |
-| `endDate` | date | Fin de l'année |
+| `title` | string | Titre libre |
+| `period` | string | Ex: "2022-2023" |
+| `dateOfStart` | date | Début du stage |
+| `dateOfEnd` | date | Fin du stage |
+| `location` | string | Lieu du stage |
+| `speciality` | string\|null | Spécialité médicale |
+| `hospital` | FK\|null | `Hospital` (nullable — rétrocompat migration) |
 
 **Relations :**
-- `ManagerYears` (ManyToMany avec `Manager`)
-- `YearsResident` (ManyToMany avec `Resident`)
-- `YearsWeekTemplates` (OneToMany → `WeekTemplates`)
-- `YearsWeekIntervals` (OneToMany → périodes)
-- `YearsResidentParameters` (OneToMany)
+- `hospital` (ManyToOne → `Hospital`, nullable)
+- `managers` (OneToMany → `ManagerYears`)
+- `residents` (OneToMany → `YearsResident`)
+- `timesheets` (OneToMany)
+- `gardes` (OneToMany)
+- `absences` (OneToMany)
+- `periodValidations` (OneToMany)
+- `yearsWeekIntervals` (OneToMany)
+- `yearsWeekTemplates` (OneToMany)
 
 ---
 
@@ -231,9 +247,86 @@ Notifications pour les managers et résidents.
 
 ---
 
+---
+
+### Hospital
+Hôpital référencé dans le système (créé par l'admin ou via approbation d'une demande).
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `name` | string | Nom de l'hôpital |
+| `city` | string\|null | Ville (optionnel) |
+| `country` | string | Code pays ISO 2 (ex: `BE`) |
+| `isActive` | bool | Visible dans les listes (défaut `true`) |
+
+**Relations :**
+- `managers` (ManyToMany ← `Manager`, pivot `manager_hospital`)
+- `years` (OneToMany → `Years`)
+- `hospitalAdmins` (OneToMany → `HospitalAdmin`)
+- `hospitalRequests` (OneToMany → `HospitalRequest`)
+
+---
+
+### AppAdmin
+Super-administrateur de la plateforme (compte technique, créé via CLI).
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `email` | string | Identifiant unique |
+| `password` | string | Mot de passe haché |
+| `roles` | json | `["ROLE_SUPER_ADMIN"]` |
+
+Créé via : `symfony console app:create-app-admin`
+
+---
+
+### HospitalAdmin
+Administrateur d'un hôpital, invité par email par un `AppAdmin`.
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `email` | string | Identifiant unique |
+| `password` | string\|null | Null jusqu'à l'activation du compte |
+| `roles` | json | `["ROLE_HOSPITAL_ADMIN"]` |
+| `status` | enum | `invited` \| `active` |
+| `inviteToken` | string\|null | Token d'activation (durée 7 jours) |
+| `inviteTokenExpiresAt` | datetime\|null | Expiration du token |
+
+**Enum `HospitalAdminStatus` :**
+- `invited` — email envoyé, compte non activé
+- `active` — mot de passe défini, connexion autorisée
+
+**Relations :**
+- `hospital` (ManyToOne → `Hospital`)
+
+---
+
+### HospitalRequest
+Demande d'un manager pour être associé à un hôpital.
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `requestedBy` | FK | `Manager` ayant soumis la demande |
+| `hospitalName` | string | Nom de l'hôpital demandé |
+| `status` | enum | `pending` \| `approved` \| `rejected` |
+| `createdAt` | datetime | Date de soumission |
+
+**Enum `HospitalRequestStatus` :**
+- `pending` — en attente de traitement par l'admin
+- `approved` — approuvée : hôpital créé/réutilisé, manager associé et activé
+- `rejected` — refusée
+
+---
+
 ## Migrations
 
-50 migrations Doctrine entre 2022 et 2023 documentent l'évolution du schéma.
+54 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
+
+**Sprint 1 (2026-04-02) :** `Version20260403000000` — création des tables `hospital`, `app_admin`, `hospital_admin`, `hospital_request`, `manager_hospital` ; migration des données `manager.hospital` (string) vers la table `hospital`.
 
 Pour voir l'historique :
 ```bash
@@ -248,4 +341,4 @@ symfony console doctrine:migrations:migrate
 
 ---
 
-*Document créé le 2026-03-20*
+*Document créé le 2026-03-20 — mis à jour le 2026-04-02 (Sprint 1 Hospital feature)*

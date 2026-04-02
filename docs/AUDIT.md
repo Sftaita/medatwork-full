@@ -1,26 +1,27 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-03
-**Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 18
-**Statut :** Professionnalisation en cours — sécurité API Platform durcie
+**Dernière mise à jour :** 2026-04-02
+**Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
+**Statut :** Professionnalisation en cours — Sprint 1 Hospital feature livré
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-29) | Valeur (2026-03-30) | Valeur (2026-03-31) | Valeur (2026-04-01) | Valeur (2026-04-02) | Valeur (2026-04-03) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|---------------------|---------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~137 | ~138 | ~139 | ~140 | ~141 | ~141 |
-| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 | ~249 | ~249 | ~249 | ~249 | **~251** |
-| Entités Doctrine | 21 | 21 | 21 | 21 | 21 | 21 | 21 | 21 | 21 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | 30+ | 30+ | 30+ | 30+ | 30+ |
-| Services | 15+ | 16+ | 16+ | 17+ | 17+ | 17+ | 17+ | **18+** | 18+ |
-| DTOs | 0 | 19 | 19 | 19 | 19 | 19 | 19 | 19 | 19 |
-| Migrations | 50 | 50 | 50 | 50 | 50 | 50 | 50 | 50 | 50 |
-| Tests unitaires backend | 0 | **364 (703 assertions)** | **589 (1 153 assertions)** | **631 (1 245 assertions)** | **653 (1 297 assertions)** | **690 (1 405 assertions)** | **690 (1 405 assertions)** | **702 (1 424 assertions)** | **722 (~1 464 assertions)** |
-| Tests intégration API | 0 | 0 | 0 | 0 | 0 | 0 | **10 (19 assertions)** | **10 (19 assertions)** | **10 (19 assertions)** |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** |
+| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** |
+| Migrations | 50 | 50 | 50 | 52 | **54** |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** |
 
 ### Tableau des Risques (mis à jour)
 
@@ -70,10 +71,11 @@
 - 50 migrations Doctrine gérées
 - Génération de rapports Excel
 - Système de notifications entièrement refactorisé (React Query, PATCH, purge automatique)
-- **19 DTOs d'entrée** avec validation stricte et tests exhaustifs
+- **22 DTOs d'entrée** avec validation stricte et tests exhaustifs
 - **Global Exception Handler** : `InvalidArgumentException` → 400, 5xx sans détails internes
-- **690 tests unitaires backend** (0 au départ), **114 tests Vitest frontend**
+- **980 tests unitaires backend** (0 au départ), **114 tests Vitest frontend**
 - **`.env.example`** avec instructions d'onboarding
+- **Sprint 1 Hospital** : 4 nouvelles entités, 3 contrôleurs, CLI setup, migrations non-destructives
 
 ---
 

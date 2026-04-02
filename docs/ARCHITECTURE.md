@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-03-28
+**Dernière mise à jour :** 2026-04-02
 
 ## Vue d'Ensemble
 
@@ -29,7 +29,7 @@ Medatwork est une application **SPA + API REST** avec une séparation stricte Fr
 
 ---
 
-## Backend — Symfony 5.4
+## Backend — Symfony 7.4
 
 ### Structure des Dossiers
 
@@ -49,21 +49,21 @@ backend/
 │   ├── jwt/                    # Clés privée/publique JWT (non versionnées)
 │   ├── routes/
 │   └── services.yaml
-├── migrations/                 # 50 migrations Doctrine (2022-2023)
+├── migrations/                 # 54 migrations Doctrine (2022-2026)
 ├── public/
 │   ├── index.php               # Front controller
 │   └── Images/                 # Uploads
 ├── src/
 │   ├── Command/                # Commandes CLI Symfony
-│   ├── Controller/             # 30+ contrôleurs REST
+│   ├── Controller/             # 33+ contrôleurs REST
 │   ├── Doctrine/               # Extensions Doctrine (CurrentUserExtension)
-│   ├── DTO/                    # 19 DTOs d'entrée typés (fromRequest())
-│   ├── Entity/                 # 21 entités Doctrine
-│   ├── Enum/                   # Enums PHP 8.1 (GardeType, AbsenceType, Sexe)
+│   ├── DTO/                    # 22 DTOs d'entrée typés (fromRequest())
+│   ├── Entity/                 # 25 entités Doctrine
+│   ├── Enum/                   # Enums PHP 8.1 (GardeType, AbsenceType, Sexe, ManagerStatus, …)
 │   ├── Events/                 # Event subscribers (API Platform hooks)
 │   ├── EventListener/          # Listeners Symfony (ExceptionListener)
 │   ├── Exceptions/             # Exceptions métier
-│   ├── Repository/             # 21 repositories
+│   ├── Repository/             # 25 repositories
 │   ├── Security/               # Voters d'accès (YearAccessVoter, etc.)
 │   ├── Services/               # Logique métier
 │   └── Util/                   # Utilitaires purs (FrenchMonths, etc.)
@@ -72,10 +72,12 @@ backend/
 └── tests/
     ├── Unit/
     │   ├── Command/            # Tests des commandes CLI
-    │   ├── DTO/                # 19 fichiers de tests DTO (280 tests)
+    │   ├── Controller/         # Tests contrôleurs (signup, hospital, admin…)
+    │   ├── DTO/                # 22 fichiers de tests DTO (~310 tests)
+    │   ├── Security/           # Tests UserChecker
     │   ├── Services/           # Tests services métier
     │   └── Util/               # Tests utilitaires
-    └── Integration/            # Tests d'intégration (SecurityConfigTest, etc.)
+    └── Integration/            # Tests d'intégration (ApiAuthTest, etc.)
 ```
 
 ### Flux d'une Requête API
@@ -120,7 +122,7 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 
 ### Groupes de Contrôleurs
 
-| Dossier | Rôle |
+| Dossier / Fichier | Rôle |
 |---------|------|
 | `AbsencesAPI/` | Gestion des absences |
 | `GardesAPI/` | Gestion des gardes |
@@ -137,6 +139,9 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `WeekTemplatesAPI/` | Templates hebdomadaires |
 | `Excel/` | Export Excel |
 | `GeneralAPI/` | Contact, endpoints publics |
+| `HospitalController` | `GET /api/hospitals` — liste publique des hôpitaux actifs |
+| `HospitalRequestController` | `POST/GET /api/hospital-requests` — demandes d'ajout d'hôpital (managers) |
+| `AdminController` | `GET\|POST /api/admin/*` — gestion hôpitaux, demandes, invitation admins (ROLE_SUPER_ADMIN) |
 
 ### Commandes CLI (`src/Command/`)
 
@@ -145,7 +150,8 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `app:update-isEditable-Status` | Met à jour le flag `isEditable` en base |
 | `app:generate-year-intervals` | Génère les intervalles d'une année académique |
 | `app:activate-server` | Active le serveur (usage interne) |
-| `app:notifications:purge` | **Supprime les vieilles notifications** (read > 30j, unread > 90j) |
+| `app:notifications:purge` | Supprime les vieilles notifications (read > 30j, unread > 90j) |
+| `app:create-app-admin` | **Crée le premier super-admin** (AppAdmin, ROLE_SUPER_ADMIN) — à exécuter une seule fois au setup |
 
 Usage de la purge :
 ```bash
@@ -364,6 +370,54 @@ new QueryClient({
 
 ## Modèle de Données
 
+### Sprint 1 — Hospital Feature (2026-04-02)
+
+Introduce la notion d'hôpital comme entité maître. Chaque `Years` appartient à un hôpital, chaque `Manager` peut être lié à plusieurs hôpitaux.
+
+```
+AppAdmin (ROLE_SUPER_ADMIN)
+    │ crée/approuve
+    ▼
+Hospital (liste maître — nom unique, ville, pays, actif)
+    │ invite admin
+    ├── HospitalAdmin (ROLE_HOSPITAL_ADMIN — un par hôpital)
+    │       └── status: invited → active (via lien d'invitation email)
+    │
+    │ approuve demande
+    └── HospitalRequest (soumise par Manager lors de l'inscription)
+            └── status: pending → approved | rejected
+
+Manager ──ManyToMany──► Hospital
+    └── status: pending_hospital → active  (bloqué en attente d'approbation)
+
+Years ──ManyToOne──► Hospital (nullable — rétrocompat)
+```
+
+**Endpoints :**
+
+| Route | Auth | Description |
+|-------|------|-------------|
+| `GET /api/hospitals` | Public | Liste des hôpitaux actifs (pour formulaires) |
+| `POST /api/hospital-requests` | Manager | Soumettre une demande de nouvel hôpital |
+| `GET /api/hospital-requests` | Manager | Mes demandes en cours |
+| `GET /api/admin/hospitals` | Super-admin | Tous les hôpitaux |
+| `POST /api/admin/hospitals` | Super-admin | Créer un hôpital |
+| `PUT /api/admin/hospitals/{id}` | Super-admin | Modifier |
+| `PATCH /api/admin/hospitals/{id}/toggle` | Super-admin | Activer/désactiver |
+| `GET /api/admin/hospital-requests` | Super-admin | Demandes en attente |
+| `POST /api/admin/hospital-requests/{id}/approve` | Super-admin | Approuver → crée hôpital + active manager |
+| `POST /api/admin/hospital-requests/{id}/reject` | Super-admin | Rejeter |
+| `POST /api/admin/hospitals/{id}/admins` | Super-admin | Inviter un HospitalAdmin |
+| `GET /api/admin/users/managers` | Super-admin | Liste managers |
+| `GET /api/admin/users/residents` | Super-admin | Liste résidents |
+
+**Setup initial :**
+```bash
+php bin/console app:create-app-admin
+```
+
+---
+
 ### Entités Principales
 
 ```
@@ -376,12 +430,23 @@ Years (année académique)
 
 Manager
 ├── NotificationManager    (notifications pour le manager)
-└── [via ManagerYears] Years
+├── [via ManagerYears] Years
+└── [via manager_hospital] Hospital (ManyToMany)
 
 Resident
 ├── NotificationResident   (notifications pour le résident)
 ├── ResidentWeeklySchedule (planning hebdomadaire)
 └── [via YearsResident] Years
+
+Hospital
+├── HospitalAdmin  (OneToMany — admins RH)
+├── HospitalRequest (OneToMany — demandes d'ajout)
+├── Years           (OneToMany — années de stage)
+└── [via manager_hospital] Manager (ManyToMany)
+
+AppAdmin           (super-admin applicatif)
+HospitalAdmin      (admin RH d'un hôpital)
+HospitalRequest    (demande d'hôpital par un manager)
 
 ResidentWeeklySchedule
 ├── Timesheet              (feuille de temps hebdomadaire)
@@ -453,9 +518,23 @@ firewalls:
 
 | Role | Accès |
 |------|-------|
+| `ROLE_SUPER_ADMIN` | Espace admin : CRUD hôpitaux, approbation demandes, invitation HospitalAdmin |
+| `ROLE_HOSPITAL_ADMIN` | Admin RH d'un hôpital — espace dédié (Sprint 2) |
 | `ROLE_MANAGER` | Gestion des résidents, validation, statistiques |
 | `ROLE_RESIDENT` | Saisie de ses propres activités |
-| `PUBLIC_ACCESS` | Activation de compte, reset de mot de passe |
+| `PUBLIC_ACCESS` | Activation de compte, reset de mot de passe, liste des hôpitaux |
+
+### Providers de Sécurité
+
+```yaml
+providers:
+  manager_users:       { entity: { class: Manager,       property: email } }
+  resident_users:      { entity: { class: Resident,      property: email } }
+  hospital_admin_users:{ entity: { class: HospitalAdmin, property: email } }
+  app_admin_users:     { entity: { class: AppAdmin,      property: email } }
+  all_users:
+    chain: [manager_users, resident_users, hospital_admin_users, app_admin_users]
+```
 
 ### Voters d'Accès
 
@@ -486,4 +565,4 @@ API Platform 2.7.18 est installé. Les entités utilisent le nouveau namespace `
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-03-28*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-02*
