@@ -261,7 +261,23 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 
 ## Journal des Modifications
 
-### 2026-04-03 — Gestion hôpital : promotion manager, association managers, emails
+### 2026-04-03 — Refactoring routing frontend + Gestion hôpital : promotion manager, association managers, emails
+
+**Frontend — Refactoring routing (tous les rôles) :**
+- Toutes les routes manager migrées vers le préfixe `/manager/...` (cohérence avec `/admin/...` déjà en place)
+  - `/manager_years` → `/manager/years`, `/year` → `/manager/year`, `/realtime` → `/manager/realtime`
+  - `/dataTracking` → `/manager/data-tracking`, `/validationStory` → `/manager/validation-story`
+  - `/managerNotifications` → `/manager/notifications`, `/managerCalendar` → `/manager/calendar`
+  - `/weekDispatcher` → `/manager/week-dispatcher`, `/weekCreator` → `/manager/week-creator`
+- Toutes les routes résident migrées vers le préfixe `/maccs/...`
+  - `/timer` → `/maccs/timer`, `/residentStatistic` → `/maccs/statistics`
+  - `/dataManagement` → `/maccs/data-management`, `/resident_years` → `/maccs/years`
+  - `/search` → `/maccs/search`, `/residentNotification` → `/maccs/notifications`
+  - `/residentParameters` → `/maccs/parameters`
+- Fichiers mis à jour : `App.tsx`, `LoginPage.tsx`, `Form.tsx`, `sidebarNavData.tsx`
+- `navigate()` mis à jour dans : `YearDetailPage.tsx`, `YearPage.tsx`, `YearCard.tsx`, `timesheet.tsx`, `Timer.tsx`, `YearDisplay.tsx`
+
+
 
 **Backend — `AdminController` (nouveaux endpoints) :**
 - `POST /api/admin/hospitals/{id}/admins/from-manager` → promouvoit un `Manager` existant en `HospitalAdmin` (copie email/prénom/nom, génère token, envoie email)
