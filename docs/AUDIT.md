@@ -1,7 +1,7 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-02
+**Dernière mise à jour :** 2026-04-03
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
 **Statut :** Professionnalisation en cours — Sprint 1 Hospital feature livré
 
@@ -9,25 +9,25 @@
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** |
-| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** |
-| Migrations | 50 | 50 | 50 | 52 | **54** |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **114 (Vitest)** |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 |
+| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** |
 
 ### Tableau des Risques (mis à jour)
 
 | Catégorie | Nombre initial | Statut |
 |-----------|----------------|--------|
-| Secrets exposés | 1 | ⚠️ Non corrigé (action manuelle requise) |
+| Secrets exposés | 1 | ✅ Corrigé (JWT_PASSPHRASE déplacé dans `.env.local`, valeur forte générée) |
 | Tokens cryptographiquement faibles | 3 | ✅ Corrigé |
 | SSL désactivé | 1 | ✅ Corrigé |
 | Problèmes d'authentification | 5 | ✅ Corrigé (expiration tokens 48h, rate limiting, user enumeration, resend-activation) |
@@ -261,6 +261,82 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 
 ## Journal des Modifications
 
+### 2026-04-03 — Gestion hôpital : promotion manager, association managers, emails
+
+**Backend — `AdminController` (nouveaux endpoints) :**
+- `POST /api/admin/hospitals/{id}/admins/from-manager` → promouvoit un `Manager` existant en `HospitalAdmin` (copie email/prénom/nom, génère token, envoie email)
+- `GET /api/admin/hospitals/{id}/managers` → liste des managers liés à cet hôpital (ManyToMany)
+- `POST /api/admin/hospitals/{id}/managers` → associe un manager à l'hôpital ; si statut `PendingHospital` → passe automatiquement à `Active`
+- `DELETE /api/admin/hospitals/{id}/managers/{managerId}` → retire le lien manager ↔ hôpital
+
+**Backend — `HospitalAdminController` :**
+- `GET /api/hospital-admin/refuse/{token}` → refus d'une invitation : supprime le `HospitalAdmin`, retourne une page HTML de confirmation lisible dans le navigateur
+
+**Emails — nouveaux templates :**
+- `hospitalAdminInvite.html.twig` : redesign — emoji médaille 🏅, suppression du bouton "Compléter mon profil", message de notification pure
+- `hospitalAdminPromote.html.twig` (nouveau) : email de promotion manager → admin, titre "Félicitations !", emoji trophée 🏆, pas de bouton action
+- Logique de sélection du bon template dans `reinviteHospitalAdmin` : si `firstname !== null` (promu) → template promotion, sinon → template invitation
+
+**Frontend — `adminApi.ts` :**
+- `promoteManagerToAdmin(hospitalId, managerId)` → `POST admin/hospitals/{id}/admins/from-manager`
+- `listHospitalManagers(hospitalId)` → `GET admin/hospitals/{id}/managers`
+- `addManagerToHospital(hospitalId, managerId)` → `POST admin/hospitals/{id}/managers`
+- `removeManagerFromHospital(hospitalId, managerId)` → `DELETE admin/hospitals/{id}/managers/{managerId}`
+
+**Frontend — `AdminHospitalDetailPage.tsx` :**
+- Onglet **Admins** : bouton "Promouvoir un manager" → dialog avec recherche parmi tous les managers → création `HospitalAdmin` depuis le manager sélectionné
+- Nouvel onglet **Managers** : table des managers associés à l'hôpital, recherche dynamique, bouton "Retirer" (avec confirmation), dialog "Associer un manager" (liste filtrée des managers non encore associés — la fenêtre reste ouverte après chaque association pour en ajouter plusieurs d'affilée)
+
+**Tests frontend (5 nouveaux tests, `AdminHospitalDetailPage.test.tsx`) :**
+- Promote dialog ouvre et appelle `promoteManagerToAdmin`
+- Onglet Managers : affiche la table, message vide, retrait avec confirmation, ajout depuis dialog
+
+**Total tests frontend :** 136 → **141 (Vitest)**
+
+---
+
+### 2026-04-02 — Gestion des Managers + HospitalAdmin + Sécurité JWT
+
+**Backend — `AdminController` (nouveaux endpoints) :**
+- `GET /api/admin/stats/managers` → statistiques managers (total, actifs, inactifs, en attente)
+- `PATCH /api/admin/users/managers/{id}/status` → basculer statut actif/inactif
+- `DELETE /api/admin/users/managers/{id}` → supprimer un compte manager
+- `POST /api/admin/users/managers/{id}/reset-password` → réinitialiser le mot de passe
+
+**Backend — `PasswordResetServiceInterface` :**
+- `PasswordResetService` étant `final`, extraction de `PasswordResetServiceInterface` pour permettre le mock PHPUnit
+- `AdminController`, `AdminControllerTest`, `AdminYearsControllerTest`, `AdminManagerActionsTest` mis à jour
+
+**Backend — `ManagerStatus` enum :**
+- Ajout de `case Inactive = 'inactive';`
+- Migration `Version20260403100000` : `ALTER TABLE manager MODIFY COLUMN status ENUM('pending_hospital','active','inactive')`
+
+**Backend — `HospitalAdminController` :**
+- `GET /api/hospital-admin/years` → liste des années de l'hôpital du manager connecté (avec `residentCount`)
+- `GET /api/hospital-admin/years/{id}/residents` → résidents d'une année
+- `security.yaml` : règle `PUBLIC_ACCESS` sur `/api/hospital-admin/setup` avant catch-all `ROLE_HOSPITAL_ADMIN`
+
+**Sécurité :**
+- `JWT_PASSPHRASE` réelle retirée du `.env` versionné (remplacée par placeholder `CHANGE_ME_...`)
+- Valeur forte (`openssl rand -base64 48`) déplacée dans `.env.local` (gitignorée)
+
+**Frontend :**
+- `adminApi.ts` : ajout de `listMyYears()`, `listYearResidents()`, `getManagerStats()`, `toggleManagerStatus()`, `deleteManager()`, `resetManagerPassword()`
+- `HospitalAdminDashboardPage` : utilise `adminApi.listMyYears()`, affiche chip `residentCount`, cartes cliquables vers résidents
+- `HospitalAdminYearResidentsPage` (nouveau) : liste des résidents d'une année avec bouton retour
+- `AdminManagersPage` : barre de filtres `ToggleButtonGroup` (Tous/Actifs/Inactifs/En attente) + compteur
+- `AdminDashboardPage` : correction du label Switch inversé (`"Désactiver"` quand actif)
+- `App.tsx` : route `/hospital-admin/years/:yearId/residents` ajoutée
+
+**Tests frontend (22 nouveaux tests) :**
+- `AdminManagersPage.test.tsx` : 11 tests (spinner, liste, filtre, menu actions, toggle, delete, reset password)
+- `HospitalAdminDashboardPage.test.tsx` : 6 tests (spinner, cartes, residentCount, navigation, vide)
+- `HospitalAdminYearResidentsPage.test.tsx` : 5 tests (spinner, cartes, vide, yearId param, retour)
+
+**Total tests :** 980 → **1 002 tests unitaires backend**, 114 → **136 tests frontend**
+
+---
+
 ### 2026-04-03 — Sécurité Signup Flow + Resend Activation
 
 **Backend — `PublicAPIController` + `ManagersAPIController` :**
@@ -372,4 +448,4 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 
 ---
 
-*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-04-03*
+*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-04-02*
