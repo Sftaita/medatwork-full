@@ -1,27 +1,27 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-03
+**Dernière mise à jour :** 2026-04-03 (session 5)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
-**Statut :** Professionnalisation en cours — Sprint 1 Hospital feature livré
+**Statut :** Professionnalisation en cours — Flux d'invitation MACCS complet (email + setup profil)
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 |
-| Fichiers JS/JSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 |
 
 ### Tableau des Risques (mis à jour)
 
@@ -260,6 +260,129 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-03 (session 5) — Flux d'invitation MACCS complet
+
+**Backend — `MaccsSetupController` (nouveau, 2 endpoints publics) :**
+- `GET /api/maccs/setup/{token}` → valide le token (404 si inconnu, 410 si expiré) ; retourne `firstname`, `lastname`, `email`, `hospitalName` (déduit du dernier `YearsResident`)
+- `POST /api/maccs/setup/{token}` → complète le profil du MACCS après invitation. Tous les champs sont obligatoires : `password` (min 8), `sexe` (`male`|`female`), `dateOfMaster` (Y-m-d), `dateOfBirth` (Y-m-d), `speciality`, `university`. Persiste les valeurs, set `validatedAt`, efface le token.
+- Correction critique : `validatedAt` n'était pas setté par `UpdatePassword::fromToken()` → les MACCS restaient en statut `incomplete` après activation
+
+**Backend — `HospitalAdminController` :**
+- `sendMaccsInvitation()` : méthode privée commune pour envoi de l'email d'invitation (token `bin2hex(random_bytes(32))`, expiration +24h, template `maccsInvited.html.twig`). Utilisée par `addResident()`, `resendResidentInvite()`, et l'import CSV (remplace `passwordResetService->requestReset()`)
+- Lien d'invitation mis à jour : `/passwordUpdatePage/` → `/maccs-setup/`
+- Import CSV : suivi des nouveaux résidents dans `$newResidents[]` pour envoi invitation post-flush
+
+**Backend — `security.yaml` :**
+- `^/api/maccs/setup` ajouté en `PUBLIC_ACCESS`
+
+**Backend — Email `maccsInvited.html.twig` :**
+- Template dédié à l'invitation (différent du reset password) : hôpital en badge, bouton "Compléter mon profil", lien valable 24h
+
+**Frontend — `MaccsSetupPage` (`/maccs-setup/:token`, nouveau) :**
+- Charge le contexte via GET (nom, hôpital)
+- 3 sections : Mot de passe / Infos personnelles / Infos académiques
+- Champs : password + confirm, sexe (select Homme/Femme), dateOfBirth, dateOfMaster, speciality, university — tous obligatoires
+- États gérés : loading / ready / expired (410) / done / error
+- Redirect `/login` après complétion
+
+**Frontend — `maccsSetupApi.ts` (nouveau) :**
+- `checkToken(token)` → GET context
+- `completeProfile(token, payload)` → POST setup
+
+**Frontend — `App.tsx` :**
+- Route `/maccs-setup/:token` ajoutée (lazy, publique)
+
+**Tests — `MaccsSetupControllerTest.php` (18 tests, 25 assertions) :**
+- GET : token inconnu → 404, expiré → 410, valide → 200 avec context complet, sans hospital → hospitalName null
+- POST token guards : inconnu → 404, expiré → 410
+- POST validation : data provider 9 cas (password court, sexe invalide/vide, dateOfMaster invalide/vide, dateOfBirth invalide/vide, speciality vide, university vide) → tous 400
+- POST happy path : 200 + message correct, `setValidatedAt` + `setToken(null)` + `setTokenExpiration(null)` appelés, `setSexe(Sexe::Female)` correct
+
+### 2026-04-03 (session 4) — Gestion des MACCS — page complète admin hôpital
+
+**Backend — `HospitalAdminController` (7 nouveaux endpoints) :**
+- `GET /api/hospital-admin/residents?mode=current|history` → liste des MACCS de l'hôpital, filtrée par années en cours ou historique. Statut calculé dynamiquement : `retired` (soft-delete) → `pending` (token non null) → `incomplete` (validatedAt null) → `active`
+- `POST /api/hospital-admin/residents` → ajouter un MACCS (find-or-create : si l'email existe déjà, rattache le résident existant à l'année ; sinon crée un compte). Email envoyé selon le cas : invitation avec setup de mot de passe (nouveau) ou notification d'ajout à une année (existant)
+- `PATCH /api/hospital-admin/years-residents/{yrId}` → modifier le champ `optingOut` d'un `YearsResident`
+- `DELETE /api/hospital-admin/years-residents/{yrId}` → retirer un MACCS (soft-delete via `allowed: false`)
+- `POST /api/hospital-admin/years-residents/{yrId}/change-year` → déplacer un MACCS d'une année à une autre (met à jour le `YearsResident`)
+- `POST /api/hospital-admin/years-residents/{yrId}/resend-invite` → renvoyer l'email d'invitation (génère nouveau token + email setup mot de passe)
+- `POST /api/hospital-admin/residents/import` → import CSV (avec `?preview=true` pour la simulation). Format : `prénom,nom,email,année,opting-out`. Retourne `created[]`, `attached[]`, `errors[]`
+
+**Backend — Email template :**
+- `templates/email/maccsAddedToYear.html.twig` : email envoyé quand un résident existant est rattaché à une nouvelle année académique
+
+**Backend — `services.yaml` :**
+- Injection `$frontendUrl: '%env(FRONTEND_URL)%'` dans `HospitalAdminController`
+
+**Frontend — `hospitalAdminApi.ts` (nouveau) :**
+- Types exportés : `MaccsStatus`, `MaccsRow`, `HospitalYear`, `CsvImportResult`
+- Fonctions : `listResidents`, `listMyYears`, `addResident`, `editYearsResident`, `retireResident`, `changeResidentYear`, `resendResidentInvite`, `previewCsvImport`, `confirmCsvImport`
+
+**Frontend — `HospitalAdminResidentsPage.tsx` (nouveau) :**
+- Toggle `current | history` pour filtrer par période
+- Barre de recherche (nom, email, année)
+- Table : Nom Prénom / Email / Année académique / Opting-out / Statut (chip coloré) / Actions
+- **ViewDrawer** : détail complet du MACCS
+- **EditDialog** : modification `optingOut` via Switch
+- **ChangeYearDialog** : Select parmi les autres années de l'hôpital
+- **Retire** : dialog de confirmation avec bouton rouge
+- **AddDialog** : find-or-create avec info alert, Select année, Switch opting-out
+- **CsvDialog** : import deux étapes — Analyser (preview) → Confirmer ; affiche erreurs par ligne, résumé créés/rattachés
+
+**Frontend — Navigation et routing :**
+- `sidebarNavData.tsx` : ajout du groupe `hospitalAdmin` (Tableau de bord + Gestion des MACCS) exporté séparément
+- `SidebarNav.tsx` : managers promus → `[...manager, ...hospitalAdmin]` ; rôle `hospital_admin` pur → `hospitalAdmin` seul
+- `App.tsx` : route `/hospital-admin/residents` ajoutée dans `HospitalAdminRoute`
+
+---
+
+### 2026-04-03 (session 3) — Fix CORS logout + tests CORS régression
+
+**Backend — Fix CORS logout :**
+- `CustomLogoutListener` : `RedirectResponse` → `JsonResponse(200)` — les redirects ne passent pas par le middleware CORS, causant un blocage navigateur
+- `security.yaml` firewall `api.logout` : suppression de `target: /logout_redirect` (inutile, court-circuité par le listener)
+- `services.yaml` : suppression de l'injection `$frontendUrl` dans `CustomLogoutListener` (plus nécessaire)
+- `nelmio_cors.yaml` section `when@test` : `allow_credentials: false` → `true` + origin littérale `http://localhost:3000` pour que les tests reflètent le comportement réel
+
+**Tests — `CorsTest.php` (7 assertions, 0 DB, rapide) :**
+- Vérifie que le bloc `^/api/` existe dans `nelmio_cors.yaml`
+- Vérifie `allow_credentials: true` pour `/api/` (production et test env)
+- Vérifie que tous les méthodes HTTP sont autorisés
+- Vérifie `allow_origin` non vide
+- Vérifie qu'aucun `target:` de redirection n'est présent sur le firewall logout
+- Vérifie que `CustomLogoutListener` retourne `JsonResponse` et non `RedirectResponse`
+
+---
+
+### 2026-04-03 (session 2) — Architecture admin hôpital : compte unique Manager + unpromote + route guards
+
+**Backend — Architecture compte unique :**
+- `Manager` entity : ajout champ `adminHospital: ?Hospital` (ManyToOne, onDelete: SET NULL)
+  - `getRoles()` injecte dynamiquement `ROLE_HOSPITAL_ADMIN` quand `adminHospital !== null`
+- Migration `Version20260403110000` : colonne `admin_hospital_id` + FK + index sur table `manager`
+- `AdminController::promoteManagerToAdmin` : suppression création entité `HospitalAdmin` distincte → `$manager->setAdminHospital($hospital)` ; conflict check via `$manager->getAdminHospital() !== null`
+- Nouvel endpoint `DELETE /api/admin/hospitals/{id}/admins/promoted/{managerId}` → `unpromoteManager()`
+- `listHospitalAdminsByHospital` : retourne les deux types — `HospitalAdmin` invités (`type: 'invited'`) + managers promus (`type: 'promoted'`)
+- `HospitalAdminController::resolveHospital()` : résout l'hôpital pour `HospitalAdmin` ET `Manager` avec `adminHospital`
+- `AuthenticationSuccessListener` : enrichit le JWT avec `hospitalId` + `hospitalName` pour les managers promus
+
+**Frontend — Accès et navigation :**
+- `HospitalAdminRoute.tsx` : accepte désormais `role === "manager"` avec `hospitalName` (managers promus)
+- `SidebarNav.tsx` : managers promus voient un groupe "Admin hôpital" supplémentaire dans le sidebar
+- `adminApi.ts` : ajout `unpromoteManager(hospitalId, managerId)`
+- `AdminHospitalDetailPage.tsx` :
+  - `HospitalAdminRow` : ajout champ `type: "invited" | "promoted"`
+  - Deux chips par ligne admin : type (Invité externe / Manager promu) + statut (Actif / En attente)
+  - `AdminActionsMenu` : actions différenciées — invités → "Renvoyer" + "Supprimer le compte" ; promus → "Retirer la promotion"
+  - Dialog de confirmation "Retirer la promotion" + mutation `unpromoteMutation`
+  - Toast promote mis à jour : "Manager promu administrateur hôpital"
+
+**Tests :**
+- `AdminHospitalDetailPage.test.tsx` : ajout `type: "invited"` au fixture `MOCK_ADMINS`, label "En attente" mis à jour — 235/235 tests verts
+
+---
 
 ### 2026-04-03 — Refactoring routing frontend + Gestion hôpital : promotion manager, association managers, emails
 
