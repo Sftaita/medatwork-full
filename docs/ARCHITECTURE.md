@@ -565,4 +565,34 @@ API Platform 2.7.18 est installé. Les entités utilisent le nouveau namespace `
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-02*
+---
+
+## Flux d'invitation Manager (hospital_admin)
+
+### Deux cas selon l'existence du manager
+
+**Cas 1 — Nouveau manager (pas de compte)**
+1. `POST /api/hospital-admin/managers` → crée `Manager` (incomplet) + `ManagerYears` (invitedAt=now) + token
+2. Email `managerSetup.html.twig` → lien `{frontendUrl}/manager-setup/{token}` + lien refus
+3. Manager ouvre la page → `GET /api/managers/setup/{token}` → retourne contexte (nom, hôpital, année)
+4. Manager soumet le formulaire → `POST /api/managers/setup/{token}` → password hashé, sexe, job, validatedAt=now, token=null, invitedAt=null sur tous les ManagerYears pending
+
+**Cas 2 — Manager existant (compte actif)**
+1. `POST /api/hospital-admin/managers` → crée uniquement `ManagerYears` (invitedAt=now) + token sur le Manager existant
+2. Email `managerYearInvite.html.twig` → liens accept/refuse (routes backend HTML)
+3a. Accepter → `GET /api/managers/accept-year/{token}` → invitedAt=null, token=null → HTML succès
+3b. Refuser → `GET /api/managers/refuse-year/{token}` → supprime ManagerYears pending ; nouveau sans années actives → supprime Manager → HTML info
+
+### Convention de statut (ManagerYears.invitedAt)
+| Valeur | Statut | Signification |
+|--------|--------|---------------|
+| `invitedAt != null` | **pending** | Invitation envoyée, non acceptée |
+| `invitedAt == null && validatedAt == null` | **incomplete** | Compte créé, profil non complété |
+| `invitedAt == null && validatedAt != null` | **active** | Manager actif |
+
+### Token lifecycle
+- Généré avec `bin2hex(random_bytes(32))` — validité 48h (`tokenExpiration`)
+- Stocké sur `Manager.token` + `Manager.tokenExpiration`
+- Effacé après accept/refuse/setup complet
+
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-04*

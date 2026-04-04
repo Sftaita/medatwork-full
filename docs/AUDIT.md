@@ -1,9 +1,9 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-03 (session 5)
+**Dernière mise à jour :** 2026-04-04 (session 6)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
-**Statut :** Professionnalisation en cours — Flux d'invitation MACCS complet (email + setup profil)
+**Statut :** Professionnalisation en cours — Gestion complète des managers hospital_admin
 
 ---
 
@@ -587,4 +587,37 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 
 ---
 
-*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-04-02*
+### 2026-04-04 — Gestion des managers + tests + jobList dropdown
+
+**Fonctionnalité : gestion des managers pour hospital_admin**
+
+Backend (`HospitalAdminController`) — 5 nouveaux endpoints :
+- `GET /api/hospital-admin/managers?mode=current|history` : liste des managers par hôpital, triée par statut (pending → incomplete → active)
+- `POST /api/hospital-admin/managers` : inviter/ajouter un manager à une année (nouveau → email setup, existant → email accept/refuse)
+- `DELETE /api/hospital-admin/manager-years/{myId}` : retirer un manager d'une année
+- `POST /api/hospital-admin/manager-years/{myId}/resend-invite` : renvoyer l'invitation en attente
+- `DELETE /api/hospital-admin/managers/{managerId}` : supprimer un manager (toutes ses années + optionnellement le compte)
+
+Backend (`ManagerInviteController`) — routes PUBLIC_ACCESS :
+- `GET/POST /api/managers/setup/{token}` : page de completion de profil pour nouveau manager (password, sexe, job)
+- `GET /api/managers/accept-year/{token}` : accepter une invitation d'année (HTML)
+- `GET /api/managers/refuse-year/{token}` : refuser une invitation, supprime le manager si nouveau sans années actives (HTML)
+
+Statut d'un manager calculé via `ManagerYears.invitedAt` :
+- `invitedAt != null` → **pending** (invitation envoyée, non acceptée)
+- `invitedAt == null && validatedAt == null` → **incomplete** (compte non activé)
+- `invitedAt == null && validatedAt != null` → **active**
+
+Frontend :
+- `HospitalAdminManagersPage` : table + drawer détail + dialog ajout + confirmations retrait/suppression
+- `ManagerSetupPage` : page publique `/manager-setup/:token` pour les nouveaux managers
+- `managerSetupApi.ts` : checkToken + completeProfile
+- Champ "Fonction" → Select avec `jobList` (Maître de stage / Médecin / Ressources humaines), cohérent avec la base de données
+- Sidebar : entrée "Gestion des managers" ajoutée pour `hospital_admin`
+
+**Tests — 46 tests / 57 assertions (nouveau) :**
+- `ManagerInviteControllerTest.php` (20 tests) : tous les scénarios setup + accept/refuse year
+- `ManagerSetupPage.test.tsx` (11 tests) : loading, contexte, erreurs token, validations formulaire, submit, succès, erreur API
+- `HospitalAdminManagersPage.test.tsx` (15 tests) : table, chips statut, recherche, toggle mode, actions menu, mutations
+
+*Audit initial : 2026-03-20 — Dernière mise à jour : 2026-04-04*
