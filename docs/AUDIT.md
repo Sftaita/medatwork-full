@@ -1,27 +1,27 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-04 (session 6)
+**Dernière mise à jour :** 2026-04-04 (session 7)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
-**Statut :** Professionnalisation en cours — Gestion complète des managers hospital_admin
+**Statut :** Professionnalisation en cours — Dashboard hospital_admin refonte UX + actions résidents admin
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** |
-| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|---------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 |
 
 ### Tableau des Risques (mis à jour)
 
@@ -260,6 +260,75 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-04 (session 7) — Dashboard hospital_admin refonte UX + actions résidents + bug fixes
+
+**Frontend — `HospitalAdminDashboardPage.tsx` (refonte complète) :**
+- Header sticky avec tabs de périodes (auto-sélection de la période courante au chargement), barre de recherche intégrée
+- Grille 3 colonnes (`xs=12 sm=6 md=4`), cartes égales en hauteur (`display: flex`, `alignItems: stretch`)
+- `YearCard` : clic carte → `/manager/year-detail` ; clic chip Résidents → onglet MACCS ; clic chip Managers → onglet Collaborateurs
+- Highlight de recherche : chip Résidents devient vert si le terme correspond à un nom de résident, idem pour Managers
+- Token de l'année affiché en zone monospace sous `<Divider>`, hors `CardActionArea` → bouton copie sans déclencher la navigation
+- Tooltips au survol des chips listant les noms complets (`NameTooltip` helper)
+- `SkeletonCard` pendant le chargement (6 placeholders), état vide avec `Alert` si aucune année
+- Suppression du chip période (redondant avec les tabs)
+
+**Frontend — `YearDetailPage.tsx` :**
+- Lit `state.defaultTab` depuis `useLocation` pour pré-sélectionner l'onglet à l'arrivée
+- `TAB_INDEX` map `general/residents/partners/setup/compliance` → index numérique
+- `CustomTabs` reçoit `initialValue={TAB_INDEX[defaultTab] ?? 0}` pour synchroniser l'indicateur visuel
+
+**Frontend — `CustomTabs.tsx` :**
+- Ajout prop `initialValue` (défaut `0`) pour initialiser l'état interne depuis l'extérieur
+- Correction typo `"horitonzal"` → `"horizontal"` (causait un warning console MUI)
+
+**Backend — `HospitalAdminController::serializeYear()` :**
+- Enrichi avec `token`, `residents[]` (`firstname`/`lastname`), `managers[]` (`firstname`/`lastname`)
+- Permet au dashboard de lister les noms pour les tooltips et la recherche côté client
+
+**Backend — `AdminController` (actions résidents admin) :**
+- `POST /api/admin/residents/{id}/activate` → active manuellement un compte résident (`setValidatedAt`)
+- `POST /api/admin/residents/{id}/reset-password` → déclenche un reset de mot de passe pour un résident
+
+**Frontend — `adminApi.ts` :**
+- `activateResident(id)` → `POST admin/residents/{id}/activate`
+- `resetResidentPassword(id)` → `POST admin/residents/{id}/reset-password`
+
+**Types — `entities.ts` :**
+- `HospitalYear` : ajout `token?`, `residents?`, `managers?` avec types inline
+
+**Bug fixes — `ResidentTable.tsx` :**
+- `key={row.index}` → `key={index}` (prop `index` n'existait pas sur `row` → rendu sans key)
+- `!allowed & adminRights` → `!allowed && adminRights` (AND bitwise → logique)
+- `<Divider />` retiré de l'intérieur d'un `<TableRow>` (nesting HTML invalide)
+
+**Bug fixes — navigation et chargement :**
+- `gesdinet_jwt_refresh_token.yaml` : `when@dev: cookie.secure: false` → le cookie refresh token n'était pas envoyé sur HTTP localhost (cookie `secure: true` ignoré sans HTTPS)
+- `Partners.tsx` + `Residents.tsx` : guard `if (!id) return;` dans `useEffect` → plus de requête vers `/api/.../null` avant que `YearDetailPage` ait set l'ID depuis le state de navigation
+- `HospitalAdminDashboardPage.tsx` : `NameTooltip` key `n` → `i` (index) → plus de warning si deux personnes ont le même nom
+
+**Backend — `YearsManagerAPIController` : endpoint hospital-managers :**
+- `GET /api/managers/years/{yearId}/hospital-managers` → retourne uniquement les managers de l'hôpital associé à l'année (filtrés via `$year->getHospital()->getManagers()`)
+- Vérifie l'accès au year via `checkRelation`; retourne `[]` si l'année n'a pas d'hôpital
+
+**Frontend — Collaborateurs : liste filtrée par hôpital :**
+- `managersApi.fetchHospitalManagers(yearId)` → nouvel appel vers le endpoint ci-dessus
+- `Partners.tsx` : `fetchManagers` utilise `fetchHospitalManagers(id)` au lieu du `fetchManagers` global → le dialog "Rechercher un collaborateur" n'affiche plus que les managers du même hôpital
+
+**Tests — `YearsManagerAPIControllerTest.php` (5 tests, 17 assertions) :**
+- Year introuvable → 404 avec message
+- Manager sans accès → 403 avec message
+- Année sans hôpital → 200 + `[]`
+- Année avec hôpital et managers → 200 + liste correcte (id, firstname, lastname, sexe, job)
+- Hôpital sans managers → 200 + `[]`
+
+**Améliorations identifiées (non bloquantes) :**
+- `HospitalAdminController::serializeYear()` : lazy loading Doctrine potentiel N+1 sur `getResidents()`/`getManagers()` — à optimiser avec `JOIN FETCH` si la liste d'années grandit
+- `YearCard` dans `HospitalAdminDashboardPage.tsx` (~185 lignes) mériterait son propre fichier
+- `ResidentTable.tsx` : `key={index}` acceptable mais `key={row.yearResidentId}` serait plus stable
+- `CustomTabs.tsx` : `minWidth: 600` sur le menu vertical peut forcer un scroll horizontal sur mobile
+
+---
 
 ### 2026-04-03 (session 5) — Flux d'invitation MACCS complet
 
