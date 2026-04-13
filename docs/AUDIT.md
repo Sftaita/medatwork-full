@@ -1,9 +1,9 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-13 (session 10)
-**Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
-**Statut :** Professionnalisation en cours — Système de communication globale (notifications + modals)
+**Dernière mise à jour :** 2026-04-13 (session 12)
+**Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 18
+**Statut :** Professionnalisation en cours — Audit HospitalAdmin + audit Manager/Resident terminés
 
 ---
 
@@ -11,18 +11,18 @@
 
 | Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) |
 |----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 |
-| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 |
-| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** |
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 |
+| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 |
 
 ### Tableau des Risques (mis à jour)
 
@@ -116,7 +116,10 @@ Le fichier `.env` peut contenir des clés API réelles. Révoquer et régénére
 ### MAJEURES
 
 #### M1 — Endpoint Public sans Authentification ✅ CORRIGÉ
-`/api/fetchManagers` sécurisé avec `ROLE_MANAGER` dans `security.yaml`.
+`/api/fetchManagers` sécurisé avec `ROLE_MANAGER` dans `security.yaml` + `#[IsGranted('ROLE_MANAGER')]` au niveau contrôleur (defense-in-depth, 2026-04-13).
+
+#### M5 — `getYearById` sans vérification d'accès ✅ CORRIGÉ (2026-04-13)
+`GET /api/managers/getYearById/{yearId}` n'avait aucun check d'appartenance : tout manager authentifié pouvait lire n'importe quelle année. Vérification `managerYearsRepository->checkRelation()` ajoutée → 403 si non lié.
 
 #### M2 — Tokens d'Activation Sans Expiration ✅ CORRIGÉ
 - `ActivationTokenEncoder` : expiration à `+24 heures` (setTokenExpiration)
@@ -144,6 +147,7 @@ Migré vers des DTOs typés (`fromRequest()`) avec lancement d'`\InvalidArgument
 - Login : `login_throttling` (5 tentatives / minute) dans `security.yaml`
 - Reset password : rate limiter dédié
 - Refresh token : `RefreshTokenRateLimiterListener` (20 refreshes / 5 minutes)
+- Mutations manager (`addManager`, `updateYear`, `updateRights`) : `manager_mutation` limiter (60 req/h/IP), ajouté 2026-04-13
 
 #### m4 — Logs de Sécurité
 Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener` logue les 5xx, mais pas les 401/403 de sécurité).
@@ -261,6 +265,50 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-13 (session 12) — Audit Manager/Resident — bugs sécurité et qualité
+
+**Sécurité :**
+- `getYearById` : vérification d'accès manquante → tout manager pouvait lire toutes les années → `checkRelation()` + 403 ajoutés (`YearsManagerAPIController`)
+- `#[IsGranted('ROLE_MANAGER')]` ajouté sur `fetchManagers` (defense-in-depth, déjà couvert par `security.yaml`)
+- Rate limiting `manager_mutation` (60 req/h/IP) sur `addManager`, `updateYear`, `updateRights`
+
+**Bugs :**
+- `DeleteYearController` : boucle de promotion admin sans `break` → promouvait TOUS les autres managers admin simultanément → `break` ajouté après la première promotion
+- `GetYearResidentController` : typo `$lastanme` → `$lastname` → colonne `lastname` toujours `null` dans la réponse API
+
+**UX :**
+- `YearPage.tsx` : label "Date de début" → "Date de fin" sur le champ `dateOfEnd` (confusion formulaire création d'année)
+
+---
+
+### 2026-04-13 (session 11) — Audit HospitalAdmin — fonctionnalités complètes
+
+**Backend :**
+- `YearStatus` enum (`draft/active/closed/archived`) + migration `Version20260413000000`
+- `HospitalAdminAuditLog` entité + `HospitalAdminAuditLogRepository` + `HospitalAdminAuditService`
+- Soft-delete managers (`is_deleted` + `deleted_at` sur `Manager`)
+- Nouveaux endpoints `HospitalAdminController` :
+  - `POST /api/hospital-admin/years` — créer une année
+  - `PATCH /api/hospital-admin/years/{id}` — modifier (bloqué si archived)
+  - `DELETE /api/hospital-admin/years/{id}` — supprimer (bloqué si résidents/managers liés)
+  - `GET /api/hospital-admin/dashboard/stats` — KPIs (actifs, en attente, incomplets, invitations)
+  - `GET /api/hospital-admin/audit-log` — journal paginé (limit/offset)
+  - `POST /api/hospital-admin/residents/bulk-edit` — modifier en masse (optingOut)
+  - `GET /api/hospital-admin/residents/export` — CSV StreamedResponse
+- Corrections : token MACCS 1j → 7j, tri `active:0 pending:1 incomplete:2 retired:3`, blocage ajout MACCS sur années fermées/archivées
+
+**Frontend :**
+- `HospitalAdminDashboardPage` : KPIs (MACCS actifs, en attente, incomplets, invitations en cours)
+- `HospitalAdminYearsPage` (nouveau) : CRUD complet années, dialog création/édition, confirmation suppression
+- `HospitalAdminAuditLogPage` (nouveau) : tableau paginé, chips colorés par action, export CSV
+- `HospitalAdminResidentsPage` : filtres statut + année, sélection multiple (checkboxes), bulk edit opting-out, export CSV
+- `CsvDialog` : `LinearProgress` pendant import + bouton "Exporter erreurs" si erreurs détectées
+- `hospitalAdminApi.ts` : types `YearStatus`, `YearInput`, `DashboardStats`, `AuditLogEntry` + nouvelles fonctions
+- Routing (`App.tsx`) : `/hospital-admin/years` + `/hospital-admin/audit-log`
+- Sidebar : entrées "Gestion des années" (icône calendrier) + "Journal d'activité" (icône clipboard)
+
+---
 
 ### 2026-04-13 (session 10) — Sécurité npm + fix peer dep workbox-window
 

@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-02
+**Dernière mise à jour :** 2026-04-13
 
 ## Vue d'Ensemble
 
@@ -16,7 +16,7 @@ Medatwork est une application **SPA + API REST** avec une séparation stricte Fr
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     API REST                                │
-│              Symfony 5.4 + API Platform 2.7                 │
+│              Symfony 7.4 + API Platform 3.x                 │
 │             https://api-link.medatwork.be                   │
 └───────────────────────────┬─────────────────────────────────┘
                             │ Doctrine ORM
