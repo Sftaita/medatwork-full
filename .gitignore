@@ -30,3 +30,6 @@ Thumbs.db
 *.key
 .env.production.local
 sendgrid.env
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+.env

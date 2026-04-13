@@ -142,6 +142,9 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `HospitalController` | `GET /api/hospitals` — liste publique des hôpitaux actifs |
 | `HospitalRequestController` | `POST/GET /api/hospital-requests` — demandes d'ajout d'hôpital (managers) |
 | `AdminController` | `GET\|POST /api/admin/*` — gestion hôpitaux, demandes, invitation admins (ROLE_SUPER_ADMIN) |
+| `CommunicationAPI/UserCommunicationController` | `GET\|PATCH /api/communications/*` — notifications & modals pour tout utilisateur authentifié |
+| `CommunicationAPI/AdminCommunicationController` | `GET\|POST\|PATCH /api/admin/communications/*` — gestion globale des messages (ROLE_SUPER_ADMIN) |
+| `CommunicationAPI/HospitalAdminCommunicationController` | `GET\|POST\|PATCH /api/hospital-admin/communications/*` — gestion messages scoped à l'hôpital (ROLE_HOSPITAL_ADMIN) |
 
 ### Commandes CLI (`src/Command/`)
 
@@ -261,20 +264,26 @@ frontend/
     │   └── small/
     ├── hooks/                  # Logique réutilisable
     │   ├── useAuth.ts
-    │   ├── useAxiosPrivate.ts  # Intercepteurs JWT + verrou de concurrence refresh
-    │   ├── useRefreshToken.ts  # POST /api/token/refresh
-    │   ├── useNotifications.ts # Polling React Query (refetchInterval 30s)
+    │   ├── useAxiosPrivate.ts      # Intercepteurs JWT + verrou de concurrence refresh
+    │   ├── useRefreshToken.ts      # POST /api/token/refresh
+    │   ├── useNotifications.ts     # Polling notifications legacy (30s)
+    │   ├── useCommNotifications.ts # Polling unread-count comm (30s)
     │   ├── useLogout.ts
     │   └── data/               # Hooks de données (React Query)
     │       ├── useManagerYears.ts
     │       └── useNotifications.ts  # Hook page notifications
     ├── store/                  # État global Zustand
-    │   └── notificationsStore.ts
+    │   └── notificationsStore.ts   # count + notifications + commUnreadCount
     ├── contexts/               # État global auth
     │   └── AuthProvider.tsx
+    ├── components/
+    │   └── communication/
+    │       ├── CommunicationModalQueue.tsx  # File de modals à la connexion
+    │       └── CommunicationPageContent.tsx # Page admin commune (tableau + dialog)
     └── services/               # Appels API
         ├── Axios.ts
         ├── notificationsApi.ts
+        ├── communicationsApi.ts    # Endpoints user + admin + hospital-admin
         └── ...
 ```
 
@@ -333,6 +342,89 @@ useQuery<Notification[]>({
 ```
 
 Le flag `meta.suppressErrorToast: true` est interprété par le `QueryCache.onError` global dans `queryClient.ts` pour ne pas afficher de toast sur une erreur de polling en arrière-plan.
+
+Le même pattern est utilisé pour le système de communication (`useCommNotifications`) — actif pour **tous les rôles** authentifiés (pas seulement manager/résident).
+
+### Système de Communication Globale (2026-04-07)
+
+Système de messagerie interne permettant aux admins (super-admin et hospital-admin) d'envoyer des **notifications** et des **modals** aux utilisateurs de la plateforme.
+
+#### Types de messages
+
+| Type | Comportement |
+|------|-------------|
+| `notification` | Affiché dans la page Notifications + badge sidebar. Marqué lu au clic. Navigation vers `targetUrl` si défini. |
+| `modal` | Affiché à la connexion, une seule fois, en cascade. Bouton "J'ai compris" unique — ni fermeture ni clic backdrop. |
+
+#### Ciblage (`scopeType`)
+
+| Scope | Description |
+|-------|-------------|
+| `all` | Tous les utilisateurs (scoped à l'hôpital si `hospital` est défini) |
+| `role` | Tous les utilisateurs d'un rôle (`manager` / `resident` / `hospital_admin`) |
+| `user` | Un utilisateur spécifique (par `targetUserId` + `targetUserType`) |
+
+#### Endpoints backend
+
+| Route | Accès | Description |
+|-------|-------|-------------|
+| `GET /api/communications/notifications` | Authentifié | Toutes les notifications de l'utilisateur |
+| `GET /api/communications/notifications/unread-count` | Authentifié | Nombre de notifications non lues (polling 30s) |
+| `PATCH /api/communications/notifications/{id}/read` | Authentifié | Marquer une notification comme lue |
+| `PATCH /api/communications/notifications/read-all` | Authentifié | Marquer tout comme lu |
+| `GET /api/communications/modals/pending` | Authentifié | Modals non encore lus (appelé à la connexion) |
+| `PATCH /api/communications/modals/{id}/read` | Authentifié | Acquitter un modal |
+| `GET /api/admin/communications` | ROLE_SUPER_ADMIN | Historique global des messages |
+| `POST /api/admin/communications` | ROLE_SUPER_ADMIN | Créer un message |
+| `PATCH /api/admin/communications/{id}/toggle-active` | ROLE_SUPER_ADMIN | Activer/désactiver |
+| `POST /api/admin/communications/{id}/duplicate` | ROLE_SUPER_ADMIN | Dupliquer |
+| `GET /api/admin/communications/users` | ROLE_SUPER_ADMIN | Liste tous les utilisateurs (autocomplete) |
+| `GET /api/hospital-admin/communications` | ROLE_HOSPITAL_ADMIN | Historique messages de l'hôpital |
+| `POST /api/hospital-admin/communications` | ROLE_HOSPITAL_ADMIN | Créer un message (hospital auto-scopé) |
+| `PATCH /api/hospital-admin/communications/{id}/toggle-active` | ROLE_HOSPITAL_ADMIN | Activer/désactiver (ownership check) |
+| `POST /api/hospital-admin/communications/{id}/duplicate` | ROLE_HOSPITAL_ADMIN | Dupliquer |
+| `GET /api/hospital-admin/communications/users` | ROLE_HOSPITAL_ADMIN | Utilisateurs de l'hôpital seulement |
+
+#### Logique de livraison (`CommunicationMessageRepository`)
+
+Un message est livré à un utilisateur si toutes ces conditions sont vraies :
+1. `isActive = true`
+2. `type` correspond au contexte de l'appel (notification ou modal)
+3. Scope : `scopeType = 'all'` **OU** `(scopeType = 'role' AND targetRole = userType)` **OU** `(scopeType = 'user' AND targetUserId = userId AND targetUserType = userType)`
+4. Hospital : si `hospital IS NULL` → global ; si `hospital IS NOT NULL` → seulement si `hospitalId = userHospitalId`
+5. Pour les modals : `r.id IS NULL` (pas encore lu = absent de `communication_message_read`)
+
+#### Flux frontend
+
+```
+Connexion utilisateur (PersistLogin.tsx)
+    │ GET /api/communications/modals/pending
+    ▼
+CommunicationModalQueue.tsx
+    │ Affiche modal 1
+    │ Clic "J'ai compris" → PATCH /modals/1/read → modal 2 → ... → onAllDone
+    ▼
+App normale accessible
+
+WithFixedSidebar.tsx
+    │ useCommNotifications(role) — polling 30s
+    │ → GET /api/communications/notifications/unread-count
+    ▼
+notificationsStore.commUnreadCount
+    │
+    ▼
+SidebarNav badge = legacyCount + commUnreadCount (max affichée: 9)
+```
+
+#### Pages frontend
+
+| Route | Page | Accès |
+|-------|------|-------|
+| `/hospital-admin/notifications` | `HospitalAdminNotificationsPage` | ROLE_HOSPITAL_ADMIN |
+| `/hospital-admin/communication` | `HospitalAdminCommunicationPage` | ROLE_HOSPITAL_ADMIN |
+| `/admin/communication` | `AdminCommunicationPage` | ROLE_SUPER_ADMIN |
+
+`HospitalAdminCommunicationPage` et `AdminCommunicationPage` partagent le composant `CommunicationPageContent` (paramétrable via prop `api` + `showHospital`).
 
 ### QueryClient Global (`lib/queryClient.ts`)
 
@@ -442,7 +534,11 @@ Hospital
 ├── HospitalAdmin  (OneToMany — admins RH)
 ├── HospitalRequest (OneToMany — demandes d'ajout)
 ├── Years           (OneToMany — années de stage)
+├── CommunicationMessage (OneToMany — messages scoped à cet hôpital, nullable)
 └── [via manager_hospital] Manager (ManyToMany)
+
+CommunicationMessage (système de communication transversale)
+└── CommunicationMessageRead (OneToMany — suivi des lectures par utilisateur)
 
 AppAdmin           (super-admin applicatif)
 HospitalAdmin      (admin RH d'un hôpital)
@@ -595,4 +691,60 @@ API Platform 2.7.18 est installé. Les entités utilisent le nouveau namespace `
 - Stocké sur `Manager.token` + `Manager.tokenExpiration`
 - Effacé après accept/refuse/setup complet
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-04*
+---
+
+## PWA — Progressive Web App
+
+**Score Lighthouse estimé : 92/100** (2026-04-04)
+
+### Fichiers clés
+
+| Fichier | Rôle |
+|---------|------|
+| `frontend/index.html` | Meta tags PWA (mobile-web-app-capable, apple, theme-color, manifest) |
+| `frontend/vite.config.js` VitePWA | Config Service Worker (autoUpdate, Workbox, devOptions, manifest, screenshots) |
+| `frontend/src/service-worker.js` | SW custom : precache + StaleWhileRevalidate images + App Shell |
+| `frontend/src/hooks/usePwaUpdate.ts` | Détecte les mises à jour SW, affiche un toast cliquable |
+| `frontend/src/components/small/InstallPrompt.tsx` | Bouton "Installer" dans la Topbar (capte `beforeinstallprompt`) |
+| `frontend/public/manifest.json` | Manifest complet (lang, scope, icons any+maskable, screenshots, shortcuts) |
+| `frontend/public/logo-maskable-512.png` | Icône maskable 512×512 (logo centré sur fond `#9155FD`, 20% padding) |
+| `frontend/public/screenshot-narrow.png` | Capture mobile 540×720 (Lighthouse form_factor: narrow) |
+| `frontend/public/screenshot-wide.png` | Capture desktop 1280×720 (Lighthouse form_factor: wide) |
+
+### Fonctionnement
+
+```
+Production build
+    │ vite build → Workbox génère sw.js + registerSW.js
+    ▼
+Navigateur charge l'app
+    │ registerSW.js enregistre /sw.js (scope /)
+    ▼
+Service Worker actif
+    │ Precache : tous les assets JS/CSS/HTML/images
+    │ Runtime : images PNG → StaleWhileRevalidate (max 50 entrées)
+    │ Navigation → App Shell (index.html)
+    ▼
+beforeinstallprompt détecté
+    │ InstallPrompt affiche le bouton "Installer" dans la Topbar
+    ▼
+Mise à jour disponible
+    │ usePwaUpdate → toast "Nouvelle version disponible"
+    │ Clic sur le toast → updateServiceWorker(true) → rechargement
+```
+
+### Critères Lighthouse satisfaits
+
+| Critère | Statut |
+|---------|--------|
+| HTTPS obligatoire (prod) | ✅ `.htaccess` |
+| Service Worker enregistré | ✅ `registerType: autoUpdate` |
+| Manifest valide | ✅ Tous les champs requis |
+| Icônes 192px + 512px | ✅ |
+| Icône maskable dédiée | ✅ `logo-maskable-512.png` |
+| Screenshots avec form_factor | ✅ narrow + wide |
+| `beforeinstallprompt` géré | ✅ `InstallPrompt.tsx` |
+| Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
+| devOptions activé (test dev) | ✅ `vite.config.js` |
+
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-07*

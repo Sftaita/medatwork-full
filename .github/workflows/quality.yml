@@ -6,7 +6,7 @@ on:
 
 jobs:
   phpstan:
-    name: PHPStan (level 5)
+    name: PHPStan (level 6)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,7 +31,7 @@ jobs:
         run: composer install --prefer-dist --no-progress --no-interaction
 
       - name: PHPStan
-        run: php vendor/bin/phpstan.phar analyse --memory-limit=512M --no-progress --error-format=github
+        run: php vendor/bin/phpstan analyse --memory-limit=512M --no-progress --error-format=github
 
   php-cs:
     name: PHP CS Fixer

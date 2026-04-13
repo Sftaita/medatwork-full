@@ -1,0 +1,93 @@
+services:
+
+  # ── MySQL ────────────────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: medatwork_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: medatwork
+      MYSQL_USER: medatwork
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-medatwork}
+    ports:
+      - '3307:3306'
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PHP / Symfony backend ─────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: medatwork_backend
+    restart: unless-stopped
+    working_dir: /var/www/backend
+    volumes:
+      - ./backend:/var/www/backend
+      - backend_vendor:/var/www/backend/vendor
+      - backend_var:/var/www/backend/var
+    environment:
+      APP_ENV: dev
+      APP_SECRET: ${APP_SECRET:-insecure_dev_secret_change_me}
+      DATABASE_URL: mysql://root:@host.docker.internal:3306/medcligmedatwork?serverVersion=8.0&charset=utf8mb4
+      LOCK_DSN: flock
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+      MAILER_DSN: smtp://mailpit:1025
+      API_URL: http://localhost:8000/api/
+      FRONTEND_URL: http://localhost:3000
+      JWT_SECRET_KEY: /var/www/backend/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /var/www/backend/config/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-insecure_dev_passphrase_change_me}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      APP_VERSION: 1.0.0
+    ports:
+      - '8000:8000'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # On first boot: install deps, generate JWT keys (if absent), migrate, then serve
+    command: >
+      sh -c "
+        composer install --no-interaction --prefer-dist --no-progress &&
+        php bin/console lexik:jwt:generate-keypair --skip-if-exists --no-interaction &&
+        php bin/console doctrine:migrations:migrate --no-interaction &&
+        symfony serve --no-tls --port=8000 --allow-all-ip
+      "
+
+  # ── React frontend ────────────────────────────────────────────────────────────
+  frontend:
+    image: node:22-alpine
+    container_name: medatwork_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend_modules:/app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:8000/api/
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+    command: sh -c "npm install --legacy-peer-deps && npx vite --host 0.0.0.0 --port 3000"
+
+  # ── Mailpit (email catcher for dev) ──────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: medatwork_mail
+    restart: unless-stopped
+    ports:
+      - '1025:1025'  # SMTP
+      - '8025:8025'  # Web UI → http://localhost:8025
+
+volumes:
+  db_data:
+  backend_vendor:
+  backend_var:
+  frontend_modules:

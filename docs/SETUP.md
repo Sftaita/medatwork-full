@@ -232,4 +232,72 @@ MAILER_DSN=smtp://username:password@sandbox.smtp.mailtrap.io:2525
 
 ---
 
-*Document créé le 2026-03-20*
+---
+
+## Démarrage avec Docker (option dev rapide)
+
+Le projet inclut un `docker-compose.yml` qui lance backend + frontend + mailpit en un seul appel. Le backend se connecte à ta DB WAMP locale.
+
+### Prérequis
+- Docker Desktop installé et démarré
+- WAMP en cours d'exécution (MySQL sur le port 3306)
+
+### Démarrage
+
+```bash
+docker compose up -d
+```
+
+Les services démarrent sur :
+| Service | URL |
+|---|---|
+| Frontend React (Vite) | http://localhost:3000 |
+| Backend Symfony | http://localhost:8000 |
+| Mailpit (emails dev) | http://localhost:8025 |
+
+Le backend exécute automatiquement au démarrage :
+1. `composer install`
+2. `lexik:jwt:generate-keypair --skip-if-exists`
+3. `doctrine:migrations:migrate`
+4. `symfony serve --no-tls --port=8000 --allow-all-ip`
+
+### Configuration Docker → DB WAMP
+
+Dans `docker-compose.yml`, le backend pointe sur ta DB WAMP via `host.docker.internal` :
+
+```yaml
+DATABASE_URL: mysql://root:@host.docker.internal:3306/medcligmedatwork?serverVersion=8.0&charset=utf8mb4
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+### Problèmes fréquents Docker
+
+#### Migrations échouent au boot
+Si une migration tente d'altérer une table qui n'existe pas encore :
+```bash
+# Marquer manuellement une migration comme exécutée sans la jouer
+docker exec medatwork_backend php bin/console doctrine:migrations:version "DoctrineMigrations\VersionXXX" --add --no-interaction
+docker exec medatwork_backend php bin/console doctrine:migrations:migrate --no-interaction
+```
+
+#### JWT Token invalide (Unable to create a signed JWT)
+Les clés `.pem` du volume sont incompatibles avec la passphrase Docker. Régénérer :
+```bash
+docker exec medatwork_backend sh -c 'rm -f config/jwt/private.pem config/jwt/public.pem && php bin/console lexik:jwt:generate-keypair --no-interaction'
+```
+
+#### 401 — Utilisateur non trouvé
+Le backend Docker utilise la DB WAMP (`medcligmedatwork`). Utilise un compte qui y existe déjà.
+Pour réinitialiser un mot de passe directement :
+```bash
+docker exec medatwork_backend php -r "
+\$pdo = new PDO('mysql:host=host.docker.internal;dbname=medcligmedatwork;charset=utf8mb4','root','');
+\$hash = password_hash('NouveauMDP!', PASSWORD_BCRYPT, ['cost'=>13]);
+\$stmt = \$pdo->prepare('UPDATE manager SET token=NULL, validated_at=NOW(), password=? WHERE email=?');
+\$stmt->execute([\$hash, 'ton@email.be']);
+echo 'rows: '.\$stmt->rowCount();
+"
+```
+
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-04*

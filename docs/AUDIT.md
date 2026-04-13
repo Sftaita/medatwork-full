@@ -1,27 +1,28 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-04 (session 7)
+**Dernière mise à jour :** 2026-04-13 (session 10)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 17
-**Statut :** Professionnalisation en cours — Dashboard hospital_admin refonte UX + actions résidents admin
+**Statut :** Professionnalisation en cours — Système de communication globale (notifications + modals)
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|---------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 |
-| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 |
+| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** |
 
 ### Tableau des Risques (mis à jour)
 
@@ -177,7 +178,7 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 
 ### Outillage
 1. ~~Pas de `.env.example`~~ → **créé** ✅ (2026-03-31)
-2. Pas de Docker / docker-compose
+2. ~~Pas de Docker / docker-compose~~ → **`docker-compose.yml` opérationnel** ✅ (2026-04-04)
 3. Pas de CI/CD (GitHub Actions, etc.)
 4. Pas de pre-commit hooks (ESLint, PHPStan)
 
@@ -260,6 +261,34 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-13 (session 10) — Sécurité npm + fix peer dep workbox-window
+
+**Dépendances frontend :**
+- `workbox-window` ajouté comme dépendance explicite (`^7.3.0`) — peer dep de `vite-plugin-pwa` non installée automatiquement avec `--legacy-peer-deps` (Docker), ce qui causait une erreur Vite au démarrage
+- `npm audit` : passage de **14 → 2 vulnérabilités** (2 modérées non corrigeables sans breaking change)
+  - Corrigées : axios (critique SSRF), lodash/lodash-es, picomatch, flatted, brace-expansion, yaml, serialize-javascript
+  - Restantes : esbuild ≤0.24.2 via Vite 5 (dev-only, fix = Vite 8, breaking change)
+- `package.json` : `overrides.serialize-javascript: "^7.0.5"` pour forcer la version patchée sans rétrograder `vite-plugin-pwa`
+
+### 2026-04-04 (session 8) — PWA complète + Docker WAMP + fixes migrations
+
+**PWA — Score Lighthouse estimé 92/100 :**
+- `index.html` : `<meta name="mobile-web-app-capable">` ajouté (remplacement balise Apple dépréciée)
+- `src/components/small/InstallPrompt.tsx` (nouveau) : bouton "Installer" dans la Topbar, capte `beforeinstallprompt`, se masque après installation
+- `src/hooks/usePwaUpdate.ts` (nouveau) : `useRegisterSW` de VitePWA → toast cliquable "Nouvelle version disponible" en production
+- `src/vite-env.d.ts` (nouveau) : références types Vite + vite-plugin-pwa/react
+- `App.tsx` : `usePwaUpdate()` appelé au boot, `Topbar.tsx` : `<InstallPrompt />` intégré
+- `vite.config.js` VitePWA : `devOptions: { enabled: true }` → SW enregistrable en dev ; icônes séparées `any` vs `maskable`
+- `public/logo-maskable-512.png` (nouveau) : logo 512×512 sur fond `#9155FD` avec 20% de padding (format maskable correct)
+- `public/screenshot-narrow.png` (540×720) + `public/screenshot-wide.png` (1280×720) : captures de l'app reformatées
+- `public/manifest.json` + `vite.config.js` : `lang: "fr"`, `scope: "/"`, `categories`, `screenshots` avec `form_factor`, icône maskable dédiée
+
+**Docker — Connexion à la DB WAMP :**
+- `docker-compose.yml` : `DATABASE_URL` pointé sur `host.docker.internal:3306/medcligmedatwork` (DB WAMP) + `extra_hosts: host-gateway`
+- Migrations `Version20260331180000` et `Version20260401210745` corrigées (DROP TABLE IF EXISTS, suppression ALTER TABLE sur tables inexistantes dans le volume) — 4 migrations appliquées avec succès
+- Clés JWT régénérées (incompatibilité passphrase entre les `.pem` du volume et la passphrase Docker)
+- Compte de test activé : `test1@medatwork.be` / `Test1234!`
 
 ### 2026-04-04 (session 7) — Dashboard hospital_admin refonte UX + actions résidents + bug fixes
 

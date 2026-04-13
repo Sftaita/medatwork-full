@@ -12,14 +12,14 @@ Le projet est en cours de **professionnalisation** : il a été initialement dé
 
 ```
 Medatwork/
-├── backend/       # API REST — Symfony 5.4 LTS + Doctrine + API Platform
+├── backend/       # API REST — Symfony 7.4 + Doctrine + API Platform 3.x
 ├── frontend/      # SPA — React 17 + Material-UI + Axios
 ├── docs/          # Documentation du projet
 └── CLAUDE.md      # Ce fichier
 ```
 
 ### Stack Technique
-- **Backend:** Symfony 5.4, Doctrine ORM, API Platform 2.6, JWT (Lexik), MySQL
+- **Backend:** Symfony 7.4, Doctrine ORM, API Platform 3.x, JWT (Lexik), MySQL
 - **Frontend:** React 17, React Router v6, Axios, Material-UI 5, FullCalendar 6
 - **Auth:** JWT + Refresh Token (cookies HttpOnly)
 - **Email:** SendGrid via Symfony Mailer

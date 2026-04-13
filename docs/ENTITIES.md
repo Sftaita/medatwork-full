@@ -6,6 +6,8 @@
 
 **Nouvelles entités Sprint 1 (2026-04-02) :** `Hospital`, `AppAdmin`, `HospitalAdmin`, `HospitalRequest`.
 
+**Nouvelles entités Sprint 2 (2026-04-07) :** `CommunicationMessage`, `CommunicationMessageRead`.
+
 ---
 
 ## Diagramme Conceptuel
@@ -322,11 +324,75 @@ Demande d'un manager pour être associé à un hôpital.
 
 ---
 
+---
+
+### CommunicationMessage
+Message envoyé par un admin à un ensemble d'utilisateurs. Deux types : `notification` (badge + page) et `modal` (connexion, une seule fois).
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `type` | string | `notification` \| `modal` |
+| `title` | string(255) | Titre du message |
+| `body` | text | Contenu principal |
+| `imageUrl` | string\|null | URL image (max 500 chars) |
+| `linkUrl` | string\|null | URL lien externe (max 500 chars) |
+| `buttonLabel` | string\|null | Libellé du bouton (max 100 chars) |
+| `targetUrl` | string\|null | Route frontend vers laquelle naviguer au clic (notifications) |
+| `priority` | int\|null | Ordre d'affichage des modals (plus petit = premier) |
+| `authorType` | string | `super_admin` \| `hospital_admin` |
+| `authorId` | int | ID de l'auteur |
+| `scopeType` | string | `all` \| `role` \| `user` |
+| `targetRole` | string\|null | `manager` \| `resident` \| `hospital_admin` (si scopeType=role) |
+| `targetUserId` | int\|null | ID utilisateur cible (si scopeType=user) |
+| `targetUserType` | string\|null | Type de l'utilisateur cible (si scopeType=user) |
+| `hospital` | FK\|null | `Hospital` — restreint la livraison à un hôpital ; null = global |
+| `isActive` | bool | false = masqué, non livré (défaut true) |
+| `readCount` | int | Nombre de lectures (dénormalisé) |
+| `createdAt` | datetime | Date de création |
+
+**Relations :**
+- `hospital` (ManyToOne → `Hospital`, nullable, ON DELETE SET NULL)
+- `reads` (OneToMany → `CommunicationMessageRead`, CASCADE DELETE)
+
+**Index :**
+- `idx_comm_type_active` (type, is_active)
+- `idx_comm_hospital_active` (hospital_id, is_active)
+
+**Constantes :**
+```php
+TYPE_NOTIFICATION = 'notification'    TYPE_MODAL = 'modal'
+SCOPE_ALL = 'all'   SCOPE_ROLE = 'role'   SCOPE_USER = 'user'
+AUTHOR_SUPER_ADMIN = 'super_admin'    AUTHOR_HOSPITAL_ADMIN = 'hospital_admin'
+ROLE_MANAGER = 'manager'   ROLE_RESIDENT = 'resident'   ROLE_HOSPITAL_ADMIN = 'hospital_admin'
+```
+
+---
+
+### CommunicationMessageRead
+Enregistrement de lecture d'un message par un utilisateur (idempotent — inséré une seule fois).
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `communicationMessage` | FK | `CommunicationMessage` (ON DELETE CASCADE) |
+| `userType` | string | `manager` \| `resident` \| `hospital_admin` |
+| `userId` | int | ID de l'utilisateur |
+| `readAt` | datetime | Horodatage de la lecture |
+
+**Contraintes :**
+- `UNIQUE (communicationMessage, userType, userId)` — un enregistrement par (message × utilisateur)
+- Index `idx_comm_read_user` (userType, userId)
+
+---
+
 ## Migrations
 
-54 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
+59 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
 
 **Sprint 1 (2026-04-02) :** `Version20260403000000` — création des tables `hospital`, `app_admin`, `hospital_admin`, `hospital_request`, `manager_hospital` ; migration des données `manager.hospital` (string) vers la table `hospital`.
+
+**Sprint 2 (2026-04-07) :** `Version20260405000000` — création des tables `communication_message` et `communication_message_read`.
 
 Pour voir l'historique :
 ```bash
@@ -341,4 +407,4 @@ symfony console doctrine:migrations:migrate
 
 ---
 
-*Document créé le 2026-03-20 — mis à jour le 2026-04-02 (Sprint 1 Hospital feature)*
+*Document créé le 2026-03-20 — mis à jour le 2026-04-07 (Sprint 2 Communication System)*
