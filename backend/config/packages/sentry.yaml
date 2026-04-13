@@ -1,0 +1,17 @@
+sentry:
+  dsn: '%env(default::SENTRY_DSN)%'
+  options:
+    environment: '%kernel.environment%'
+    release: '%env(default::APP_VERSION)%'
+    # Sample 10% of transactions for performance monitoring (adjust in prod)
+    traces_sample_rate: 0.1
+    # Never send PII (emails, IPs) — GDPR compliance
+    send_default_pii: false
+
+when@dev:
+  sentry:
+    dsn: null   # Disabled locally — errors visible in logs only
+
+when@test:
+  sentry:
+    dsn: null   # Never send events during tests

@@ -1,0 +1,3 @@
+services:
+    App\Services\Gardes\GardeDistributionEngine:
+        public: true

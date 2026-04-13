@@ -1,0 +1,25 @@
+monolog:
+  handlers:
+    # Sentry — captures ERROR and CRITICAL, sends to Sentry dashboard
+    sentry:
+      type: sentry
+      level: error
+      hub_id: Sentry\State\HubInterface
+
+    # fingers_crossed — buffers all logs, flushes on error (keeps context)
+    main:
+      type: fingers_crossed
+      action_level: error
+      handler: nested
+      excluded_http_codes: [404, 405]
+      buffer_size: 50
+    nested:
+      type: stream
+      path: "%kernel.logs_dir%/%kernel.environment%.log"
+      level: debug
+      formatter: monolog.formatter.json
+
+    console:
+      type: console
+      process_psr_3_messages: false
+      channels: ["!event", "!doctrine"]

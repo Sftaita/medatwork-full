@@ -1,0 +1,25 @@
+framework:
+    rate_limiter:
+        # Login: 5 attempts per minute per IP
+        login:
+            policy: sliding_window
+            limit: 5
+            interval: '1 minute'
+
+        # Registration: 3 accounts per hour per IP
+        register:
+            policy: sliding_window
+            limit: 3
+            interval: '1 hour'
+
+        # Password reset: 3 requests per hour per IP
+        password_reset:
+            policy: sliding_window
+            limit: 3
+            interval: '1 hour'
+
+        # Refresh token: 20 refreshes per 5 minutes per IP
+        token_refresh:
+            policy: sliding_window
+            limit: 20
+            interval: '5 minutes'

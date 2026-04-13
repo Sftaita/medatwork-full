@@ -1,0 +1,14 @@
+vendor/
+var/
+.git/
+.github/
+config/jwt/
+tests/
+docs/
+phpstan-cache/
+.php-cs-fixer.cache
+.phpunit.result.cache
+phpunit.xml
+phpstan.neon
+phpstan-baseline.neon
+*.md

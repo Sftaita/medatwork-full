@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage>
+        <include>
+            <directory>src/Services</directory>
+        </include>
+        <exclude>
+            <directory>src/Services/ExcelGenerator</directory>
+        </exclude>
+        <report>
+            <text outputFile="php://stdout"/>
+        </report>
+    </coverage>
+
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <server name="APP_ENV" value="test" force="true"/>
+        <server name="KERNEL_CLASS" value="App\Kernel" force="true"/>
+        <server name="SHELL_VERBOSITY" value="-1"/>
+        <!-- File-based SQLite: all connections (test setup + HTTP requests) share the same DB.
+             In-memory SQLite cannot be shared across Doctrine connections within a single process. -->
+        <env name="DATABASE_URL" value="sqlite:///var/test_api.db" force="true"/>
+        <env name="LOCK_DSN" value="flock" force="true"/>
+        <!-- JWT: use the real passphrase so the committed private.pem can be loaded.
+             .env.test sets test_passphrase_only which doesn't match the existing key.
+             TODO: regenerate JWT keys with a dedicated test passphrase stored in .env.test.local. -->
+        <env name="JWT_PASSPHRASE" value="7e8d1edde628a7e8a27605609d38b24d" force="true"/>
+    </php>
+</phpunit>

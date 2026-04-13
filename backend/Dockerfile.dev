@@ -1,0 +1,32 @@
+FROM php:8.2-cli
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    unzip \
+    libicu-dev \
+    libonig-dev \
+    libzip-dev \
+    && docker-php-ext-install \
+        pdo_mysql \
+        intl \
+        mbstring \
+        zip \
+        opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Symfony CLI
+RUN curl -sS https://get.symfony.com/cli/installer | bash \
+    && mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
+
+WORKDIR /var/www/backend
+
+# Pre-install dependencies for layer caching — invalidated only when
+# composer.json or composer.lock changes, not on every source file change.
+COPY composer.json composer.lock ./
+RUN composer install --no-scripts --no-autoloader --prefer-dist --no-progress --no-interaction
+
+EXPOSE 8000

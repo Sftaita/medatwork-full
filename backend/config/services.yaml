@@ -1,0 +1,91 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+
+services:
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true # Automatically injects dependencies in your services.
+    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+    bind:
+      # Rate limiters — bind by argument name so Symfony knows which limiter to inject
+      # (multiple services implement RateLimiterFactoryInterface, so explicit bindings are required)
+      Symfony\Component\RateLimiter\RateLimiterFactoryInterface $tokenRefreshLimiter: '@limiter.token_refresh'
+      Symfony\Component\RateLimiter\RateLimiterFactoryInterface $passwordResetLimiter: '@limiter.password_reset'
+      Symfony\Component\RateLimiter\RateLimiterFactoryInterface $registerLimiter: '@limiter.register'
+
+  # makes classes in src/ available to be used as services
+  # this creates a service per class whose id is the fully-qualified class name
+  App\:
+    resource: "../src/"
+    exclude:
+      - "../src/DependencyInjection/"
+      - "../src/Entity/"
+      - "../src/Kernel.php"
+      - "../src/Tests/"
+
+  App\Security\CustomLogoutListener:
+    tags:
+      - {
+          name: kernel.event_listener,
+          event: Symfony\Component\Security\Http\Event\LogoutEvent,
+          method: onSymfonyComponentSecurityHttpEventLogoutEvent,
+        }
+
+  App\Security\AuthenticationSuccessListener:
+    arguments: ["%lexik_jwt_authentication.token_ttl%"]
+    tags:
+      - {
+          name: kernel.event_listener,
+          event: lexik_jwt_authentication.on_authentication_success,
+          method: onAuthenticationSuccess,
+          priority: -2,
+        }
+
+  App\Security\RefreshedTokenListener:
+    arguments: ["%gesdinet_jwt_refresh_token.ttl%"]
+
+  App\Controller\MailerController:
+    autowire: true
+
+  App\Controller\ResidentsAPI\PublicAPI\PublicAPIController:
+    arguments:
+      $apiUrl: '%env(API_URL)%'
+
+  App\Controller\ManagersAPI\ManagersAPI\ManagersAPIController:
+    arguments:
+      $apiUrl: '%env(API_URL)%'
+
+  App\Controller\TokenActivationController:
+    arguments:
+      $apiUrl: '%env(API_URL)%'
+
+  App\Controller\HospitalAdminController:
+    arguments:
+      $frontendUrl: '%env(FRONTEND_URL)%'
+      $apiUrl: '%env(API_URL)%'
+
+  App\Controller\AdminController:
+    arguments:
+      $apiUrl: '%env(API_URL)%'
+      $frontendUrl: '%env(FRONTEND_URL)%'
+
+  App\Services\EmailReset\PasswordResetService:
+    arguments:
+      $frontendUrl: '%env(FRONTEND_URL)%'
+
+  App\EventListener\RefreshTokenRateLimiterListener:
+    arguments:
+      $tokenRefreshLimiter: '@limiter.token_refresh'
+
+  # Compliance checkers — tagged collection injected into ResidentWorkComplianceService
+  _instanceof:
+    App\Compliance\Checker\ComplianceCheckerInterface:
+      tags: ['app.compliance_checker']
+
+  App\Compliance\ResidentWorkComplianceService:
+    arguments:
+      $checkers: !tagged_iterator app.compliance_checker

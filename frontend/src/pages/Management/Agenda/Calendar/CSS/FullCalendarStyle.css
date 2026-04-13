@@ -1,0 +1,239 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
+
+body,
+.fc {
+  font-family: "Roboto", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  color: #3a3541de;
+}
+
+.fc-button {
+  font-family: "Roboto", sans-serif;
+  background-color: transparent !important; /* Fond transparent */
+  color: rgba(156, 39, 176, 0.8) !important; /* Texte couleur purple[500] */
+  border: 1px solid #9c27b0 !important; /* Ajoute des bordures */
+}
+
+.fc-button:hover {
+  background-color: rgba(
+    156,
+    39,
+    176,
+    0.2
+  ) !important; /* Equivalent de Material UI purple[500] avec une opacité de 0.2 */
+  border-color: #9c27b0 !important; /* Bordure de la même couleur que l'arrière-plan */
+  color: #9c27b0 !important; /* Couleur du texte lors du survol */
+}
+
+.fc-button-primary:disabled {
+  background-color: transparent !important; /* Fond transparent */
+  opacity: 0.5 !important;
+  color: rgba(156, 39, 176, 0.8) !important; /* Couleur du texte */
+}
+
+.fc-button-primary:not(:disabled):active,
+.fc-button.fc-button-primary:not(:disabled).fc-button-active {
+  background-color: rgba(156, 39, 176, 0.8) !important; /* Couleur de fond lors de la sélection */
+  border-color: rgba(
+    156,
+    39,
+    176,
+    0.8
+  ) !important; /* Bordure de la même couleur que le fond lors de la sélection */
+  color: white !important; /* Texte blanc lors de la sélection */
+  box-shadow: none !important; /* Supprime l'ombre de la boîte */
+  border-shadow: none !important; /* Supprime l'ombre de la bordure */
+}
+
+.fc-today-button,
+.fc-next-button,
+.fc-prev-button {
+  background-color: transparent !important; /* Fond transparent */
+  border: 1px solid #9c27b0 !important; /* Bordure pour l'effet 'outlined' */
+  color: rgba(156, 39, 176, 0.8) !important; /* Couleur du texte */
+  box-shadow: none !important; /* Supprime l'ombre de la boîte */
+  border-shadow: none !important; /* Supprime l'ombre de la bordure */
+}
+
+.fc-today-button:hover,
+.fc-next-button:hover,
+.fc-prev-button:hover {
+  background-color: rgba(156, 39, 176, 0.8) !important; /* Couleur de fond lors du survol */
+  color: white !important; /* Couleur du texte lors du survol */
+  box-shadow: none !important; /* Supprime l'ombre de la boîte */
+  border-shadow: none !important; /* Supprime l'ombre de la bordure */
+}
+
+.fc-today-button:not(:disabled):active,
+.fc-next-button:not(:disabled):active,
+.fc-prev-button:not(:disabled):active,
+.fc-today-button.fc-button-active,
+.fc-next-button.fc-button-active,
+.fc-prev-button.fc-button-active {
+  background-color: rgba(156, 39, 176, 0.8) !important; /* Couleur de fond lors de la sélection */
+  border-color: #9c27b0 !important; /* Bordure de la même couleur que le fond lors de la sélection */
+  color: white !important; /* Texte blanc lors de la sélection */
+  box-shadow: none !important; /* Supprime l'ombre de la boîte */
+  border-shadow: none !important; /* Supprime l'ombre de la bordure */
+}
+
+.fc-daygrid-event-harness {
+  height: 1.5em; /* Ajustez cette valeur en fonction de vos besoins */
+  overflow: hidden;
+}
+
+.fc-event-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.5em; /* Ajustez cette valeur en fonction de vos besoins */
+}
+
+.fc-daygrid-day-frame {
+  height: 100px !important;
+  overflow: hidden;
+}
+
+.fc-daygrid-day-number {
+  font-size: 20px; /* Ajustez la taille de la police comme vous le souhaitez */
+  color: #666; /* Ajustez la couleur de la police comme vous le souhaitez */
+}
+
+.fc-daygrid-day-frame {
+  padding: 10px;
+}
+
+.fc-day-today {
+  background-color: transparent !important;
+}
+
+.fc-daygrid .fc-day-today {
+  background-color: rgba(156, 39, 176, 0.08) !important;
+}
+
+.fc-header-toolbar .fc-toolbar-title {
+  font-size: 24px;
+  color: #3a3541de;
+  text-transform: capitalize;
+}
+
+.fc-event {
+  background-color: inherit !important;
+}
+
+.fc-event {
+  border-color: inherit !important;
+}
+
+.fc-daygrid-day-number {
+  font-family: "Roboto", sans-serif;
+  font-size: 16px; /* Ajustez la taille de la police comme vous le souhaitez */
+  color: #333; /* Ajustez la couleur de la police comme vous le souhaitez */
+}
+
+.fc-col-header-cell-cushion {
+  font-family: "Roboto", sans-serif;
+
+  color: #333; /* Ajustez la couleur de la police comme vous le souhaitez */
+}
+
+.fc-timegrid-slot-label-cushion {
+  font-family: "Roboto", sans-serif;
+
+  color: #333; /* Ajustez la couleur de la police comme vous le souhaitez */
+  text-align: center;
+}
+
+.fc-timegrid-axis-cushion {
+  font-family: "Roboto", sans-serif;
+  color: #333;
+}
+
+.fc-today-button:not(:disabled):active,
+.fc-next-button:not(:disabled):active,
+.fc-prev-button:not(:disabled):active,
+.fc-today-button.fc-button-active,
+.fc-next-button.fc-button-active,
+.fc-prev-button.fc-button-active {
+  background-color: rgba(156, 39, 176, 0.5) !important; /* 50% opacité */
+  border-color: rgba(156, 39, 176, 0.5) !important; /* 50% opacité */
+  color: white !important;
+  box-shadow: none !important;
+  border-shadow: none !important;
+}
+
+.fc-toolbar {
+  margin-left: 24px !important;
+  margin-right: 24px !important;
+}
+
+/* Ajustez la disposition de la barre d'outils pour les petits écrans */
+@media (max-width: 600px) {
+  .fc-toolb {
+    width: 100%;
+  }
+  .fc-header-toolbar {
+    flex-direction: column;
+  }
+
+  .fc-header-toolbar > * {
+    margin: 5px 0; /* Ajoute 5px d'espace en haut et en bas de chaque élément enfant */
+  }
+
+  .fc-toolbar-chunk {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .fc-header-toolbar .fc-toolbar-chunk:first-child {
+    justify-content: flex-start; /* Alignement à gauche */
+  }
+
+  .fc-header-toolbar .fc-toolbar-title {
+    font-size: 18px;
+  }
+
+  body button.fc--button {
+    display: none !important;
+  }
+
+  .fc-today-button,
+  .fc-next-button,
+  .fc-prev-button {
+    border: none !important; /* Retire le contour */
+  }
+
+  .fc-prev-button {
+    padding-left: 0 !important;
+  }
+
+  .fc-next-button {
+    padding-right: 0 !important;
+  }
+
+  .fc-theme-standard .fc-col-header-cell-cushion {
+    font-size: 14px;
+    text-transform: capitalize;
+  }
+
+  .fc-list-item-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80%; /* Ajustez selon vos besoins */
+  }
+  .fc-list-event-time {
+    font-size: 14px; /* ou tout autre valeur que vous préférez */
+  }
+
+  .fc-list-day-cushion {
+    font-size: 14px; /* ou tout autre valeur que vous préférez */
+  }
+
+  /* Pour ajuster la taille de la police de la date */
+  .fc-list-day-text {
+    font-size: 14px; /* ou tout autre valeur que vous préférez */
+  }
+}

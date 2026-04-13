@@ -1,0 +1,134 @@
+{% apply inline_css %}
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: #f0edf5;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+    }
+    table { border-collapse: collapse !important; }
+    img { border: 0; height: auto; outline: none; text-decoration: none; }
+
+    .wrapper { width: 100%; background-color: #f0edf5; padding: 40px 0; }
+    .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(100,0,130,0.10); }
+
+    .header { background-color: #2e7d32; padding: 36px 40px; text-align: center; }
+    .header-logo { font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: 3px; margin: 0; line-height: 1; }
+    .header-tagline { font-size: 12px; color: #c8e6c9; letter-spacing: 2px; margin: 8px 0 0; text-transform: uppercase; }
+
+    .body { padding: 48px 48px 36px; text-align: center; }
+    .icon { font-size: 48px; margin: 0 0 20px; }
+    .title { font-size: 22px; font-weight: 700; color: #2d1b3d; margin: 0 0 16px; }
+    .text { font-size: 15px; color: #5c5c7a; line-height: 1.7; margin: 0 0 36px; }
+
+    .hospital-badge {
+        display: inline-block;
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        font-weight: 700;
+        font-size: 15px;
+        padding: 8px 20px;
+        border-radius: 20px;
+        margin: 0 0 32px;
+    }
+
+    .btn-wrap { text-align: center; margin: 0 0 20px; }
+    .btn-accept {
+        display: inline-block;
+        background-color: #2e7d32;
+        color: #ffffff !important;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: none;
+        padding: 16px 52px;
+        border-radius: 50px;
+        letter-spacing: 0.5px;
+    }
+
+    .divider { border: none; border-top: 1px solid #ede7f6; margin: 28px 0; }
+    .note { font-size: 13px; color: #9e9eb8; line-height: 1.6; margin: 0 0 12px; }
+    .link { color: #9c27b0; text-decoration: none; font-weight: 600; }
+    .refuse-link { color: #c62828; font-size: 13px; text-decoration: none; }
+
+    .footer { background-color: #f8f5fb; padding: 24px 40px; text-align: center; border-top: 1px solid #ede7f6; }
+    .footer-text { font-size: 12px; color: #b0a8c0; margin: 0; line-height: 1.6; }
+    .footer-brand { font-size: 12px; color: #9c27b0; font-weight: 700; text-decoration: none; }
+</style>
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitation à rejoindre une année — MED@WORK</title>
+</head>
+<body>
+<div class="wrapper">
+    <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center" style="padding: 0 16px;">
+                <table class="card" width="560" cellpadding="0" cellspacing="0">
+
+                    {# ── Header ── #}
+                    <tr>
+                        <td class="header">
+                            <p class="header-logo">MED@WORK</p>
+                            <p class="header-tagline">Invitation à une année académique</p>
+                        </td>
+                    </tr>
+
+                    {# ── Body ── #}
+                    <tr>
+                        <td class="body">
+                            <p class="icon">📅</p>
+                            <h1 class="title">Nouvelle invitation, {{ firstname }} !</h1>
+
+                            <p class="hospital-badge">{{ hospitalName }}</p>
+
+                            <p class="text">
+                                Vous avez été invité(e) à rejoindre l'année académique
+                                <strong>{{ yearTitle }}</strong> à <strong>{{ hospitalName }}</strong>
+                                sur la plateforme <strong>MED@WORK</strong>.<br><br>
+                                Cliquez sur le bouton ci-dessous pour accepter l'invitation.
+                                Ce lien est valable <strong>48 heures</strong>.
+                            </p>
+
+                            <div class="btn-wrap">
+                                <a href="{{ acceptLink }}" class="btn-accept" target="_blank">
+                                    Accepter l'invitation
+                                </a>
+                            </div>
+
+                            <hr class="divider">
+
+                            <p class="note">
+                                Si vous ne souhaitez pas rejoindre cette année, vous pouvez
+                                <a href="{{ refuseLink }}" class="refuse-link">refuser l'invitation</a>.
+                            </p>
+                            <p class="note">
+                                Besoin d'aide ?
+                                <a href="mailto:support@medatwork.be" class="link">support@medatwork.be</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    {# ── Footer ── #}
+                    <tr>
+                        <td class="footer">
+                            <p class="footer-text">
+                                © {{ "now"|date("Y") }} <a href="#" class="footer-brand">MED@WORK</a> — Tous droits réservés<br>
+                                Cet email a été envoyé automatiquement, merci de ne pas y répondre.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>
+{% endapply %}

@@ -1,0 +1,14 @@
+gesdinet_jwt_refresh_token:
+  refresh_token_class: Gesdinet\JWTRefreshTokenBundle\Entity\RefreshToken
+  ttl: 604800          # 7 days
+  single_use: true     # token rotation: old token is invalidated on each refresh
+  cookie:
+    enabled: true
+    same_site: strict
+    http_only: true
+    secure: true
+
+when@dev:
+  gesdinet_jwt_refresh_token:
+    cookie:
+      secure: false    # HTTP localhost — le cookie secure n'est pas envoyé sans HTTPS

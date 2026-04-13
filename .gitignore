@@ -16,6 +16,10 @@ frontend/build/
 frontend/dist/
 frontend/.env.local
 frontend/.env.*.local
+# Résidus de l'ancienne structure PHP (avant séparation backend/frontend)
+frontend/vendor/
+frontend/tests/
+frontend/test-results/
 
 # ── IDE / OS ──────────────────────────────────────────────────────────────────
 .idea/

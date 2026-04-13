@@ -1,0 +1,123 @@
+{
+  "name": "med-at-work",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@date-io/dayjs": "^3.2.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@fullcalendar/bootstrap5": "^6.1.20",
+    "@fullcalendar/core": "^6.1.20",
+    "@fullcalendar/daygrid": "^6.1.20",
+    "@fullcalendar/interaction": "^6.1.20",
+    "@fullcalendar/list": "^6.1.20",
+    "@fullcalendar/react": "^6.1.20",
+    "@fullcalendar/resource": "^6.1.20",
+    "@fullcalendar/resource-timeline": "^6.1.20",
+    "@fullcalendar/timegrid": "^6.1.20",
+    "@mui/icons-material": "^5.18.0",
+    "@mui/lab": "^5.0.0-alpha.177",
+    "@mui/material": "^5.18.0",
+    "@mui/system": "^5.18.0",
+    "@mui/x-data-grid": "^7.28.3",
+    "@mui/x-date-pickers": "^7.28.3",
+    "@mui/x-date-pickers-pro": "^7.28.3",
+    "@sentry/react": "^10.45.0",
+    "@tanstack/react-query": "^5.95.2",
+    "@tanstack/react-query-devtools": "^5.95.2",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "aos": "^2.3.4",
+    "axios": "^1.7.9",
+    "chart.js": "^4.5.1",
+    "chartjs-plugin-annotation": "^3.1.0",
+    "dayjs": "^1.11.20",
+    "formik": "^2.4.9",
+    "jwt-decode": "^4.0.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
+    "react-content-loader": "^6.2.1",
+    "react-copy-to-clipboard": "^5.1.1",
+    "react-countup": "^6.5.3",
+    "react-dom": "^18.3.1",
+    "react-lazy-load-image-component": "^1.6.3",
+    "react-router-dom": "^6.30.3",
+    "react-toastify": "^10.0.6",
+    "react-type-animation": "^3.2.0",
+    "recharts": "^2.15.4",
+    "uuid": "^9.0.1",
+    "web-vitals": "^4.2.4",
+    "yup": "^1.5.0",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "prepare": "husky"
+  },
+  "type": "module",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/ui": "^4.1.0",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "husky": "^9.1.7",
+    "jsdom": "^29.0.1",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
+    "sharp": "^0.34.5",
+    "typescript": "^6.0.2",
+    "vite": "^5.4.0",
+    "vite-plugin-pwa": "^0.21.2",
+    "workbox-window": "^7.3.0",
+    "vitest": "^4.1.0"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
+  },
+  "lint-staged": {
+    "src/**/*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.{json,css,md}": [
+      "prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+api_platform:
+    mapping:
+        paths: ['%kernel.project_dir%/src/Entity']
+
+    # Formats explicites requis en API Platform 3.2+
+    formats:
+        jsonld:   ['application/ld+json']
+        json:     ['application/json']
+        html:     ['text/html']
+        jsonapi:  ['application/vnd.api+json']
+
+    patch_formats:
+        json: ['application/merge-patch+json']
+
+    # API Platform 3.3+ : on utilise les Symfony Event Listeners (subscribers existants)
+    use_symfony_listeners: true
+
+    # Désactive le préfixe hydra: dans les réponses (comportement v4 par défaut)
+    # Mettre à true si le frontend consomme les champs hydra:member, hydra:totalItems, etc.
+    serializer:
+        hydra_prefix: false
+
+    keep_legacy_inflector: false
+
+    # OpenAPI 3 est le seul format supporté en v3+ (swagger.versions: [3] supprimé)
+    docs_formats:
+        jsonopenapi: ['application/vnd.openapi+json']
+        html:        ['text/html']

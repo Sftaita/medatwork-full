@@ -1,0 +1,182 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Missing call to parent\:\:tearDown\(\) method\.$#'
+			identifier: phpunit.callParent
+			count: 1
+			path: tests/Integration/ApiAuthTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\NotificationManagerRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Unit/Command/PurgeOldNotificationsCommandTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\NotificationManagerRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: tests/Unit/Command/PurgeOldNotificationsCommandTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\NotificationResidentRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Command/PurgeOldNotificationsCommandTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\NotificationResidentRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: tests/Unit/Command/PurgeOldNotificationsCommandTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Controller\\MailerController\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: tests/Unit/Services/EmailReset/PasswordResetServiceTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Services/EmailReset/PasswordResetServiceTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Services/EmailReset/PasswordResetServiceTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ResidentRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 7
+			path: tests/Unit/Services/EmailReset/PasswordResetServiceTest.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityManagerInterface\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Unit/Services/EmailReset/PasswordResetServiceTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ResidentRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ResidentRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 7
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityManagerInterface\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method Symfony\\Component\\PasswordHasher\\Hasher\\UserPasswordHasherInterface\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method Symfony\\Component\\PasswordHasher\\Hasher\\UserPasswordHasherInterface\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: tests/Unit/Services/EmailReset/UpdatePasswordTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Services/Notifications/UpdateYearResidentNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 8
+			path: tests/Unit/Services/Notifications/UpdateYearResidentNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerYearsRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 9
+			path: tests/Unit/Services/Notifications/UpdateYearResidentNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityManagerInterface\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: tests/Unit/Services/Notifications/UpdateYearResidentNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityManagerInterface\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 16
+			path: tests/Unit/Services/Notifications/UpdateYearResidentNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ManagerYearsRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 6
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ResidentRepository\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\ResidentRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method App\\Repository\\YearsResidentRepository\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 6
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityManagerInterface\:\:expects\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityManagerInterface\:\:method\(\)\.$#'
+			identifier: method.notFound
+			count: 10
+			path: tests/Unit/Services/Notifications/ValidationNotificationsTest.php
+

@@ -1,0 +1,6 @@
+{
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "symfony/test-pack": "^1.2"
+    }
+}
