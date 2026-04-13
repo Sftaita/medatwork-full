@@ -26,6 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
@@ -44,6 +45,7 @@ class ManagersAPIController extends AbstractController
     /**
     * Get list of managers
     */
+    #[IsGranted('ROLE_MANAGER')]
     #[Route('/api/fetchManagers', name: 'fetchManager', methods: ['GET'])]
     public function fetchManager(ManagerRepository $managerRepository): JsonResponse
     {
