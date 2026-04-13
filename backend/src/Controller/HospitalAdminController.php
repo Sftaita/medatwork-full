@@ -6,6 +6,8 @@ namespace App\Controller;
 
 use App\DTO\HospitalAdminSetupInputDTO;
 use App\Entity\Hospital;
+use App\Entity\HospitalAdmin;
+use App\Entity\HospitalAdminAuditLog;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
 use App\Entity\Resident;
@@ -13,6 +15,8 @@ use App\Entity\Years;
 use App\Entity\YearsResident;
 use App\Enum\HospitalAdminStatus;
 use App\Enum\Sexe;
+use App\Enum\YearStatus;
+use App\Repository\HospitalAdminAuditLogRepository;
 use App\Repository\HospitalAdminRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
@@ -20,13 +24,16 @@ use App\Repository\ResidentRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsResidentRepository;
 use App\Services\EmailReset\PasswordResetServiceInterface;
+use App\Services\HospitalAdminAuditService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 /**
  * Public endpoints for HospitalAdmin account activation.
@@ -40,6 +47,7 @@ class HospitalAdminController extends AbstractController
         private readonly PasswordResetServiceInterface $passwordResetService,
         private readonly string $frontendUrl,
         private readonly string $apiUrl,
+        private readonly HospitalAdminAuditService $auditService,
     ) {
     }
 
@@ -260,8 +268,8 @@ class HospitalAdminController extends AbstractController
             }
         }
 
-        // Sort by status priority: retired < pending < incomplete < active
-        $priority = ['retired' => 0, 'pending' => 1, 'incomplete' => 2, 'active' => 3];
+        // Sort by status priority: active first, then pending, incomplete, retired last
+        $priority = ['active' => 0, 'pending' => 1, 'incomplete' => 2, 'retired' => 3];
         usort($result, fn($a, $b) => ($priority[$a['status']] ?? 99) <=> ($priority[$b['status']] ?? 99));
 
         return $this->json($result);
@@ -308,6 +316,9 @@ class HospitalAdminController extends AbstractController
         $year = $yearsRepository->find($yearId);
         if ($year === null || $year->getHospital()?->getId() !== $hospital->getId()) {
             return new JsonResponse(['message' => 'Année introuvable pour cet hôpital'], Response::HTTP_NOT_FOUND);
+        }
+        if ($year->getStatus() === YearStatus::Closed || $year->getStatus() === YearStatus::Archived) {
+            return new JsonResponse(['message' => 'Cette année est fermée et n\'accepte plus de nouveaux résidents'], Response::HTTP_CONFLICT);
         }
 
         $resident  = $residentRepository->findOneBy(['email' => $email]);
@@ -360,6 +371,12 @@ class HospitalAdminController extends AbstractController
             }
         } catch (\Throwable) {
             // Email failure must not block the operation
+        }
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $this->auditService->log($actor, $hospital, 'create_maccs', 'resident', $resident->getId(), sprintf('MACCS %s %s (%s) ajouté à "%s"', $firstname, $lastname, $email, $year->getTitle()));
+            $em->flush();
         }
 
         return $this->json($this->serializeYearsResident($yr, $year, $resident), Response::HTTP_CREATED);
@@ -536,12 +553,20 @@ class HospitalAdminController extends AbstractController
             return new JsonResponse(['message' => 'Ce MACCS n\'appartient pas à cet hôpital'], Response::HTTP_FORBIDDEN);
         }
 
+        $residentName  = $resident->getFirstname() . ' ' . $resident->getLastname();
+        $residentEmail = $resident->getEmail();
+
         foreach ($hospitalYrs as $yr) {
             $em->remove($yr);
         }
 
         if (!$hasOtherLinks) {
             $em->remove($resident);
+        }
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $this->auditService->log($actor, $hospital, 'delete_maccs', 'resident', $residentId, sprintf('MACCS %s (%s) supprimé', $residentName, $residentEmail));
         }
 
         $em->flush();
@@ -717,7 +742,7 @@ class HospitalAdminController extends AbstractController
             }
         }
 
-        $priority = ['pending' => 0, 'incomplete' => 1, 'active' => 2];
+        $priority = ['active' => 0, 'pending' => 1, 'incomplete' => 2];
         usort($result, fn ($a, $b) => ($priority[$a['status']] ?? 99) <=> ($priority[$b['status']] ?? 99));
 
         return $this->json($result);
@@ -958,12 +983,21 @@ class HospitalAdminController extends AbstractController
             return new JsonResponse(['message' => 'Ce manager n\'appartient pas à cet hôpital'], Response::HTTP_FORBIDDEN);
         }
 
+        $managerName  = $manager->getFirstname() . ' ' . $manager->getLastname();
+        $managerEmail = $manager->getEmail();
+
         foreach ($hospitalYrs as $my) {
             $em->remove($my);
         }
 
         if (!$hasOtherLinks) {
-            $em->remove($manager);
+            // Soft-delete: keep the manager record for audit trail
+            $manager->setIsDeleted(true)->setDeletedAt(new \DateTime());
+        }
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $this->auditService->log($actor, $hospital, 'delete_manager', 'manager', $manager->getId(), sprintf('Manager %s (%s) supprimé', $managerName, $managerEmail));
         }
 
         $em->flush();
@@ -1027,7 +1061,7 @@ class HospitalAdminController extends AbstractController
     private function sendMaccsInvitation(Resident $resident, Hospital $hospital, EntityManagerInterface $em): void
     {
         $token = bin2hex(random_bytes(32));
-        $resident->setToken($token)->setTokenExpiration(new \DateTime('+1 day'));
+        $resident->setToken($token)->setTokenExpiration(new \DateTime('+7 days'));
         $em->flush();
 
         $this->mailer->sendEmail(
@@ -1067,9 +1101,12 @@ class HospitalAdminController extends AbstractController
             'period'        => $year->getPeriod(),
             'location'      => $year->getLocation(),
             'speciality'    => $year->getSpeciality(),
+            'comment'       => $year->getComment(),
+            'status'        => $year->getStatus()->value,
             'dateOfStart'   => $year->getDateOfStart()->format('Y-m-d'),
             'dateOfEnd'     => $year->getDateOfEnd()->format('Y-m-d'),
             'residentCount' => $year->getResidents()->count(),
+            'managerCount'  => $year->getManagers()->count(),
             'token'         => $year->getToken(),
             'residents'     => array_values(array_filter(array_map(
                 fn ($yr) => $yr->getResident()
@@ -1126,5 +1163,349 @@ class HospitalAdminController extends AbstractController
             'yearTitle' => $year?->getTitle(),
             'status'    => $this->computeManagerStatus($my),
         ];
+    }
+
+    // ── Year CRUD endpoints ───────────────────────────────────────────────────
+
+    /**
+     * Create a new year for the authenticated hospital admin's hospital.
+     * POST /api/hospital-admin/years
+     */
+    #[Route('/years', name: 'hospital_admin_years_create', methods: ['POST'])]
+    public function createYear(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $hospital = $this->resolveHospital();
+        $data     = json_decode($request->getContent(), true) ?? [];
+
+        $errors = $this->validateYearInput($data);
+        if ($errors !== []) {
+            return new JsonResponse(['errors' => $errors], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $year = (new Years())
+            ->setTitle(trim($data['title']))
+            ->setLocation(trim($data['location']))
+            ->setPeriod(trim($data['period'] ?? ''))
+            ->setDateOfStart(new \DateTime($data['dateOfStart']))
+            ->setDateOfEnd(new \DateTime($data['dateOfEnd']))
+            ->setSpeciality(isset($data['speciality']) ? trim($data['speciality']) : null)
+            ->setComment(isset($data['comment']) ? trim($data['comment']) : null)
+            ->setStatus(YearStatus::from($data['status'] ?? 'active'))
+            ->setHospital($hospital)
+            ->setCreatedAt(new \DateTime())
+            ->setToken(bin2hex(random_bytes(5)));
+
+        $em->persist($year);
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $this->auditService->log($actor, $hospital, 'create_year', 'year', null, sprintf('Année "%s" créée (%s → %s)', $year->getTitle(), $data['dateOfStart'], $data['dateOfEnd']));
+        }
+
+        $em->flush();
+
+        return $this->json($this->serializeYear($year), Response::HTTP_CREATED);
+    }
+
+    /**
+     * Update an existing year (must belong to this admin's hospital).
+     * PATCH /api/hospital-admin/years/{id}
+     */
+    #[Route('/years/{id}', name: 'hospital_admin_years_update', methods: ['PATCH'])]
+    public function updateYear(int $id, Request $request, YearsRepository $yearsRepository, EntityManagerInterface $em): JsonResponse
+    {
+        $hospital = $this->resolveHospital();
+        $year     = $yearsRepository->find($id);
+
+        if ($year === null) {
+            return new JsonResponse(['message' => 'Année introuvable'], Response::HTTP_NOT_FOUND);
+        }
+        if ($year->getHospital()?->getId() !== $hospital->getId()) {
+            return new JsonResponse(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+        if (!$year->isEditable()) {
+            return new JsonResponse(['message' => 'Cette année est archivée et ne peut plus être modifiée'], Response::HTTP_CONFLICT);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        if (isset($data['title']))       { $year->setTitle(trim($data['title'])); }
+        if (isset($data['location']))    { $year->setLocation(trim($data['location'])); }
+        if (isset($data['period']))      { $year->setPeriod(trim($data['period'])); }
+        if (isset($data['speciality']))  { $year->setSpeciality(trim($data['speciality'])); }
+        if (isset($data['comment']))     { $year->setComment(trim($data['comment'])); }
+        if (isset($data['dateOfStart'])) { $year->setDateOfStart(new \DateTime($data['dateOfStart'])); }
+        if (isset($data['dateOfEnd']))   { $year->setDateOfEnd(new \DateTime($data['dateOfEnd'])); }
+        if (isset($data['status']))      { $year->setStatus(YearStatus::from($data['status'])); }
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $this->auditService->log($actor, $hospital, 'update_year', 'year', $year->getId(), sprintf('Année "%s" modifiée', $year->getTitle()));
+        }
+
+        $em->flush();
+
+        return $this->json($this->serializeYear($year));
+    }
+
+    /**
+     * Delete a year (only if no residents/managers are linked).
+     * DELETE /api/hospital-admin/years/{id}
+     */
+    #[Route('/years/{id}', name: 'hospital_admin_years_delete', methods: ['DELETE'])]
+    public function deleteYear(int $id, YearsRepository $yearsRepository, EntityManagerInterface $em): JsonResponse
+    {
+        $hospital = $this->resolveHospital();
+        $year     = $yearsRepository->find($id);
+
+        if ($year === null) {
+            return new JsonResponse(['message' => 'Année introuvable'], Response::HTTP_NOT_FOUND);
+        }
+        if ($year->getHospital()?->getId() !== $hospital->getId()) {
+            return new JsonResponse(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+        if ($year->getResidents()->count() > 0 || $year->getManagers()->count() > 0) {
+            return new JsonResponse(['message' => 'Impossible de supprimer une année avec des résidents ou managers liés'], Response::HTTP_CONFLICT);
+        }
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $this->auditService->log($actor, $hospital, 'delete_year', 'year', $year->getId(), sprintf('Année "%s" supprimée', $year->getTitle()));
+        }
+
+        $em->remove($year);
+        $em->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    // ── Dashboard stats endpoint ──────────────────────────────────────────────
+
+    /**
+     * GET /api/hospital-admin/dashboard/stats
+     */
+    #[Route('/dashboard/stats', name: 'hospital_admin_dashboard_stats', methods: ['GET'])]
+    public function dashboardStats(YearsRepository $yearsRepository): JsonResponse
+    {
+        $hospital = $this->resolveHospital();
+        $today    = new \DateTime();
+
+        $maccsActive = $maccsPending = $maccsIncomplete = $maccsRetired = 0;
+        $managersActive = $managersPending = $managersIncomplete = 0;
+        $pendingInvites = 0;
+        $totalYears = 0;
+        $activeYears = [];
+
+        foreach ($yearsRepository->findBy(['hospital' => $hospital]) as $year) {
+            $totalYears++;
+            $isCurrent = $year->getDateOfEnd() >= $today;
+
+            foreach ($year->getResidents() as $yr) {
+                if ($yr->getResident() === null) { continue; }
+                $status = $this->computeStatus($yr);
+                if ($status === 'active')     { $maccsActive++; }
+                elseif ($status === 'pending')    { $maccsPending++; $pendingInvites++; }
+                elseif ($status === 'incomplete') { $maccsIncomplete++; }
+                elseif ($status === 'retired')    { $maccsRetired++; }
+            }
+
+            foreach ($year->getManagers() as $my) {
+                if ($my->getManager() === null) { continue; }
+                $status = $this->computeManagerStatus($my);
+                if ($status === 'active')     { $managersActive++; }
+                elseif ($status === 'pending')    { $managersPending++; $pendingInvites++; }
+                elseif ($status === 'incomplete') { $managersIncomplete++; }
+            }
+
+            if ($isCurrent) {
+                $activeYears[] = [
+                    'id'       => $year->getId(),
+                    'title'    => $year->getTitle(),
+                    'status'   => $year->getStatus()->value,
+                    'dateEnd'  => $year->getDateOfEnd()->format('Y-m-d'),
+                    'maccs'    => $year->getResidents()->count(),
+                    'managers' => $year->getManagers()->count(),
+                ];
+            }
+        }
+
+        return $this->json([
+            'maccs' => [
+                'active'     => $maccsActive,
+                'pending'    => $maccsPending,
+                'incomplete' => $maccsIncomplete,
+                'retired'    => $maccsRetired,
+                'total'      => $maccsActive + $maccsPending + $maccsIncomplete + $maccsRetired,
+            ],
+            'managers' => [
+                'active'     => $managersActive,
+                'pending'    => $managersPending,
+                'incomplete' => $managersIncomplete,
+                'total'      => $managersActive + $managersPending + $managersIncomplete,
+            ],
+            'pendingInvites' => $pendingInvites,
+            'totalYears'     => $totalYears,
+            'activeYears'    => $activeYears,
+        ]);
+    }
+
+    // ── Audit log endpoint ────────────────────────────────────────────────────
+
+    /**
+     * GET /api/hospital-admin/audit-log?limit=50&offset=0
+     */
+    #[Route('/audit-log', name: 'hospital_admin_audit_log', methods: ['GET'])]
+    public function auditLog(Request $request, HospitalAdminAuditLogRepository $logRepo): JsonResponse
+    {
+        $hospital = $this->resolveHospital();
+        $limit    = min((int) $request->query->get('limit', 50), 200);
+        $offset   = (int) $request->query->get('offset', 0);
+
+        $logs  = $logRepo->findByHospital($hospital->getId() ?? 0, $limit, $offset);
+        $total = $logRepo->countByHospital($hospital->getId() ?? 0);
+
+        $result = array_map(fn (HospitalAdminAuditLog $l) => [
+            'id'          => $l->getId(),
+            'adminName'   => $l->getAdminName(),
+            'action'      => $l->getAction(),
+            'entityType'  => $l->getEntityType(),
+            'entityId'    => $l->getEntityId(),
+            'description' => $l->getDescription(),
+            'createdAt'   => $l->getCreatedAt()->format(\DateTimeInterface::ATOM),
+        ], $logs);
+
+        return $this->json(['total' => $total, 'logs' => $result]);
+    }
+
+    // ── Bulk edit MACCS ───────────────────────────────────────────────────────
+
+    /**
+     * Bulk edit MACCS: update optingOut or move to another year.
+     * POST /api/hospital-admin/residents/bulk-edit
+     */
+    #[Route('/residents/bulk-edit', name: 'hospital_admin_residents_bulk_edit', methods: ['POST'])]
+    public function bulkEditResidents(
+        Request $request,
+        YearsResidentRepository $yrRepo,
+        YearsRepository $yearsRepository,
+        EntityManagerInterface $em,
+    ): JsonResponse {
+        $hospital = $this->resolveHospital();
+        $data     = json_decode($request->getContent(), true) ?? [];
+        $yrIds    = $data['yrIds'] ?? [];
+        $changes  = $data['changes'] ?? [];
+
+        if (empty($yrIds) || !is_array($yrIds)) {
+            return new JsonResponse(['message' => 'yrIds requis'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $updated = 0;
+        foreach ($yrIds as $yrId) {
+            $yr = $yrRepo->find((int) $yrId);
+            if ($yr === null || $yr->getYear()?->getHospital()?->getId() !== $hospital->getId()) {
+                continue;
+            }
+
+            if (array_key_exists('optingOut', $changes)) {
+                $yr->setOptingOut((bool) $changes['optingOut']);
+            }
+
+            $updated++;
+        }
+
+        $actor = $this->getUser();
+        if ($updated > 0 && ($actor instanceof HospitalAdmin || $actor instanceof Manager)) {
+            $this->auditService->log($actor, $hospital, 'bulk_edit', 'resident', null, sprintf('%d MACCS modifiés en masse', $updated), $changes);
+        }
+
+        $em->flush();
+
+        return $this->json(['updated' => $updated]);
+    }
+
+    // ── Export MACCS ──────────────────────────────────────────────────────────
+
+    /**
+     * Export MACCS as CSV.
+     * GET /api/hospital-admin/residents/export?mode=current|history&yearId=
+     */
+    #[Route('/residents/export', name: 'hospital_admin_residents_export', methods: ['GET'])]
+    public function exportResidents(Request $request, YearsRepository $yearsRepository): StreamedResponse
+    {
+        $hospital = $this->resolveHospital();
+        $mode     = $request->query->get('mode', 'current');
+        $yearId   = $request->query->get('yearId');
+        $today    = new \DateTime();
+
+        $rows = [];
+        foreach ($yearsRepository->findBy(['hospital' => $hospital]) as $year) {
+            if ($yearId !== null && (string) $year->getId() !== (string) $yearId) {
+                continue;
+            }
+            $isCurrent = $year->getDateOfEnd() >= $today;
+            if ($mode === 'history' && $isCurrent) { continue; }
+            if ($mode !== 'history' && !$isCurrent) { continue; }
+
+            foreach ($year->getResidents() as $yr) {
+                $resident = $yr->getResident();
+                if ($resident === null) { continue; }
+                $rows[] = [
+                    $year->getTitle(),
+                    $resident->getFirstname(),
+                    $resident->getLastname(),
+                    $resident->getEmail(),
+                    $this->computeStatus($yr),
+                    $yr->getOptingOut() ? 'oui' : 'non',
+                    $yr->getCreatedAt()->format('Y-m-d'),
+                ];
+            }
+        }
+
+        $response = new StreamedResponse(function () use ($rows): void {
+            $handle = fopen('php://output', 'w');
+            if ($handle === false) { return; }
+            fputcsv($handle, ['Année', 'Prénom', 'Nom', 'Email', 'Statut', 'Opting Out', 'Ajouté le'], ';');
+            foreach ($rows as $row) {
+                fputcsv($handle, $row, ';');
+            }
+            fclose($handle);
+        });
+
+        $filename = 'maccs-export-' . date('Y-m-d') . '.csv';
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+
+        return $response;
+    }
+
+    // ── serializeYear override with status ───────────────────────────────────
+
+    private function validateYearInput(array $data): array
+    {
+        $errors = [];
+        if (empty(trim($data['title'] ?? ''))) {
+            $errors[] = 'Le titre est requis';
+        }
+        if (empty(trim($data['location'] ?? ''))) {
+            $errors[] = 'Le lieu est requis';
+        }
+        if (empty($data['dateOfStart'] ?? '')) {
+            $errors[] = 'La date de début est requise';
+        }
+        if (empty($data['dateOfEnd'] ?? '')) {
+            $errors[] = 'La date de fin est requise';
+        }
+        if (!empty($data['dateOfStart']) && !empty($data['dateOfEnd'])
+            && new \DateTime($data['dateOfStart']) >= new \DateTime($data['dateOfEnd'])) {
+            $errors[] = 'La date de fin doit être après la date de début';
+        }
+        if (isset($data['status'])) {
+            try {
+                YearStatus::from($data['status']);
+            } catch (\ValueError) {
+                $errors[] = 'Statut invalide (draft|active|closed|archived)';
+            }
+        }
+        return $errors;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\YearStatus;
 use App\Repository\YearsRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -124,6 +125,9 @@ class Years
     #[ORM\ManyToOne(targetEntity: Hospital::class, inversedBy: 'years')]
     #[ORM\JoinColumn(nullable: true)]
     private ?Hospital $hospital = null;
+
+    #[ORM\Column(enumType: YearStatus::class, options: ['default' => 'active'])]
+    private YearStatus $status = YearStatus::Active;
 
 
 
@@ -529,5 +533,22 @@ class Years
         $this->hospital = $hospital;
 
         return $this;
+    }
+
+    public function getStatus(): YearStatus
+    {
+        return $this->status;
+    }
+
+    public function setStatus(YearStatus $status): self
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function isEditable(): bool
+    {
+        return $this->status === YearStatus::Draft || $this->status === YearStatus::Active;
     }
 }

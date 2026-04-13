@@ -26,10 +26,14 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CheckIcon from "@mui/icons-material/Check";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
-import adminApi from "../../services/adminApi";
-import type { HospitalYear } from "../../types/entities";
+import hospitalAdminApi from "../../services/hospitalAdminApi";
+import type { HospitalYear, DashboardStats } from "../../services/hospitalAdminApi";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -287,11 +291,56 @@ const YearCard = ({ year, searchQuery }: { year: HospitalYear; searchQuery: stri
 
 const ALL_TAB = "__all__";
 
+// ── Stat card ─────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+  sublabel?: string;
+}
+
+const StatCard = ({ label, value, icon, color, sublabel }: StatCardProps) => (
+  <Card variant="outlined" sx={{ height: "100%" }}>
+    <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 2.5, "&:last-child": { pb: 2.5 } }}>
+      <Box
+        sx={{
+          width: 48, height: 48, borderRadius: 2, bgcolor: `${color}.50`,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}
+      >
+        <Box sx={{ color: `${color}.main` }}>{icon}</Box>
+      </Box>
+      <Box>
+        <Typography variant="h5" fontWeight={700} lineHeight={1.1}>
+          {value}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+          {label}
+        </Typography>
+        {sublabel && (
+          <Typography variant="caption" color="text.disabled">
+            {sublabel}
+          </Typography>
+        )}
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 const HospitalAdminDashboardPage = () => {
   useAxiosPrivate();
   const { data: years = [], isLoading } = useQuery({
     queryKey: ["hospital-admin-years"],
-    queryFn: adminApi.listMyYears,
+    queryFn: hospitalAdminApi.listMyYears,
+  });
+
+  const { data: stats } = useQuery<DashboardStats>({
+    queryKey: ["hospital-admin-dashboard-stats"],
+    queryFn: hospitalAdminApi.getDashboardStats,
   });
 
   const [search, setSearch] = useState("");
@@ -395,6 +444,48 @@ const HospitalAdminDashboardPage = () => {
           />
         </Box>
       </Box>
+
+      {/* ── KPI Stats ────────────────────────────────────────────────────── */}
+      {stats && (
+        <Grid container spacing={2} mb={3}>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              label="MACCS actifs"
+              value={stats.maccs.active}
+              icon={<CheckCircleOutlineIcon />}
+              color="success"
+              sublabel={`${stats.maccs.total} au total`}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              label="En attente"
+              value={stats.maccs.pending + stats.managers.pending}
+              icon={<HourglassEmptyIcon />}
+              color="warning"
+              sublabel="MACCS + managers"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              label="Incomplets"
+              value={stats.maccs.incomplete + stats.managers.incomplete}
+              icon={<WarningAmberIcon />}
+              color="error"
+              sublabel="Compte non activé"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              label="Invitations en cours"
+              value={stats.pendingInvites}
+              icon={<NotificationsActiveIcon />}
+              color="info"
+              sublabel={`${stats.managers.active} managers actifs`}
+            />
+          </Grid>
+        </Grid>
+      )}
 
       {/* ── Grid ──────────────────────────────────────────────────────────── */}
       <Grid container spacing={2.5} alignItems="stretch">

@@ -21,6 +21,8 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
+import Checkbox from "@mui/material/Checkbox";
+import DownloadIcon from "@mui/icons-material/Download";
 import Drawer from "@mui/material/Drawer";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -40,6 +42,7 @@ import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import Tooltip from "@mui/material/Tooltip";
 import CloseIcon from "@mui/icons-material/Close";
+import LinearProgress from "@mui/material/LinearProgress";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import type {
   MaccsRow,
@@ -536,9 +539,26 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
     }
   };
 
+  const handleDownloadErrors = () => {
+    if (!preview?.errors.length) return;
+    const rows = [
+      ["Ligne", "Email", "Raison"],
+      ...preview.errors.map((e) => [String(e.line), e.email ?? "", e.reason]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `import-errors-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>Importer des MACCS via CSV</DialogTitle>
+      {loading && <LinearProgress />}
       <DialogContent>
         <Stack spacing={2} mt={1}>
           <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
@@ -580,16 +600,34 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
           {preview && (
             <Box>
               {preview.errors.length > 0 && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 2 }}
+                  action={
+                    <Button
+                      size="small"
+                      startIcon={<DownloadIcon />}
+                      onClick={handleDownloadErrors}
+                      sx={{ whiteSpace: "nowrap" }}
+                    >
+                      Exporter erreurs
+                    </Button>
+                  }
+                >
                   <Typography variant="body2" fontWeight={600} mb={0.5}>
                     {preview.errors.length} erreur(s) détectée(s) :
                   </Typography>
-                  {preview.errors.map((e, i) => (
+                  {preview.errors.slice(0, 5).map((e, i) => (
                     <Typography key={i} variant="caption" display="block">
                       Ligne {e.line}
                       {e.email ? ` (${e.email})` : ""} — {e.reason}
                     </Typography>
                   ))}
+                  {preview.errors.length > 5 && (
+                    <Typography variant="caption" color="text.secondary">
+                      … et {preview.errors.length - 5} autre(s). Exportez pour voir tout.
+                    </Typography>
+                  )}
                 </Alert>
               )}
 
@@ -645,6 +683,9 @@ const HospitalAdminResidentsPage = () => {
 
   const [mode, setMode] = useState<"current" | "history">("current");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<MaccsStatus | "">("");
+  const [yearFilter, setYearFilter] = useState<number | "">("");
+  const [selected, setSelected] = useState<number[]>([]);
 
   // Dialogs / drawers
   const [viewRow, setViewRow] = useState<MaccsRow | null>(null);
@@ -735,15 +776,49 @@ const HospitalAdminResidentsPage = () => {
     meta: { suppressErrorToast: true },
   });
 
+  const bulkEditMutation = useMutation({
+    mutationFn: ({ yrIds, changes }: { yrIds: number[]; changes: { optingOut?: boolean } }) =>
+      hospitalAdminApi.bulkEditResidents(yrIds, changes),
+    onSuccess: (data) => {
+      toast.success(`${data.updated} MACCS modifié(s)`);
+      setSelected([]);
+      invalidate();
+    },
+    onError: () => toast.error("Erreur lors de la modification en masse"),
+    meta: { suppressErrorToast: true },
+  });
+
+  const handleExport = async () => {
+    try {
+      const blob = await hospitalAdminApi.exportResidentsCsv(mode, yearFilter !== "" ? yearFilter : undefined);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `maccs-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Erreur lors de l'export");
+    }
+  };
+
   // Filter
   const q = search.toLowerCase();
-  const filtered = rows.filter(
-    (r) =>
+  const filtered = rows.filter((r) => {
+    if (statusFilter && r.status !== statusFilter) return false;
+    if (yearFilter !== "" && r.yearId !== yearFilter) return false;
+    return (
       (r.firstname ?? "").toLowerCase().includes(q) ||
       (r.lastname ?? "").toLowerCase().includes(q) ||
       (r.email ?? "").toLowerCase().includes(q) ||
       (r.yearTitle ?? "").toLowerCase().includes(q)
-  );
+    );
+  });
+
+  const allSelected = filtered.length > 0 && filtered.every((r) => selected.includes(r.yrId));
+  const toggleAll = () => setSelected(allSelected ? [] : filtered.map((r) => r.yrId));
+  const toggleOne = (yrId: number) =>
+    setSelected((prev) => prev.includes(yrId) ? prev.filter((id) => id !== yrId) : [...prev, yrId]);
 
   const anyMutationPending =
     editMutation.isPending ||
@@ -787,40 +862,82 @@ const HospitalAdminResidentsPage = () => {
       </Box>
 
       {/* Filters */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={2}
-        flexWrap="wrap"
-        gap={2}
-      >
+      <Box display="flex" flexWrap="wrap" gap={1.5} alignItems="center" mb={2}>
         <ToggleButtonGroup
           value={mode}
           exclusive
-          onChange={(_, v) => {
-            if (v) setMode(v);
-          }}
+          onChange={(_, v) => { if (v) { setMode(v); setSelected([]); } }}
           size="small"
         >
-          <ToggleButton value="current">Années en cours</ToggleButton>
+          <ToggleButton value="current">En cours</ToggleButton>
           <ToggleButton value="history">Historique</ToggleButton>
         </ToggleButtonGroup>
 
         <TextField
           size="small"
-          placeholder="Rechercher par nom, email ou année…"
+          placeholder="Nom, email, année…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 320 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
+          sx={{ width: 240 }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
         />
+
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel>Statut</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Statut"
+            onChange={(e) => setStatusFilter(e.target.value as MaccsStatus | "")}
+          >
+            <MenuItem value="">Tous</MenuItem>
+            <MenuItem value="active">Actif</MenuItem>
+            <MenuItem value="pending">En attente</MenuItem>
+            <MenuItem value="incomplete">Incomplet</MenuItem>
+            <MenuItem value="retired">Retiré</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Année</InputLabel>
+          <Select
+            value={yearFilter}
+            label="Année"
+            onChange={(e) => setYearFilter(e.target.value as number | "")}
+          >
+            <MenuItem value="">Toutes</MenuItem>
+            {years.map((y) => (
+              <MenuItem key={y.id} value={y.id}>{y.title}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Box flex={1} />
+
+        {selected.length > 0 && (
+          <Box display="flex" gap={1} alignItems="center">
+            <Typography variant="body2" color="text.secondary">{selected.length} sélectionné(s)</Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => bulkEditMutation.mutate({ yrIds: selected, changes: { optingOut: true } })}
+              disabled={bulkEditMutation.isPending}
+            >
+              Opting-out ON
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => bulkEditMutation.mutate({ yrIds: selected, changes: { optingOut: false } })}
+              disabled={bulkEditMutation.isPending}
+            >
+              Opting-out OFF
+            </Button>
+          </Box>
+        )}
+
+        <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
+          Exporter CSV
+        </Button>
       </Box>
 
       {/* Table */}
@@ -839,6 +956,14 @@ const HospitalAdminResidentsPage = () => {
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    size="small"
+                    checked={allSelected}
+                    indeterminate={selected.length > 0 && !allSelected}
+                    onChange={toggleAll}
+                  />
+                </TableCell>
                 <TableCell>
                   <strong>Nom Prénom</strong>
                 </TableCell>
@@ -861,7 +986,21 @@ const HospitalAdminResidentsPage = () => {
             </TableHead>
             <TableBody>
               {filtered.map((row) => (
-                <TableRow key={row.yrId} hover>
+                <TableRow
+                  key={row.yrId}
+                  hover
+                  selected={selected.includes(row.yrId)}
+                  onClick={() => toggleOne(row.yrId)}
+                  sx={{ cursor: "pointer" }}
+                >
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={selected.includes(row.yrId)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleOne(row.yrId)}
+                    />
+                  </TableCell>
                   <TableCell>
                     {row.lastname ?? "—"} {row.firstname ?? ""}
                   </TableCell>
@@ -885,7 +1024,7 @@ const HospitalAdminResidentsPage = () => {
                       />
                     </Tooltip>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <ActionsMenu
                       row={row}
                       years={years}

@@ -73,6 +73,12 @@ const HospitalAdminNotificationsPage = lazy(
 const HospitalAdminCommunicationPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminCommunicationPage")
 );
+const HospitalAdminYearsPage = lazy(
+  () => import("./pages/HospitalAdmin/HospitalAdminYearsPage")
+);
+const HospitalAdminAuditLogPage = lazy(
+  () => import("./pages/HospitalAdmin/HospitalAdminAuditLogPage")
+);
 
 // ── Manager pages ─────────────────────────────────────────────────────────────
 const ManagerYears = lazy(() => import("./pages/Management/YearsPage/ManagerYears"));
@@ -362,6 +368,22 @@ function App() {
                       element={
                         <Suspense fallback={<PageSkeleton />}>
                           <HospitalAdminCommunicationPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/hospital-admin/years"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <HospitalAdminYearsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/hospital-admin/audit-log"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <HospitalAdminAuditLogPage />
                         </Suspense>
                       }
                     />

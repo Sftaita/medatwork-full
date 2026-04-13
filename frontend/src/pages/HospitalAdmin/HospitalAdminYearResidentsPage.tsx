@@ -2,16 +2,42 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Grid from "@mui/material/Grid";
+import Chip from "@mui/material/Chip";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Paper from "@mui/material/Paper";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Tooltip from "@mui/material/Tooltip";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
-import adminApi from "../../services/adminApi";
-import type { HospitalYearResident } from "../../types/entities";
+import hospitalAdminApi from "../../services/hospitalAdminApi";
+import type { MaccsRow, MaccsStatus } from "../../services/hospitalAdminApi";
+
+// ── Status helpers ────────────────────────────────────────────────────────────
+
+type ChipColor = "success" | "warning" | "error" | "default";
+
+const STATUS_LABEL: Record<MaccsStatus, string> = {
+  active: "Actif",
+  pending: "En attente",
+  incomplete: "Incomplet",
+  retired: "Retiré",
+};
+
+const STATUS_COLOR: Record<MaccsStatus, ChipColor> = {
+  active: "success",
+  pending: "warning",
+  incomplete: "error",
+  retired: "default",
+};
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 const HospitalAdminYearResidentsPage = () => {
   useAxiosPrivate();
@@ -19,9 +45,9 @@ const HospitalAdminYearResidentsPage = () => {
   const navigate = useNavigate();
   const id = Number(yearId);
 
-  const { data: residents = [], isLoading } = useQuery({
+  const { data: residents = [], isLoading, isError } = useQuery({
     queryKey: ["hospital-admin-year-residents", id],
-    queryFn: () => adminApi.listYearResidents(id),
+    queryFn: () => hospitalAdminApi.listYearResidents(id),
     enabled: !isNaN(id),
   });
 
@@ -31,33 +57,79 @@ const HospitalAdminYearResidentsPage = () => {
         <IconButton onClick={() => navigate("/hospital-admin/dashboard")} size="small">
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h5" fontWeight={700}>
-          Résidents de l'année
-        </Typography>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>
+            Résidents de l'année
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Année #{id}
+          </Typography>
+        </Box>
       </Box>
 
       {isLoading && <CircularProgress size={24} />}
 
-      {!isLoading && residents.length === 0 && (
+      {isError && (
+        <Alert severity="error">Erreur lors du chargement des résidents.</Alert>
+      )}
+
+      {!isLoading && !isError && residents.length === 0 && (
         <Alert severity="info">Aucun résident inscrit pour cette année.</Alert>
       )}
 
-      <Grid container spacing={2}>
-        {residents.map((r: HospitalYearResident) => (
-          <Grid item xs={12} sm={6} md={4} key={r.id}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography fontWeight={600}>
-                  {r.firstname} {r.lastname}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {r.email}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      {!isLoading && residents.length > 0 && (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Nom</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell>Opting out</TableCell>
+                <TableCell>Ajouté le</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {residents.map((r: MaccsRow) => (
+                <TableRow key={r.yrId} hover>
+                  <TableCell>
+                    <Typography fontWeight={600} variant="body2">
+                      {r.firstname} {r.lastname}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {r.email}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={STATUS_LABEL[r.status]}
+                      color={STATUS_COLOR[r.status]}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip title={r.optingOut ? "Souhaite ne pas partager ses données" : "Partage autorisé"}>
+                      <Chip
+                        label={r.optingOut ? "Oui" : "Non"}
+                        size="small"
+                        variant="outlined"
+                        color={r.optingOut ? "warning" : "default"}
+                      />
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {new Date(r.createdAt).toLocaleDateString("fr-BE")}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </Box>
   );
 };
