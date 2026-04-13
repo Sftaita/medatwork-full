@@ -31,11 +31,13 @@ class AuthenticationSuccessListener
         if ($user instanceof Resident || $user instanceof Manager) {
             $data['firstname'] = $user->getFirstname();
             $data['lastname'] = $user->getLastname();
-            $data['role'] = $user->getRole();
             $data['gender'] = $user->getSexe()->value;
             if ($user instanceof Manager && $user->getAdminHospital() !== null) {
+                $data['role']         = 'hospital_admin';
                 $data['hospitalId']   = $user->getAdminHospital()->getId();
                 $data['hospitalName'] = $user->getAdminHospital()->getName();
+            } else {
+                $data['role'] = $user->getRole();
             }
         } elseif ($user instanceof AppAdmin) {
             $data['firstname'] = $user->getFirstname();
