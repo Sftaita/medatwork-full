@@ -23,3 +23,9 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '5 minutes'
+
+        # Manager mutations: 60 write operations per hour per IP
+        manager_mutation:
+            policy: sliding_window
+            limit: 60
+            interval: '1 hour'

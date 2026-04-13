@@ -48,7 +48,7 @@ class GetYearResidentController extends AbstractController
                 }
                 $residentId = $yr->getId();
                 $firstname = $yr->getFirstname();
-                $lastanme = $yr->getLastname();
+                $lastname = $yr->getLastname();
                 $email = $yr->getEmail();
                 $optingOut = $yearResident->getOptingOut();
                 $legalLeaves = $yearResident->getLegalLeaves();
@@ -68,7 +68,7 @@ class GetYearResidentController extends AbstractController
                     'allowed' => $allowed,
                     'residentId' => $residentId,
                     'firstname' => $firstname,
-                    'lastname' => $lastanme,
+                    'lastname' => $lastname,
                     'email' => $email,
                     'dateOfStart' => $dateOfStart,
                     'optingOut' => $optingOut,

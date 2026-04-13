@@ -254,7 +254,7 @@ const YearPage = () => {
                         },
                       });
                     }}
-                    label="Date de début"
+                    label="Date de fin"
                     error={formik.touched.dateOfEnd && Boolean(formik.errors.dateOfEnd)}
                     helperText={
                       formik.touched.dateOfEnd && formik.errors.dateOfEnd

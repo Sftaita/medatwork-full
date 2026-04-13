@@ -26,6 +26,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 class YearsManagerAPIController extends AbstractController
 {
@@ -72,8 +73,13 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/years/update', name: 'updateYear', methods: ['PUT'])]
-    public function updateYear(Request $request, Security $security, UpdateYear $updateYear): JsonResponse
+    public function updateYear(Request $request, Security $security, UpdateYear $updateYear, RateLimiterFactoryInterface $managerMutationLimiter): JsonResponse
     {
+        $limiter = $managerMutationLimiter->create($request->getClientIp());
+        if (! $limiter->consume(1)->isAccepted()) {
+            return new JsonResponse(['message' => 'Trop de requêtes. Réessayez dans une heure.'], 429);
+        }
+
         /** @var Manager $manager */
         $manager = $security->getUser();
 
@@ -93,8 +99,13 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/years/addManager', name: 'addManager', methods: ['POST'])]
-    public function addManager(Request $request, Security $security, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository, YearsRepository $yearsRepository): JsonResponse
+    public function addManager(Request $request, Security $security, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository, YearsRepository $yearsRepository, RateLimiterFactoryInterface $managerMutationLimiter): JsonResponse
     {
+        $limiter = $managerMutationLimiter->create($request->getClientIp());
+        if (! $limiter->consume(1)->isAccepted()) {
+            return new JsonResponse(['message' => 'Trop de requêtes. Réessayez dans une heure.'], 429);
+        }
+
         /** @var Manager $manager */
         $manager = $security->getUser();
 
@@ -193,13 +204,21 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/getYearById/{yearId}', name: 'getYearById', methods: ['GET'])]
-    public function findYearById(int $yearId, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository): JsonResponse
+    public function findYearById(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository): JsonResponse
     {
-        $year = $yearsRepository->findOneById($yearId);
+        /** @var Manager $manager */
+        $manager  = $security->getUser();
+        $yearEntity = $yearsRepository->findOneBy(['id' => $yearId]);
 
-        if ($year === null) {
+        if ($yearEntity === null) {
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
+
+        if (! $managerYearsRepository->checkRelation($manager, $yearEntity)) {
+            return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
+        }
+
+        $year = $yearsRepository->findOneById($yearId);
 
         $managers = $managerYearsRepository->fetchYearManagers($yearId);
 

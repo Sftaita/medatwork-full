@@ -78,6 +78,7 @@ class DeleteYearController extends AbstractController
                         $yearManager->setAdmin(true);
                         $entityManager->persist($yearManager);
                         $entityManager->flush();
+                        break; // Promote only the first available manager
                     }
                 }
             }

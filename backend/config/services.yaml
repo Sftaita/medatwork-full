@@ -16,6 +16,7 @@ services:
       Symfony\Component\RateLimiter\RateLimiterFactoryInterface $tokenRefreshLimiter: '@limiter.token_refresh'
       Symfony\Component\RateLimiter\RateLimiterFactoryInterface $passwordResetLimiter: '@limiter.password_reset'
       Symfony\Component\RateLimiter\RateLimiterFactoryInterface $registerLimiter: '@limiter.register'
+      Symfony\Component\RateLimiter\RateLimiterFactoryInterface $managerMutationLimiter: '@limiter.manager_mutation'
 
   # makes classes in src/ available to be used as services
   # this creates a service per class whose id is the fully-qualified class name

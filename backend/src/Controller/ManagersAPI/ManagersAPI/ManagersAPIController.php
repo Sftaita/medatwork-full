@@ -168,8 +168,13 @@ class ManagersAPIController extends AbstractController
     }
 
     #[Route('api/managers/updateRights', name: 'update_rights', methods: ['PUT'])]
-    public function updateRights(Request $request, EntityManagerInterface $entityManager, ManagerYearsRepository $managerYearsRepository): Response
+    public function updateRights(Request $request, EntityManagerInterface $entityManager, ManagerYearsRepository $managerYearsRepository, RateLimiterFactoryInterface $managerMutationLimiter): Response
     {
+        $limiter = $managerMutationLimiter->create($request->getClientIp());
+        if (! $limiter->consume(1)->isAccepted()) {
+            return new JsonResponse(['message' => 'Trop de requêtes. Réessayez dans une heure.'], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
         try {
             $dto = UpdateRightsInputDTO::fromRequest($request);
         } catch (\InvalidArgumentException $e) {
