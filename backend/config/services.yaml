@@ -4,6 +4,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # Default uploads directory (dev). Override with UPLOADS_DIR env var in prod.
+    uploads_dir: '%kernel.project_dir%/public/uploads/avatars/'
 
 services:
   # default configuration for services in *this* file
@@ -78,8 +80,8 @@ services:
 
   App\Controller\ProfileAvatarController:
     arguments:
-      $kernelProjectDir: '%kernel.project_dir%'
-      $uploadsBaseUrl:   '%env(UPLOADS_BASE_URL)%'
+      $uploadsBaseUrl: '%env(UPLOADS_BASE_URL)%'
+      $uploadsDir:     '%env(default:uploads_dir:UPLOADS_DIR)%'
 
   App\Services\EmailReset\PasswordResetService:
     arguments:

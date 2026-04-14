@@ -72,6 +72,7 @@ security:
 
   access_control:
     - { path: ^/api/login, roles: PUBLIC_ACCESS }
+    - { path: ^/api/profile/avatar/[a-f0-9]+$, roles: PUBLIC_ACCESS, methods: [GET] }
     - { path: ^/api/admin, roles: ROLE_SUPER_ADMIN }
     - { path: ^/api/hospital-admin/setup, roles: PUBLIC_ACCESS }
     - { path: ^/api/maccs/setup, roles: PUBLIC_ACCESS }

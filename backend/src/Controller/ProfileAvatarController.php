@@ -9,9 +9,11 @@ use App\Entity\Manager;
 use App\Entity\Resident;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -29,8 +31,8 @@ class ProfileAvatarController extends AbstractController
     private const UPLOAD_SUBDIR      = 'uploads/avatars/';
 
     public function __construct(
-        private readonly string $kernelProjectDir,
         private readonly string $uploadsBaseUrl,
+        private readonly string $uploadsDir,
     ) {
     }
 
@@ -69,7 +71,7 @@ class ProfileAvatarController extends AbstractController
             default      => 'jpg',
         };
 
-        $uploadPath = $this->kernelProjectDir . '/public/' . self::UPLOAD_SUBDIR;
+        $uploadPath = rtrim($this->uploadsDir, '/') . '/';
         if (!is_dir($uploadPath)) {
             mkdir($uploadPath, 0755, true);
         }
@@ -99,7 +101,7 @@ class ProfileAvatarController extends AbstractController
             return new JsonResponse(['message' => 'Non autorisé'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $uploadPath = $this->kernelProjectDir . '/public/' . self::UPLOAD_SUBDIR;
+        $uploadPath = rtrim($this->uploadsDir, '/') . '/';
         $this->deleteAvatarFile($user, $uploadPath);
 
         $user->setAvatarPath(null);
@@ -116,8 +118,42 @@ class ProfileAvatarController extends AbstractController
         }
     }
 
+    /**
+     * Serve an avatar image publicly (no auth required).
+     * The URL uses only the hex token — no image extension — to bypass CDN restrictions
+     * on shared hosting (Hostinger hcdn blocks PHP-served .jpg/.png URLs).
+     */
+    #[Route('/avatar/{token}', name: 'profile_avatar_serve', methods: ['GET'], requirements: ['token' => '[a-f0-9]{32}'])]
+    public function serve(string $token): Response
+    {
+        $dir = rtrim($this->uploadsDir, '/') . '/';
+
+        // Find the file — stored as {token}.{ext}
+        $found = null;
+        foreach (['jpg', 'png', 'webp'] as $ext) {
+            $candidate = $dir . $token . '.' . $ext;
+            if (is_file($candidate)) {
+                $found = $candidate;
+                break;
+            }
+        }
+
+        if ($found === null) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+
+        $mime = mime_content_type($found) ?: 'image/jpeg';
+        $response = new BinaryFileResponse($found);
+        $response->headers->set('Content-Type', $mime);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($found));
+        $response->headers->set('Cache-Control', 'public, max-age=31536000, immutable');
+        return $response;
+    }
+
     private function buildAvatarUrl(string $filename): string
     {
-        return rtrim($this->uploadsBaseUrl, '/') . '/' . self::UPLOAD_SUBDIR . $filename;
+        // Strip extension from filename to get the token (e.g. "abc123...def.jpg" → "abc123...def")
+        $token = pathinfo($filename, PATHINFO_FILENAME);
+        return rtrim($this->uploadsBaseUrl, '/') . '/api/profile/avatar/' . $token;
     }
 }
