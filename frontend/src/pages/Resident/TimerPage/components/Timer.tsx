@@ -15,8 +15,10 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
+import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
-import NumberSpinnerField from "../../../../components/small/NumberSpinnerField";
+import InputLabel from "@mui/material/InputLabel";
+import FormControl from "@mui/material/FormControl";
 import CustomSelect from "../../../../components/medium/CustomSelect";
 import CircularProgress from "@mui/material/CircularProgress";
 
@@ -25,6 +27,18 @@ import CustomDateTimeHandler from "../../../../components/medium/CustomDateTimeH
 import CustomSwitch from "../../../../components/small/CustomSwitch";
 import { handleApiError } from "@/services/apiError";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+
+const time = [
+  { value: 0, label: "Pas aujourd'hui" },
+  { value: 15, label: "15 minutes" },
+  { value: 30, label: "30 minutes" },
+  { value: 45, label: "45 minutes" },
+  { value: 60, label: "1 heure" },
+  { value: 75, label: "1 heure 15 minutes" },
+  { value: 90, label: "1 heure 30 minutes" },
+  { value: 105, label: "1 heure 45 minutes" },
+  { value: 120, label: "2 heures" },
+];
 
 const getDefaultDates = () => ({
   dateOfStart: dayjs()
@@ -275,29 +289,41 @@ const Timer = ({
             {!timesheet.called && (
               <>
                 <Grid item xs={12}>
-                  <NumberSpinnerField
-                    label="Pause"
-                    value={timesheet.pause}
-                    step={5}
-                    min={0}
-                    onChange={(_, val) =>
-                      setTimesheet((prev) => ({ ...prev, pause: val ?? 0 }))
-                    }
-                    endAdornment="min"
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel id="pause-label">Pause</InputLabel>
+                    <Select
+                      labelId="pause-label"
+                      name="pause"
+                      value={timesheet.pause}
+                      label="Pause"
+                      onChange={(event) => handleChange(event)}
+                    >
+                      {time.map(({ value, label }) => (
+                        <MenuItem value={value} key={value}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
 
                 <Grid item xs={12}>
-                  <NumberSpinnerField
-                    label="Scientifique"
-                    value={timesheet.scientific}
-                    step={5}
-                    min={0}
-                    onChange={(_, val) =>
-                      setTimesheet((prev) => ({ ...prev, scientific: val ?? 0 }))
-                    }
-                    endAdornment="min"
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel id="scientific-label">Scientifique</InputLabel>
+                    <Select
+                      labelId="scientific-label"
+                      name="scientific"
+                      value={timesheet.scientific}
+                      label="Scientifique"
+                      onChange={(event) => handleChange(event)}
+                    >
+                      {time.map(({ value, label }) => (
+                        <MenuItem value={value} key={value}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
               </>
             )}
