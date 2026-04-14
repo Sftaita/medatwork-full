@@ -143,15 +143,22 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
                 flexDirection={"row"}
                 alignItems={"center"}
                 marginRight={"16px"}
+                sx={{ cursor: "pointer" }}
+                onClick={() => navigate("/profile")}
+                role="button"
+                aria-label="Mon profil"
               >
                 <Stack sx={{ marginRight: "6px" }}>
                   <Avatar
-                    src={authentication && authentication?.gender === "male" ? Man : Woman}
+                    src={
+                      authentication.avatarUrl ??
+                      (authentication.gender === "male" ? Man : Woman)
+                    }
                     sx={{ width: 35, height: 35 }}
                   />
                 </Stack>
                 <Typography color="primary">
-                  {authentication && authentication?.firstname + " " + authentication?.lastname}
+                  {authentication.firstname + " " + authentication.lastname}
                 </Typography>
               </Box>
 

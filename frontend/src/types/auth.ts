@@ -9,6 +9,7 @@ export interface AuthState {
   gender: string;
   hospitalId?: number | null;
   hospitalName?: string | null;
+  avatarUrl?: string | null;
 }
 
 export const AUTH_INITIAL_STATE: AuthState = {
@@ -20,6 +21,7 @@ export const AUTH_INITIAL_STATE: AuthState = {
   gender: "",
   hospitalId: null,
   hospitalName: null,
+  avatarUrl: null,
 };
 
 /** Shape returned by the /token/refresh endpoint */
@@ -31,4 +33,5 @@ export interface RefreshTokenResponse {
   gender: string;
   hospitalId?: number | null;
   hospitalName?: string | null;
+  avatarUrl?: string | null;
 }

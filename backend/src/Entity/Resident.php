@@ -132,6 +132,9 @@ class Resident implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: ResidentWeeklySchedule::class, mappedBy: 'resident', orphanRemoval: true)]
     private Collection $residentWeeklySchedules;
 
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $avatarPath = null;
+
     public function __construct()
     {
         $this->timesheets = new ArrayCollection();
@@ -549,4 +552,7 @@ class Resident implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
+    public function getAvatarPath(): ?string { return $this->avatarPath; }
+    public function setAvatarPath(?string $avatarPath): self { $this->avatarPath = $avatarPath; return $this; }
 }

@@ -76,6 +76,7 @@ const HospitalAdminCommunicationPage = lazy(
 const HospitalAdminAuditLogPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminAuditLogPage")
 );
+const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage"));
 
 // ── Manager pages ─────────────────────────────────────────────────────────────
 const ManagerYears = lazy(() => import("./pages/Management/YearsPage/ManagerYears"));
@@ -485,6 +486,16 @@ function App() {
                       }
                     />
                   </Route>
+
+                  {/* Profile — accessible to all authenticated users */}
+                  <Route
+                    path="/profile"
+                    element={
+                      <Suspense fallback={<PageSkeleton />}>
+                        <ProfilePage />
+                      </Suspense>
+                    }
+                  />
 
                   {/* Resident routes */}
                   <Route element={<ResidentRoute />}>

@@ -19,6 +19,7 @@ class AuthenticationSuccessListener
         private readonly int $tokenTtl,
         private readonly ResidentRepository $residentRepository,
         private readonly ManagerRepository $managerRepository,
+        private readonly string $apiUrl = '',
     ) {
     }
 
@@ -32,6 +33,7 @@ class AuthenticationSuccessListener
             $data['firstname'] = $user->getFirstname();
             $data['lastname'] = $user->getLastname();
             $data['gender'] = $user->getSexe()->value;
+            $data['avatarUrl'] = $this->buildAvatarUrl($user->getAvatarPath());
             if ($user instanceof Manager && $user->getAdminHospital() !== null) {
                 $data['role']         = 'hospital_admin';
                 $data['hospitalId']   = $user->getAdminHospital()->getId();
@@ -44,6 +46,7 @@ class AuthenticationSuccessListener
             $data['lastname'] = $user->getLastname();
             $data['role'] = 'super_admin';
             $data['gender'] = '';
+            $data['avatarUrl'] = null;
         } elseif ($user instanceof HospitalAdmin) {
             $data['firstname'] = $user->getFirstname() ?? '';
             $data['lastname'] = $user->getLastname() ?? '';
@@ -51,6 +54,7 @@ class AuthenticationSuccessListener
             $data['gender'] = '';
             $data['hospitalId'] = $user->getHospital()->getId();
             $data['hospitalName'] = $user->getHospital()->getName();
+            $data['avatarUrl'] = $this->buildAvatarUrl($user->getAvatarPath());
         } else {
             // Fallback — should not happen with the current chain provider
             return;
@@ -72,5 +76,15 @@ class AuthenticationSuccessListener
             Cookie::SAMESITE_STRICT
         ));
         $response->headers->set('Content-Type', 'application/json');
+    }
+
+    private function buildAvatarUrl(?string $avatarPath): ?string
+    {
+        if ($avatarPath === null || $avatarPath === '') {
+            return null;
+        }
+        // Strip /api/ suffix to reach the static files root
+        $base = rtrim(preg_replace('#/api/?$#', '', rtrim($this->apiUrl, '/')), '/');
+        return $base . '/uploads/avatars/' . $avatarPath;
     }
 }

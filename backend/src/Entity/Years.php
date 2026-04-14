@@ -549,6 +549,7 @@ class Years
 
     public function isEditable(): bool
     {
-        return $this->status === YearStatus::Draft || $this->status === YearStatus::Active;
+        // Archived years are read-only; Draft, Active and Closed can still be modified
+        return $this->status !== YearStatus::Archived;
     }
 }

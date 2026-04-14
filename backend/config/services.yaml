@@ -37,7 +37,9 @@ services:
         }
 
   App\Security\AuthenticationSuccessListener:
-    arguments: ["%lexik_jwt_authentication.token_ttl%"]
+    arguments:
+      $tokenTtl: "%lexik_jwt_authentication.token_ttl%"
+      $apiUrl:   '%env(API_URL)%'
     tags:
       - {
           name: kernel.event_listener,
@@ -73,6 +75,10 @@ services:
     arguments:
       $apiUrl: '%env(API_URL)%'
       $frontendUrl: '%env(FRONTEND_URL)%'
+
+  App\Controller\ProfileAvatarController:
+    arguments:
+      $kernelProjectDir: '%kernel.project_dir%'
 
   App\Services\EmailReset\PasswordResetService:
     arguments:

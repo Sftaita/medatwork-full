@@ -32,6 +32,7 @@ import InputLabel from "@mui/material/InputLabel";
 import FormControl from "@mui/material/FormControl";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
+import Autocomplete from "@mui/material/Autocomplete";
 
 import SearchIcon from "@mui/icons-material/Search";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
@@ -140,7 +141,8 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
       state: { id: year.id, title: year.title, adminRights: true, defaultTab },
     });
 
-  const editable = year.status === "draft" || year.status === "active";
+  // Archived years are read-only; draft, active and closed can still be edited
+  const editable = year.status !== "archived";
   const canDelete = (year.residentCount ?? 0) === 0 && (year.managerCount ?? 0) === 0;
 
   return (
@@ -370,10 +372,73 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
   );
 };
 
+// ── Specialities ──────────────────────────────────────────────────────────────
+
+const SPECIALITIES = [
+  "Anesthésiologie",
+  "Cardiologie",
+  "Chirurgie digestive",
+  "Chirurgie générale",
+  "Chirurgie maxillo-faciale",
+  "Chirurgie orthopédique",
+  "Chirurgie plastique",
+  "Chirurgie thoracique",
+  "Chirurgie vasculaire",
+  "Dermatologie",
+  "Endocrinologie",
+  "Gastro-entérologie",
+  "Gériatrie",
+  "Gynécologie et obstétrique",
+  "Hématologie",
+  "Maladies infectieuses",
+  "Médecine interne",
+  "Médecine physique et de réadaptation",
+  "Néphrologie",
+  "Neurochirurgie",
+  "Neurologie",
+  "Oncologie",
+  "Ophtalmologie",
+  "Oto-rhino-laryngologie",
+  "Pédiatrie",
+  "Pédopsychiatrie",
+  "Pneumologie",
+  "Psychiatrie",
+  "Radiologie",
+  "Rhumatologie",
+  "Soins intensifs",
+  "Soins palliatifs",
+  "Urgences",
+  "Urologie",
+];
+
+// ── Period options ────────────────────────────────────────────────────────────
+
+function getCurrentAcademicYear(): string {
+  const now = new Date();
+  const baseYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${baseYear}-${baseYear + 1}`;
+}
+
+function buildPeriodOptions(extraPeriod?: string): string[] {
+  const now = new Date();
+  // Academic year starts in the second half of the calendar year (≥ July)
+  const baseYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  const options: string[] = [];
+  for (let i = -1; i <= 3; i++) {
+    const y = baseYear + i;
+    options.push(`${y}-${y + 1}`);
+  }
+  // If an existing period is not in the generated range, prepend it
+  if (extraPeriod && !options.includes(extraPeriod)) {
+    options.unshift(extraPeriod);
+  }
+  return options;
+}
+
 // ── Year form dialog ──────────────────────────────────────────────────────────
 
 const EMPTY_FORM: YearInput = {
-  title: "", location: "", period: "",
+  title: "", location: "", period: getCurrentAcademicYear(),
   dateOfStart: "", dateOfEnd: "",
   speciality: "", comment: "", status: "active",
 };
@@ -402,8 +467,18 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave }: YearFormD
       : EMPTY_FORM
   );
 
-  const set = (field: keyof YearInput) => (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) =>
-    setForm((prev) => ({ ...prev, [field]: (e.target as HTMLInputElement).value }));
+  const periodOptions = buildPeriodOptions(initial?.period);
+  // If editing a year with a speciality not in the standard list, include it
+  const specialityOptions = useMemo(() => {
+    const extra = initial?.speciality;
+    if (extra && !SPECIALITIES.includes(extra)) {
+      return [extra, ...SPECIALITIES];
+    }
+    return SPECIALITIES;
+  }, [initial?.speciality]);
+
+  const set = (field: keyof YearInput) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleClose = () => {
     setForm(EMPTY_FORM);
@@ -425,59 +500,118 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave }: YearFormD
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{initial ? "Modifier l'année" : "Nouvelle année"}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
-          <TextField label="Titre *" value={form.title} onChange={set("title")} fullWidth size="small" />
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField label="Lieu *" value={form.location} onChange={set("location")} fullWidth size="small" />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField label="Période (ex: 2025-2026)" value={form.period} onChange={set("period")} fullWidth size="small" />
-            </Grid>
+      <DialogContent dividers>
+        <Grid container spacing={2}>
+
+          {/* Titre — pleine largeur */}
+          <Grid item xs={12}>
+            <TextField
+              label="Titre *"
+              value={form.title}
+              onChange={set("title")}
+              fullWidth
+              size="small"
+            />
           </Grid>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Date de début *"
-                type="date"
-                value={form.dateOfStart}
-                onChange={set("dateOfStart")}
-                fullWidth
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Date de fin *"
-                type="date"
-                value={form.dateOfEnd}
-                onChange={set("dateOfEnd")}
-                fullWidth
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
+
+          {/* Lieu + Période */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Lieu *"
+              value={form.location}
+              onChange={set("location")}
+              fullWidth
+              size="small"
+            />
           </Grid>
-          <TextField label="Spécialité" value={form.speciality ?? ""} onChange={set("speciality")} fullWidth size="small" />
-          <TextField label="Commentaire" value={form.comment ?? ""} onChange={set("comment")} fullWidth size="small" multiline rows={2} />
-          {initial && (
+          <Grid item xs={12} sm={6}>
             <FormControl size="small" fullWidth>
-              <InputLabel>Statut</InputLabel>
+              <InputLabel>Période *</InputLabel>
               <Select
-                value={form.status ?? "active"}
-                label="Statut"
-                onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as YearStatus }))}
+                value={form.period}
+                label="Période *"
+                onChange={(e) => setForm((prev) => ({ ...prev, period: e.target.value }))}
               >
-                <MenuItem value="draft">Brouillon</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="closed">Fermée</MenuItem>
-                <MenuItem value="archived">Archivée</MenuItem>
+                {periodOptions.map((p) => (
+                  <MenuItem key={p} value={p}>{p}</MenuItem>
+                ))}
               </Select>
             </FormControl>
+          </Grid>
+
+          {/* Dates */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Date de début *"
+              type="date"
+              value={form.dateOfStart}
+              onChange={set("dateOfStart")}
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Date de fin *"
+              type="date"
+              value={form.dateOfEnd}
+              onChange={set("dateOfEnd")}
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          {/* Spécialité */}
+          <Grid item xs={12}>
+            <Autocomplete
+              options={specialityOptions}
+              value={form.speciality || null}
+              onChange={(_, newValue) =>
+                setForm((prev) => ({ ...prev, speciality: newValue ?? "" }))
+              }
+              renderInput={(params) => (
+                <TextField {...params} label="Spécialité" size="small" />
+              )}
+              fullWidth
+              noOptionsText="Aucune spécialité correspondante"
+            />
+          </Grid>
+
+          {/* Commentaire */}
+          <Grid item xs={12}>
+            <TextField
+              label="Commentaire"
+              value={form.comment ?? ""}
+              onChange={set("comment")}
+              fullWidth
+              size="small"
+              multiline
+              rows={2}
+            />
+          </Grid>
+
+          {/* Statut — édition uniquement */}
+          {initial && (
+            <Grid item xs={12}>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Statut</InputLabel>
+                <Select
+                  value={form.status ?? "active"}
+                  label="Statut"
+                  onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as YearStatus }))}
+                >
+                  <MenuItem value="draft">Brouillon</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="closed">Fermée</MenuItem>
+                  <MenuItem value="archived">Archivée</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
           )}
-        </Stack>
+
+        </Grid>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isPending}>Annuler</Button>

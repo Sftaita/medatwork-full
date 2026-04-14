@@ -1232,11 +1232,24 @@ class HospitalAdminController extends AbstractController
         if (isset($data['title']))       { $year->setTitle(trim($data['title'])); }
         if (isset($data['location']))    { $year->setLocation(trim($data['location'])); }
         if (isset($data['period']))      { $year->setPeriod(trim($data['period'])); }
-        if (isset($data['speciality']))  { $year->setSpeciality(trim($data['speciality'])); }
-        if (isset($data['comment']))     { $year->setComment(trim($data['comment'])); }
+        // Empty string → null for nullable fields
+        if (array_key_exists('speciality', $data)) {
+            $s = is_string($data['speciality']) ? trim($data['speciality']) : '';
+            $year->setSpeciality($s !== '' ? $s : null);
+        }
+        if (array_key_exists('comment', $data)) {
+            $c = is_string($data['comment']) ? trim($data['comment']) : '';
+            $year->setComment($c !== '' ? $c : null);
+        }
         if (isset($data['dateOfStart'])) { $year->setDateOfStart(new \DateTime($data['dateOfStart'])); }
         if (isset($data['dateOfEnd']))   { $year->setDateOfEnd(new \DateTime($data['dateOfEnd'])); }
-        if (isset($data['status']))      { $year->setStatus(YearStatus::from($data['status'])); }
+        if (isset($data['status'])) {
+            try {
+                $year->setStatus(YearStatus::from($data['status']));
+            } catch (\ValueError) {
+                return new JsonResponse(['message' => 'Statut invalide (draft|active|closed|archived)'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
 
         $actor = $this->getUser();
         if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {

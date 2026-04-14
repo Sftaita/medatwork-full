@@ -1,9 +1,9 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-14 (session 14)
+**Dernière mise à jour :** 2026-04-14 (session 15)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 18
-**Statut :** Professionnalisation en cours — UX/Fonctionnel communication complété + tests + édition messages + pagination notifications
+**Statut :** Professionnalisation en cours — Système photos de profil + audit/fix CRUD années + footer + spécialité Autocomplete
 
 ---
 
@@ -265,6 +265,52 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-14 (session 15) — Système photo de profil + audit CRUD années + corrections UX
+
+**Audit CRUD années (`HospitalAdminController` + `Years`) :**
+- `isEditable()` : corrigé `return $this->status !== YearStatus::Archived` (était `Draft || Active` seulement → `closed` bloquait les mises à jour)
+- PATCH `updateYear` : `isset()` → `array_key_exists()` pour `speciality` et `comment` (impossible de passer `null` via `isset` — champ nullable)
+- PATCH `updateYear` : `YearStatus::from()` sans try-catch → `ValueError` non traitée → ajout try-catch → 422 avec message lisible si statut invalide
+
+**UX — Spécialité Autocomplete (`HospitalAdminDashboardPage.tsx`) :**
+- Champ `speciality` : `TextField` libre → `Autocomplete` MUI avec 34 spécialités médicales prédéfinies (`SPECIALITIES` array)
+- `noOptionsText="Aucune spécialité correspondante"` pour UX recherche
+- Si la valeur existante ne figure pas dans la liste (migration données), elle est ajoutée dynamiquement (`useMemo specialityOptions`)
+
+**UX — Période pré-sélectionnée (`HospitalAdminDashboardPage.tsx`) :**
+- `getCurrentAcademicYear()` : `baseYear = month >= 6 ? year : year-1` → retourne `"2025-2026"` automatiquement
+- `EMPTY_FORM.period` initialisé avec l'année académique courante
+- En mode édition : le formulaire est peuplé avec les valeurs existantes (incluant `period`)
+
+**Footer — version (`Footer.tsx`) :**
+- `beta 2.4.6` → `version 3.0`
+
+**Système photo de profil :**
+
+*Backend :*
+- `HospitalAdmin`, `Manager`, `Resident` : champ `avatarPath VARCHAR(255) NULL` ajouté (getters/setters)
+- Migration `Version20260414100000` : `ALTER TABLE ... ADD avatar_path VARCHAR(255) DEFAULT NULL` sur les 3 tables
+- `ProfileAvatarController` (nouveau) :
+  - `POST /api/profile/avatar` : validation MIME (JPEG/PNG/WebP via finfo), taille ≤ 2 Mo, sauvegarde dans `public/uploads/avatars/`, suppression ancien fichier, réponse `{avatarUrl}`
+  - `DELETE /api/profile/avatar` : supprime le fichier, `avatarPath` → `null`, 204
+  - Nom de fichier sécurisé : `bin2hex(random_bytes(16)) . '.' . $ext`
+- `AuthenticationSuccessListener` : enrichi avec `avatarUrl` dans le payload JWT pour tous les rôles (`buildAvatarUrl()` déduit l'URL statique depuis `API_URL`)
+- `config/services.yaml` : `ProfileAvatarController` avec `$kernelProjectDir: '%kernel.project_dir%'` ; `AuthenticationSuccessListener` avec `$apiUrl: '%env(API_URL)%'`
+
+*Frontend :*
+- `src/types/auth.ts` : `avatarUrl?: string | null` ajouté à `AuthState` et `RefreshTokenResponse`
+- `src/store/authStore.ts` : `avatarUrl: null` dans l'état initial
+- `src/hooks/useRefreshToken.ts` : `avatarUrl` propagé depuis la réponse de refresh
+- `src/pages/Profile/ProfilePage.tsx` (nouveau) : affiche avatar (URL réelle ou fallback genre), overlay caméra, preview + confirm/cancel, upload via `POST profile/avatar` (multipart), suppression via `DELETE profile/avatar`
+- `src/App.tsx` : route `/profile` accessible à tous les rôles authentifiés
+- `Topbar.tsx` : avatar dynamique (`avatarUrl` ou fallback genre), clic → `/profile`
+
+**Tests :**
+- `frontend/src/pages/Profile/ProfilePage.test.tsx` (nouveau, 15 tests) : rendu, fallback genre, MIME/taille rejetés, preview (confirm/cancel), upload (POST appelé, `setAuthentication` updater), toast erreur, bouton delete visible/absent, DELETE appelé, `avatarUrl: null` après suppression
+- `backend/tests/Unit/Controller/ProfileAvatarControllerTest.php` (nouveau, 12 tests) : 401 unauthenticated, 400 no file, 422 MIME/taille, 200 pour Manager/Resident/HospitalAdmin, `setAvatarPath` appelé avec pattern hex.ext, ancien fichier supprimé au ré-upload, 204 delete
+
+---
 
 ### 2026-04-14 (session 14) — UX Communication + Tests + Édition messages + Pagination notifications
 

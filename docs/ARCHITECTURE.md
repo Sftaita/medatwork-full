@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-14 (session 14)
+**Dernière mise à jour :** 2026-04-14 (session 15)
 
 ## Vue d'Ensemble
 
@@ -142,6 +142,7 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `HospitalController` | `GET /api/hospitals` — liste publique des hôpitaux actifs |
 | `HospitalRequestController` | `POST/GET /api/hospital-requests` — demandes d'ajout d'hôpital (managers) |
 | `AdminController` | `GET\|POST /api/admin/*` — gestion hôpitaux, demandes, invitation admins (ROLE_SUPER_ADMIN) |
+| `ProfileAvatarController` | `POST /api/profile/avatar` — upload avatar (JPEG/PNG/WebP ≤ 2 Mo) ; `DELETE /api/profile/avatar` — suppression avatar ; accessible à tous les rôles authentifiés |
 | `CommunicationAPI/UserCommunicationController` | `GET\|PATCH /api/communications/*` — notifications & modals pour tout utilisateur authentifié |
 | `CommunicationAPI/AdminCommunicationController` | `GET\|POST\|PATCH /api/admin/communications/*` — gestion globale des messages (ROLE_SUPER_ADMIN) |
 | `CommunicationAPI/HospitalAdminCommunicationController` | `GET\|POST\|PUT\|DELETE\|PATCH /api/hospital-admin/communications/*` — gestion messages scoped à l'hôpital (ROLE_HOSPITAL_ADMIN) |
@@ -254,6 +255,7 @@ frontend/
     │   ├── HomePage/
     │   ├── Management/
     │   ├── Resident/
+    │   ├── Profile/            # Photo de profil (upload/delete avatar)
     │   ├── SignupPage/
     │   ├── PasswordReset/
     │   └── ErrorPage/
