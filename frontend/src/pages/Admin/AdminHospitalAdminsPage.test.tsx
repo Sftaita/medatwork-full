@@ -3,11 +3,13 @@
  *
  * Covers:
  * - Shows loading spinner while fetching
- * - Renders hospital admins in a table (email, hospital, status)
+ * - Renders hospital admins in a table (email, hospital, status, type)
  * - Search filters by name, email, hospital
  * - Shows "Aucun admin" alert when list is empty
  * - Shows "Aucun résultat" when search yields nothing
- * - Actions menu: reinvite (for invited status), delete
+ * - Actions menu: invited type → "Renvoyer l'invitation" + "Supprimer le compte"
+ * - Actions menu: promoted type → no reinvite, "Révoquer"
+ * - Actions menu: active invited → no reinvite option
  * - Delete confirmation dialog calls deleteHospitalAdmin
  * - Reinvite calls reinviteHospitalAdmin
  */
@@ -31,6 +33,7 @@ const MOCK_ADMINS = [
     status: "active",
     hospital: { id: 10, name: "CHU Liège" },
     createdAt: "2026-01-15T10:00:00+00:00",
+    type: "promoted" as const,
   },
   {
     id: 2,
@@ -40,6 +43,7 @@ const MOCK_ADMINS = [
     status: "invited",
     hospital: { id: 11, name: "CHR Namur" },
     createdAt: "2026-03-01T09:00:00+00:00",
+    type: "invited" as const,
   },
 ];
 
@@ -78,6 +82,12 @@ describe("AdminHospitalAdminsPage", () => {
     expect(screen.getByText("Claire Renard")).toBeInTheDocument();
   });
 
+  it("renders type column with correct labels", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Promu")).toBeInTheDocument());
+    expect(screen.getByText("Invitation")).toBeInTheDocument();
+  });
+
   it("shows correct status chips", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Actif")).toBeInTheDocument());
@@ -113,27 +123,7 @@ describe("AdminHospitalAdminsPage", () => {
     );
   });
 
-  it("opens delete dialog", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("admin@chu.be")).toBeInTheDocument());
-    const buttons = screen.getAllByTestId("MoreVertIcon");
-    fireEvent.click(buttons[0].closest("button")!);
-    fireEvent.click(await screen.findByText("Supprimer le compte"));
-    await waitFor(() =>
-      expect(screen.getByText(/Cette action est irréversible/)).toBeInTheDocument()
-    );
-  });
-
-  it("calls deleteHospitalAdmin on confirm", async () => {
-    vi.mocked(adminApi.deleteHospitalAdmin).mockResolvedValue(undefined);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("admin@chu.be")).toBeInTheDocument());
-    const buttons = screen.getAllByTestId("MoreVertIcon");
-    fireEvent.click(buttons[0].closest("button")!);
-    fireEvent.click(await screen.findByText("Supprimer le compte"));
-    fireEvent.click(await screen.findByRole("button", { name: "Supprimer" }));
-    await waitFor(() => expect(adminApi.deleteHospitalAdmin).toHaveBeenCalledWith(1));
-  });
+  // ── Actions menu — invited type ────────────────────────────────────────────
 
   it("shows 'Renvoyer l'invitation' for invited admins", async () => {
     renderPage();
@@ -145,14 +135,67 @@ describe("AdminHospitalAdminsPage", () => {
     );
   });
 
-  it("does not show 'Renvoyer l'invitation' for active admins", async () => {
+  it("shows 'Supprimer le compte' for invited admins", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("invite@chr.be")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(buttons[1].closest("button")!);
+    await waitFor(() =>
+      expect(screen.getByText("Supprimer le compte")).toBeInTheDocument()
+    );
+  });
+
+  // ── Actions menu — promoted type ──────────────────────────────────────────
+
+  it("shows 'Révoquer' instead of 'Supprimer le compte' for promoted admins", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("admin@chu.be")).toBeInTheDocument());
     const buttons = screen.getAllByTestId("MoreVertIcon");
     fireEvent.click(buttons[0].closest("button")!);
-    await waitFor(() =>
-      expect(screen.getByText("Supprimer le compte")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText("Révoquer")).toBeInTheDocument());
+    expect(screen.queryByText("Supprimer le compte")).not.toBeInTheDocument();
+  });
+
+  it("does not show 'Renvoyer l'invitation' for promoted admins", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("admin@chu.be")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(buttons[0].closest("button")!);
+    await waitFor(() => expect(screen.getByText("Révoquer")).toBeInTheDocument());
     expect(screen.queryByText("Renvoyer l'invitation")).not.toBeInTheDocument();
+  });
+
+  // ── Delete / reinvite mutations ────────────────────────────────────────────
+
+  it("opens delete dialog on Révoquer click", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("admin@chu.be")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(buttons[0].closest("button")!);
+    fireEvent.click(await screen.findByText("Révoquer"));
+    await waitFor(() =>
+      expect(screen.getByText(/Cette action est irréversible/)).toBeInTheDocument()
+    );
+  });
+
+  it("calls deleteHospitalAdmin on confirm", async () => {
+    vi.mocked(adminApi.deleteHospitalAdmin).mockResolvedValue(undefined);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("invite@chr.be")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(buttons[1].closest("button")!);
+    fireEvent.click(await screen.findByText("Supprimer le compte"));
+    fireEvent.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await waitFor(() => expect(adminApi.deleteHospitalAdmin).toHaveBeenCalledWith(2));
+  });
+
+  it("calls reinviteHospitalAdmin for invited admins", async () => {
+    vi.mocked(adminApi.reinviteHospitalAdmin).mockResolvedValue(undefined);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("invite@chr.be")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(buttons[1].closest("button")!);
+    fireEvent.click(await screen.findByText("Renvoyer l'invitation"));
+    await waitFor(() => expect(adminApi.reinviteHospitalAdmin).toHaveBeenCalledWith(2));
   });
 });

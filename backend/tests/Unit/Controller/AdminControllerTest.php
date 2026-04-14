@@ -10,6 +10,7 @@ use App\Entity\Hospital;
 use App\Entity\HospitalAdmin;
 use App\Entity\HospitalRequest;
 use App\Entity\Manager;
+use App\Enum\HospitalAdminStatus;
 use App\Enum\HospitalRequestStatus;
 use App\Repository\HospitalAdminRepository;
 use App\Repository\HospitalRepository;
@@ -467,6 +468,104 @@ final class AdminControllerTest extends TestCase
 
         // Email failure must not block the invite
         $this->assertSame(201, $response->getStatusCode());
+    }
+
+    // ── List hospital admins ──────────────────────────────────────────────────
+
+    public function testListHospitalAdminsIncludesInvitedWithTypeField(): void
+    {
+        $hospital = $this->makeHospital(10, 'CHU Liège');
+
+        $invited = $this->createMock(HospitalAdmin::class);
+        $invited->method('getId')->willReturn(1);
+        $invited->method('getEmail')->willReturn('invite@chu.be');
+        $invited->method('getFirstname')->willReturn(null);
+        $invited->method('getLastname')->willReturn(null);
+        $invited->method('getStatus')->willReturn(HospitalAdminStatus::Invited);
+        $invited->method('getHospital')->willReturn($hospital);
+        $invited->method('getCreatedAt')->willReturn(new \DateTime('2026-01-01'));
+
+        $adminRepo   = $this->createMock(HospitalAdminRepository::class);
+        $adminRepo->method('findAll')->willReturn([$invited]);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findPromotedAdmins')->willReturn([]);
+
+        $response = $this->buildController()->listHospitalAdmins($adminRepo, $managerRepo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(1, $data);
+        $this->assertSame('invited', $data[0]['type']);
+        $this->assertSame('invite@chu.be', $data[0]['email']);
+        $this->assertSame(10, $data[0]['hospital']['id']);
+    }
+
+    public function testListHospitalAdminsIncludesPromotedManagersWithTypeField(): void
+    {
+        $hospital = $this->makeHospital(10, 'CHU Liège');
+
+        $promoted = $this->createMock(Manager::class);
+        $promoted->method('getId')->willReturn(5);
+        $promoted->method('getEmail')->willReturn('promoted@chu.be');
+        $promoted->method('getFirstname')->willReturn('Marie');
+        $promoted->method('getLastname')->willReturn('Dumont');
+        $promoted->method('getAdminHospital')->willReturn($hospital);
+        $promoted->method('getCreatedAt')->willReturn(new \DateTime('2025-06-01'));
+
+        $adminRepo   = $this->createMock(HospitalAdminRepository::class);
+        $adminRepo->method('findAll')->willReturn([]);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findPromotedAdmins')->willReturn([$promoted]);
+
+        $response = $this->buildController()->listHospitalAdmins($adminRepo, $managerRepo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(1, $data);
+        $this->assertSame('promoted', $data[0]['type']);
+        $this->assertSame('active', $data[0]['status']);
+        $this->assertSame('promoted@chu.be', $data[0]['email']);
+        $this->assertSame(10, $data[0]['hospital']['id']);
+    }
+
+    public function testListHospitalAdminsMergesBothSources(): void
+    {
+        $hospital = $this->makeHospital(10, 'CHU Liège');
+
+        $invited = $this->createMock(HospitalAdmin::class);
+        $invited->method('getId')->willReturn(1);
+        $invited->method('getEmail')->willReturn('invite@chu.be');
+        $invited->method('getFirstname')->willReturn(null);
+        $invited->method('getLastname')->willReturn(null);
+        $invited->method('getStatus')->willReturn(HospitalAdminStatus::Active);
+        $invited->method('getHospital')->willReturn($hospital);
+        $invited->method('getCreatedAt')->willReturn(new \DateTime('2026-01-01'));
+
+        $promoted = $this->createMock(Manager::class);
+        $promoted->method('getId')->willReturn(5);
+        $promoted->method('getEmail')->willReturn('promoted@chu.be');
+        $promoted->method('getFirstname')->willReturn('Marie');
+        $promoted->method('getLastname')->willReturn('Dumont');
+        $promoted->method('getAdminHospital')->willReturn($hospital);
+        $promoted->method('getCreatedAt')->willReturn(new \DateTime('2025-06-01'));
+
+        $adminRepo   = $this->createMock(HospitalAdminRepository::class);
+        $adminRepo->method('findAll')->willReturn([$invited]);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findPromotedAdmins')->willReturn([$promoted]);
+
+        $response = $this->buildController()->listHospitalAdmins($adminRepo, $managerRepo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(2, $data);
+
+        $types = array_column($data, 'type');
+        $this->assertContains('invited', $types);
+        $this->assertContains('promoted', $types);
     }
 
     // ── Users list ────────────────────────────────────────────────────────────
