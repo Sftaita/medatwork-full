@@ -79,6 +79,7 @@ services:
   App\Controller\ProfileAvatarController:
     arguments:
       $kernelProjectDir: '%kernel.project_dir%'
+      $uploadsBaseUrl:   '%env(UPLOADS_BASE_URL)%'
 
   App\Services\EmailReset\PasswordResetService:
     arguments:

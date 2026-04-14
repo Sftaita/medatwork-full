@@ -30,6 +30,7 @@ class ProfileAvatarController extends AbstractController
 
     public function __construct(
         private readonly string $kernelProjectDir,
+        private readonly string $uploadsBaseUrl,
     ) {
     }
 
@@ -83,7 +84,7 @@ class ProfileAvatarController extends AbstractController
         $em->flush();
 
         return new JsonResponse([
-            'avatarUrl' => $this->buildAvatarUrl($request, $filename),
+            'avatarUrl' => $this->buildAvatarUrl($filename),
         ]);
     }
 
@@ -115,8 +116,8 @@ class ProfileAvatarController extends AbstractController
         }
     }
 
-    private function buildAvatarUrl(Request $request, string $filename): string
+    private function buildAvatarUrl(string $filename): string
     {
-        return $request->getSchemeAndHttpHost() . '/' . self::UPLOAD_SUBDIR . $filename;
+        return rtrim($this->uploadsBaseUrl, '/') . '/' . self::UPLOAD_SUBDIR . $filename;
     }
 }
