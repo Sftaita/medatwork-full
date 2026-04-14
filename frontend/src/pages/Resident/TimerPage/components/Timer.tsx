@@ -15,10 +15,9 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
-import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
-import InputLabel from "@mui/material/InputLabel";
-import FormControl from "@mui/material/FormControl";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
 import CustomSelect from "../../../../components/medium/CustomSelect";
 import CircularProgress from "@mui/material/CircularProgress";
 
@@ -43,17 +42,6 @@ const getDefaultDates = () => ({
     .toDate(),
 });
 
-const time = [
-  { value: 0, label: "Pas aujourd'hui" },
-  { value: 15, label: "15 minutes" },
-  { value: 30, label: "30 minutes" },
-  { value: 45, label: "45 minutes" },
-  { value: 60, label: "1 heure" },
-  { value: 75, label: "1 heure 15 minutes" },
-  { value: 90, label: "1 heure 30 minutes" },
-  { value: 105, label: "1 heure 45 minutes" },
-  { value: 120, label: "2 heures" },
-];
 
 const EMPTY_ERRORS = { year: "", dateOfStart: "", dateOfEnd: "", pause: "", scientific: "" };
 
@@ -288,41 +276,47 @@ const Timer = ({
             {!timesheet.called && (
               <>
                 <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel id="pause-label">Pause</InputLabel>
-                    <Select
-                      labelId="pause-label"
-                      name="pause"
-                      value={timesheet.pause}
-                      label="Pause"
-                      onChange={(event) => handleChange(event)}
-                    >
-                      {time.map(({ value, label }) => (
-                        <MenuItem value={value} key={value}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Pause"
+                    name="pause"
+                    type="number"
+                    value={timesheet.pause}
+                    onChange={(event) =>
+                      setTimesheet((prev) => ({
+                        ...prev,
+                        pause: Math.max(0, Number(event.target.value)),
+                      }))
+                    }
+                    inputProps={{ min: 0, step: 5 }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">min</InputAdornment>
+                      ),
+                    }}
+                  />
                 </Grid>
 
                 <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel id="scientific-label">Scientifique</InputLabel>
-                    <Select
-                      labelId="scientific-label"
-                      name="scientific"
-                      value={timesheet.scientific}
-                      label="Scientifique"
-                      onChange={(event) => handleChange(event)}
-                    >
-                      {time.map(({ value, label }) => (
-                        <MenuItem value={value} key={value}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Scientifique"
+                    name="scientific"
+                    type="number"
+                    value={timesheet.scientific}
+                    onChange={(event) =>
+                      setTimesheet((prev) => ({
+                        ...prev,
+                        scientific: Math.max(0, Number(event.target.value)),
+                      }))
+                    }
+                    inputProps={{ min: 0, step: 5 }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">min</InputAdornment>
+                      ),
+                    }}
+                  />
                 </Grid>
               </>
             )}
