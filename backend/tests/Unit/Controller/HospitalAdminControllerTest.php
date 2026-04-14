@@ -11,6 +11,7 @@ use App\Entity\HospitalAdmin;
 use App\Enum\HospitalAdminStatus;
 use App\Repository\HospitalAdminRepository;
 use App\Services\EmailReset\PasswordResetServiceInterface;
+use App\Services\HospitalAdminAuditService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
@@ -49,7 +50,8 @@ final class HospitalAdminControllerTest extends TestCase
     {
         $mailer       = $this->createMock(MailerController::class);
         $resetService = $this->createMock(PasswordResetServiceInterface::class);
-        $controller   = new HospitalAdminController($mailer, $resetService, 'http://localhost:3000', 'http://localhost:8000');
+        $auditService = $this->createMock(HospitalAdminAuditService::class);
+        $controller   = new HospitalAdminController($mailer, $resetService, 'http://localhost:3000', 'http://localhost:8000', $auditService);
         $controller->setContainer(new Container());
         return $controller;
     }

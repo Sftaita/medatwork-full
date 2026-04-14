@@ -14,7 +14,9 @@ use App\Entity\YearsResident;
 use App\Repository\ResidentRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsResidentRepository;
+use App\Enum\YearStatus;
 use App\Services\EmailReset\PasswordResetServiceInterface;
+use App\Services\HospitalAdminAuditService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
@@ -57,7 +59,8 @@ final class HospitalAdminMaccsTest extends TestCase
 
     private function buildController(?Manager $user = null): HospitalAdminController
     {
-        $controller = new HospitalAdminController($this->mailer, $this->resetService, 'http://localhost:3000', 'http://localhost:8000');
+        $auditService = $this->createMock(HospitalAdminAuditService::class);
+        $controller = new HospitalAdminController($this->mailer, $this->resetService, 'http://localhost:3000', 'http://localhost:8000', $auditService);
 
         // Wire a container with a token storage that returns the given user
         $container = new Container();
@@ -111,6 +114,7 @@ final class HospitalAdminMaccsTest extends TestCase
         $y->method('getTitle')->willReturn('2025-2026');
         $y->method('getDateOfEnd')->willReturn(new \DateTime('+1 year'));
         $y->method('getHospital')->willReturn($hospital ?? $this->makeHospital());
+        $y->method('getStatus')->willReturn(YearStatus::Active);
         return $y;
     }
 
