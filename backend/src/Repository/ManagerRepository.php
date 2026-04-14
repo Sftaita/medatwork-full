@@ -36,6 +36,16 @@ class ManagerRepository extends ServiceEntityRepository implements PasswordUpgra
         $this->_em->flush();
     }
 
+    /** @return Manager[] Managers who have been promoted to hospital admin */
+    public function findPromotedAdmins(): array
+    {
+        return $this->createQueryBuilder('m')
+            ->where('m.adminHospital IS NOT NULL')
+            ->orderBy('m.lastname', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return Manager[] */
     public function findByHospital(Hospital $hospital): array
     {

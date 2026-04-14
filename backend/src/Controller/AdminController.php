@@ -746,9 +746,11 @@ class AdminController extends AbstractController
     // ── Hospital Admins ────────────────────────────────────────────────────────
 
     #[Route('/hospital-admins', name: 'admin_hospital_admins_list', methods: ['GET'])]
-    public function listHospitalAdmins(HospitalAdminRepository $repo): JsonResponse
+    public function listHospitalAdmins(HospitalAdminRepository $repo, ManagerRepository $managerRepository): JsonResponse
     {
         $result = [];
+
+        // External invites (HospitalAdmin entity)
         foreach ($repo->findAll() as $a) {
             $result[] = [
                 'id'        => $a->getId(),
@@ -758,6 +760,21 @@ class AdminController extends AbstractController
                 'status'    => $a->getStatus()->value,
                 'hospital'  => ['id' => $a->getHospital()->getId(), 'name' => $a->getHospital()->getName()],
                 'createdAt' => $a->getCreatedAt()->format(\DateTimeInterface::ATOM),
+                'type'      => 'invited',
+            ];
+        }
+
+        // Promoted managers (Manager with adminHospital set)
+        foreach ($managerRepository->findPromotedAdmins() as $m) {
+            $result[] = [
+                'id'        => $m->getId(),
+                'email'     => $m->getEmail(),
+                'firstname' => $m->getFirstname(),
+                'lastname'  => $m->getLastname(),
+                'status'    => 'active',
+                'hospital'  => ['id' => $m->getAdminHospital()->getId(), 'name' => $m->getAdminHospital()->getName()],
+                'createdAt' => $m->getCreatedAt()?->format(\DateTimeInterface::ATOM) ?? '',
+                'type'      => 'promoted',
             ];
         }
 

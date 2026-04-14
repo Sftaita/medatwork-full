@@ -43,6 +43,11 @@ const STATUS_COLOR: Record<string, ChipColor> = {
   invited: "info",
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  invited: "Invitation",
+  promoted: "Promu",
+};
+
 // ── Actions menu ──────────────────────────────────────────────────────────────
 
 interface ActionsMenuProps {
@@ -61,14 +66,14 @@ const ActionsMenu = ({ admin, onReinvite, onDelete, isPending }: ActionsMenuProp
         <MoreVertIcon fontSize="small" />
       </IconButton>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
-        {admin.status === "invited" && (
+        {admin.type === "invited" && admin.status === "invited" && (
           <MenuItem onClick={() => { setAnchor(null); onReinvite(); }}>
             Renvoyer l'invitation
           </MenuItem>
         )}
         <Divider />
         <MenuItem onClick={() => { setAnchor(null); onDelete(); }} sx={{ color: "error.main" }}>
-          Supprimer le compte
+          {admin.type === "promoted" ? "Révoquer" : "Supprimer le compte"}
         </MenuItem>
       </Menu>
     </>
@@ -167,6 +172,7 @@ const AdminHospitalAdminsPage = () => {
                     <TableCell><strong>Nom</strong></TableCell>
                     <TableCell><strong>Email</strong></TableCell>
                     <TableCell><strong>Hôpital</strong></TableCell>
+                    <TableCell><strong>Type</strong></TableCell>
                     <TableCell><strong>Statut</strong></TableCell>
                     <TableCell><strong>Créé le</strong></TableCell>
                     <TableCell align="right"><strong>Actions</strong></TableCell>
@@ -182,6 +188,13 @@ const AdminHospitalAdminsPage = () => {
                       </TableCell>
                       <TableCell>{admin.email}</TableCell>
                       <TableCell>{admin.hospital.name}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={TYPE_LABEL[admin.type] ?? admin.type}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={STATUS_LABEL[admin.status] ?? admin.status}

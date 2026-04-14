@@ -63,6 +63,7 @@ export interface AdminHospitalAdmin {
   status: string;
   hospital: { id: number; name: string };
   createdAt: string;
+  type: "invited" | "promoted";
 }
 
 export interface HospitalRequest {
