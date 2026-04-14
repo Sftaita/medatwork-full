@@ -38,10 +38,13 @@ final class ProfileAvatarControllerTest extends TestCase
     private string $tmpDir;
     private EntityManagerInterface $em;
 
+    private string $uploadsDir;
+
     protected function setUp(): void
     {
-        $this->tmpDir = sys_get_temp_dir() . '/avatar_test_' . uniqid();
-        mkdir($this->tmpDir . '/public/uploads/avatars/', 0755, true);
+        $this->tmpDir     = sys_get_temp_dir() . '/avatar_test_' . uniqid();
+        $this->uploadsDir = $this->tmpDir . '/avatars/';
+        mkdir($this->uploadsDir, 0755, true);
 
         $this->em = $this->createMock(EntityManagerInterface::class);
     }
@@ -56,7 +59,7 @@ final class ProfileAvatarControllerTest extends TestCase
 
     private function buildController(mixed $user = null): ProfileAvatarController
     {
-        $controller = new ProfileAvatarController($this->tmpDir);
+        $controller = new ProfileAvatarController('http://localhost:8000', $this->uploadsDir);
         $container  = new Container();
 
         $tokenStorage = new TokenStorage();
@@ -178,7 +181,7 @@ final class ProfileAvatarControllerTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
         $data = json_decode((string) $response->getContent(), true);
         $this->assertArrayHasKey('avatarUrl', $data);
-        $this->assertStringContainsString('/uploads/avatars/', $data['avatarUrl']);
+        $this->assertStringContainsString('/api/profile/avatar/', $data['avatarUrl']);
     }
 
     public function testUploadReturns200ForResident(): void
@@ -224,7 +227,7 @@ final class ProfileAvatarControllerTest extends TestCase
     public function testUploadDeletesPreviousAvatarFile(): void
     {
         $existingFilename = 'old_avatar.jpg';
-        $existingPath     = $this->tmpDir . '/public/uploads/avatars/' . $existingFilename;
+        $existingPath     = $this->uploadsDir . $existingFilename;
         file_put_contents($existingPath, 'old image data');
 
         $user = $this->createMock(Manager::class);
@@ -262,7 +265,7 @@ final class ProfileAvatarControllerTest extends TestCase
     public function testDeleteRemovesAvatarFileAndSetsPathToNull(): void
     {
         $existingFilename = 'to_delete.jpg';
-        $existingPath     = $this->tmpDir . '/public/uploads/avatars/' . $existingFilename;
+        $existingPath     = $this->uploadsDir . $existingFilename;
         file_put_contents($existingPath, 'image data');
 
         $user = $this->createMock(Resident::class);

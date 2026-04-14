@@ -12,9 +12,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HospitalAdminYearResidentsPage from "./HospitalAdminYearResidentsPage";
-import adminApi from "../../services/adminApi";
+import hospitalAdminApi from "../../services/hospitalAdminApi";
 
-vi.mock("../../services/adminApi");
+vi.mock("../../services/hospitalAdminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 
 const MOCK_RESIDENTS = [
@@ -44,12 +44,12 @@ function renderPage(yearId = "10") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(adminApi.listYearResidents).mockResolvedValue(MOCK_RESIDENTS);
+  vi.mocked(hospitalAdminApi.listYearResidents).mockResolvedValue(MOCK_RESIDENTS);
 });
 
 describe("HospitalAdminYearResidentsPage", () => {
   it("shows loading spinner while fetching", () => {
-    vi.mocked(adminApi.listYearResidents).mockReturnValue(new Promise(() => {}));
+    vi.mocked(hospitalAdminApi.listYearResidents).mockReturnValue(new Promise(() => {}));
     renderPage();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
@@ -63,7 +63,7 @@ describe("HospitalAdminYearResidentsPage", () => {
   });
 
   it("shows 'Aucun résident' alert when list is empty", async () => {
-    vi.mocked(adminApi.listYearResidents).mockResolvedValue([]);
+    vi.mocked(hospitalAdminApi.listYearResidents).mockResolvedValue([]);
     renderPage();
     await waitFor(() =>
       expect(screen.getByText("Aucun résident inscrit pour cette année.")).toBeInTheDocument()
@@ -72,7 +72,7 @@ describe("HospitalAdminYearResidentsPage", () => {
 
   it("calls listYearResidents with the correct yearId from route params", async () => {
     renderPage("42");
-    await waitFor(() => expect(adminApi.listYearResidents).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(hospitalAdminApi.listYearResidents).toHaveBeenCalledWith(42));
   });
 
   it("navigates back to dashboard on back button click", async () => {

@@ -14,9 +14,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HospitalAdminDashboardPage from "./HospitalAdminDashboardPage";
-import adminApi from "../../services/adminApi";
+import hospitalAdminApi from "../../services/hospitalAdminApi";
 
-vi.mock("../../services/adminApi");
+vi.mock("../../services/hospitalAdminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -73,7 +73,7 @@ function renderPage() {
 // ── Setup ─────────────────────────────────────────────────────────────────────
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(adminApi.listMyYears).mockResolvedValue(MOCK_YEARS as any);
+  vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue(MOCK_YEARS as any);
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ beforeEach(() => {
 describe("HospitalAdminDashboardPage", () => {
   it("shows skeleton cards (no year titles visible) while fetching", () => {
     // Le composant affiche des SkeletonCards (pas un CircularProgress) pendant le chargement
-    vi.mocked(adminApi.listMyYears).mockReturnValue(new Promise(() => {}));
+    vi.mocked(hospitalAdminApi.listMyYears).mockReturnValue(new Promise(() => {}));
     renderPage();
     expect(screen.queryByText("Stage cardiologie S1")).not.toBeInTheDocument();
     expect(screen.queryByText("Stage urgences S2")).not.toBeInTheDocument();
@@ -116,7 +116,7 @@ describe("HospitalAdminDashboardPage", () => {
   });
 
   it("shows 'Aucune année de formation' alert when list is empty", async () => {
-    vi.mocked(adminApi.listMyYears).mockResolvedValue([]);
+    vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue([]);
     renderPage();
     await waitFor(() =>
       expect(
