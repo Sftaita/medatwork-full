@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import Logo from "../../../../images/logo.png";
 import useAuth from "../../../../hooks/useAuth";
@@ -12,12 +13,20 @@ import MenuIcon from "@mui/icons-material/Menu";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Avatar from "@mui/material/Avatar";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Badge from "@mui/material/Badge";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import logger from "../../../../services/logger";
 
 // Local component
 import Woman from "../../../../images/icons/Woman.png";
 import Man from "../../../../images/icons/Man.png";
 import InstallPrompt from "../../../small/InstallPrompt";
+
+const HINT_KEY = "medatwork_v3_profile_hint";
+type HintState = "prompt" | "later" | "done";
 
 const linkTextSx = { textDecoration: "none", textTransform: "uppercase", color: "#2d3748" };
 
@@ -34,6 +43,32 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
   const { authentication } = useAuth();
   const navigate = useNavigate();
   const logout = useLogout();
+
+  const [profileHint, setProfileHint] = useState<HintState>(() => {
+    const stored = localStorage.getItem(HINT_KEY);
+    if (stored === "later") return "later";
+    if (stored === "done") return "done";
+    return "prompt";
+  });
+
+  const handleHintLater = () => {
+    localStorage.setItem(HINT_KEY, "later");
+    setProfileHint("later");
+  };
+
+  const handleHintConfigure = () => {
+    localStorage.setItem(HINT_KEY, "done");
+    setProfileHint("done");
+    navigate("/profile");
+  };
+
+  const handleAvatarClick = () => {
+    if (profileHint !== "done") {
+      localStorage.setItem(HINT_KEY, "done");
+      setProfileHint("done");
+    }
+    navigate("/profile");
+  };
 
   const handleLogout = async () => {
     logger.clearUser();
@@ -138,29 +173,53 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
               alignItems={"center"}
               justifyContent={"space-between"}
             >
-              <Box
-                display={"flex"}
-                flexDirection={"row"}
-                alignItems={"center"}
-                marginRight={"16px"}
-                sx={{ cursor: "pointer" }}
-                onClick={() => navigate("/profile")}
-                role="button"
-                aria-label="Mon profil"
+              <Tooltip
+                open={profileHint === "later"}
+                title="Cliquez sur votre avatar pour configurer votre photo de profil"
+                arrow
+                placement="bottom-end"
               >
-                <Stack sx={{ marginRight: "6px" }}>
-                  <Avatar
-                    src={
-                      authentication.avatarUrl ??
-                      (authentication.gender === "male" ? Man : Woman)
-                    }
-                    sx={{ width: 35, height: 35 }}
-                  />
-                </Stack>
-                <Typography color="primary">
-                  {authentication.firstname + " " + authentication.lastname}
-                </Typography>
-              </Box>
+                <Box
+                  display={"flex"}
+                  flexDirection={"row"}
+                  alignItems={"center"}
+                  marginRight={"16px"}
+                  sx={{ cursor: "pointer" }}
+                  onClick={handleAvatarClick}
+                  role="button"
+                  aria-label="Mon profil"
+                >
+                  <Stack sx={{ marginRight: "6px" }}>
+                    <Badge
+                      variant="dot"
+                      color="error"
+                      invisible={profileHint !== "later"}
+                      sx={{
+                        "& .MuiBadge-dot": {
+                          animation: profileHint === "later"
+                            ? "pulse 1.4s ease-in-out infinite"
+                            : "none",
+                        },
+                        "@keyframes pulse": {
+                          "0%, 100%": { transform: "scale(1)", opacity: 1 },
+                          "50%": { transform: "scale(1.6)", opacity: 0.6 },
+                        },
+                      }}
+                    >
+                      <Avatar
+                        src={
+                          authentication.avatarUrl ??
+                          (authentication.gender === "male" ? Man : Woman)
+                        }
+                        sx={{ width: 35, height: 35 }}
+                      />
+                    </Badge>
+                  </Stack>
+                  <Typography color="primary">
+                    {authentication.firstname + " " + authentication.lastname}
+                  </Typography>
+                </Box>
+              </Tooltip>
 
               <Button variant="outlined" color="primary" onClick={handleLogout} style={linkTextSx}>
                 Se déconnecter
@@ -186,6 +245,36 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           </Button>
         </Box>
       </Box>
+
+      {/* Onboarding v3 — photo de profil */}
+      <Snackbar
+        open={profileHint === "prompt" && authentication.isAuthenticated}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        sx={{ mt: { xs: 7, md: 9 } }}
+      >
+        <Alert
+          severity="info"
+          icon={<PhotoCameraIcon fontSize="small" />}
+          sx={{ alignItems: "center" }}
+          action={
+            <Box display="flex" gap={1} ml={1}>
+              <Button size="small" color="inherit" onClick={handleHintLater}>
+                Plus tard
+              </Button>
+              <Button
+                size="small"
+                color="inherit"
+                variant="outlined"
+                onClick={handleHintConfigure}
+              >
+                Configurer
+              </Button>
+            </Box>
+          }
+        >
+          Nouveau — ajoutez une photo à votre profil !
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
