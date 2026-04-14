@@ -209,7 +209,7 @@ const Absence = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoadi
             </Grid>
 
             {multidate && (
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <DateHandler
                   label={"Fin de l'absence"}
                   value={absence.dateOfEnd}

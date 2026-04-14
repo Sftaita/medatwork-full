@@ -245,7 +245,7 @@ const Timer = ({
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <CustomDateTimeHandler
                 label={"Début"}
                 value={timesheet.dateOfStart}
@@ -255,7 +255,7 @@ const Timer = ({
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <CustomDateTimeHandler
                 label={"Fin"}
                 value={timesheet.dateOfEnd}

@@ -156,7 +156,7 @@ const Garde = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <CustomDateTimeHandler
                 label={"Début de la garde"}
                 value={garde.dateOfStart}
@@ -166,7 +166,7 @@ const Garde = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <CustomDateTimeHandler
                 label={"Fin de la garde"}
                 value={garde.dateOfEnd}
