@@ -221,14 +221,13 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
                 </Box>
               </Tooltip>
 
+              <InstallPrompt />
               <Button variant="outlined" color="primary" onClick={handleLogout} style={linkTextSx}>
                 Se déconnecter
               </Button>
             </Box>
           </>
         )}
-
-        <InstallPrompt />
         <Box sx={{ display: { xs: "block", md: "none" } }} marginLeft={2}>
           <Button
             onClick={() => onSidebarOpen()}
