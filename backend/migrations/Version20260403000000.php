@@ -89,21 +89,21 @@ final class Version20260403000000 extends AbstractMigration
         // ── hospital_request ──────────────────────────────────────────────────
         $this->addSql(<<<'SQL'
             CREATE TABLE hospital_request (
-                id            INT AUTO_INCREMENT NOT NULL,
-                manager_id    INT          NOT NULL,
-                hospital_id   INT          DEFAULT NULL,
-                hospital_name VARCHAR(150) NOT NULL,
-                status        VARCHAR(20)  NOT NULL DEFAULT 'pending',
-                created_at    DATETIME     NOT NULL,
-                reviewed_at   DATETIME     DEFAULT NULL,
-                INDEX IDX_HOSPITAL_REQUEST_MANAGER (manager_id),
+                id               INT AUTO_INCREMENT NOT NULL,
+                requested_by_id  INT          NOT NULL,
+                hospital_id      INT          DEFAULT NULL,
+                hospital_name    VARCHAR(150) NOT NULL,
+                status           VARCHAR(20)  NOT NULL DEFAULT 'pending',
+                created_at       DATETIME     NOT NULL,
+                reviewed_at      DATETIME     DEFAULT NULL,
+                INDEX IDX_C92AEE644DA1E751 (requested_by_id),
                 INDEX IDX_HOSPITAL_REQUEST_HOSPITAL (hospital_id),
                 PRIMARY KEY (id)
             ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB
         SQL);
 
-        $this->addSql('ALTER TABLE hospital_request ADD CONSTRAINT FK_HOSP_REQ_MANAGER  FOREIGN KEY (manager_id)  REFERENCES manager (id)');
-        $this->addSql('ALTER TABLE hospital_request ADD CONSTRAINT FK_HOSP_REQ_HOSPITAL FOREIGN KEY (hospital_id) REFERENCES hospital (id)');
+        $this->addSql('ALTER TABLE hospital_request ADD CONSTRAINT FK_C92AEE644DA1E751  FOREIGN KEY (requested_by_id) REFERENCES manager (id)');
+        $this->addSql('ALTER TABLE hospital_request ADD CONSTRAINT FK_HOSP_REQ_HOSPITAL FOREIGN KEY (hospital_id)      REFERENCES hospital (id)');
 
         // ── manager_hospital pivot ────────────────────────────────────────────
         $this->addSql(<<<'SQL'
