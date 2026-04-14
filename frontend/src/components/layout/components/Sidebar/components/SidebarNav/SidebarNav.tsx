@@ -44,7 +44,7 @@ const NavItem = ({ p, selected, notifications, onSelect }: NavItemProps) => {
     <Button
       fullWidth
       disabled={p.disabled}
-      sx={{ justifyContent: "flex-start", color: selected === p.title ? "" : "text.primary" }}
+      sx={{ justifyContent: "flex-start", textAlign: "left", color: selected === p.title ? "" : "text.primary" }}
       startIcon={p.icon || null}
       onClick={() => onSelect(p.title)}
     >

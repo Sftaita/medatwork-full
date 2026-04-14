@@ -10,6 +10,7 @@ use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Repository\CommunicationMessageReadRepository;
 use App\Repository\CommunicationMessageRepository;
+use App\Repository\YearsResidentRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -18,12 +19,13 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * Endpoints consumed by any authenticated user (manager, resident, hospital_admin).
  *
- * GET  /api/communications/notifications              → list all notifications for user
- * GET  /api/communications/notifications/unread-count → badge count
- * PATCH /api/communications/notifications/{id}/read  → mark one notification as read
- * PATCH /api/communications/notifications/read-all   → mark all notifications as read
- * GET  /api/communications/modals/pending             → pending modals for user
- * PATCH /api/communications/modals/{id}/read         → mark one modal as read (after "J'ai compris")
+ * GET    /api/communications/notifications                → list all notifications for user
+ * GET    /api/communications/notifications/unread-count  → badge count
+ * PATCH  /api/communications/notifications/{id}/read    → mark one notification as read
+ * DELETE /api/communications/notifications/{id}/read    → mark one notification as unread
+ * PATCH  /api/communications/notifications/read-all     → mark all notifications as read
+ * GET    /api/communications/modals/pending              → pending modals for user
+ * PATCH  /api/communications/modals/{id}/read           → mark one modal as read (after "J'ai compris")
  */
 #[Route('/api/communications')]
 #[IsGranted('IS_AUTHENTICATED_FULLY')]
@@ -32,6 +34,7 @@ class UserCommunicationController extends AbstractController
     public function __construct(
         private readonly CommunicationMessageRepository     $messageRepo,
         private readonly CommunicationMessageReadRepository $readRepo,
+        private readonly YearsResidentRepository            $yearsResidentRepo,
     ) {}
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -49,12 +52,14 @@ class UserCommunicationController extends AbstractController
             ];
         }
         if ($user instanceof Resident) {
+            // Residents are linked to hospitals via their academic years (YearsResident → Years → Hospital).
+            // We collect all hospital IDs associated with any of their years so they receive
+            // messages scoped to any of those hospitals, in addition to global messages.
+            $hospitalIds = $this->yearsResidentRepo->findHospitalIdsByResident($user->getId());
             return [
                 CommunicationMessage::ROLE_RESIDENT,
                 $user->getId(),
-                null, // residents are not hospital-scoped from a delivery perspective
-                      // they receive messages scoped to the hospital of their current year
-                      // For now, null means they only receive global + role + direct messages
+                $hospitalIds ?: null, // null → only global messages when no years found
             ];
         }
         if ($user instanceof HospitalAdmin) {
@@ -147,6 +152,21 @@ class UserCommunicationController extends AbstractController
         $this->readRepo->markAsRead($message, $userType, $userId);
 
         return $this->json(['message' => 'Notification marquée comme lue.']);
+    }
+
+    #[Route('/notifications/{id}/read', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    public function markNotificationAsUnread(int $id): JsonResponse
+    {
+        [$userType, $userId] = $this->resolveUser();
+
+        $message = $this->messageRepo->find($id);
+        if ($message === null || $message->getType() !== CommunicationMessage::TYPE_NOTIFICATION) {
+            return $this->json(['error' => 'Notification introuvable.'], 404);
+        }
+
+        $this->readRepo->markAsUnread($message, $userType, $userId);
+
+        return $this->json(['message' => 'Notification marquée comme non lue.']);
     }
 
     // ─── Modals ─────────────────────────────────────────────────────────────────

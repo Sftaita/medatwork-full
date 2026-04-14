@@ -30,7 +30,15 @@ export const CustomizedTheme = {
       main: "#16B1FF",
     },
     success: {
-      main: "#56CA00",
+      main: "#2e7d32",
+    },
+  },
+  components: {
+    MuiChip: {
+      defaultProps: {
+        variant: "outlined",
+        size: "small",
+      },
     },
   },
 };

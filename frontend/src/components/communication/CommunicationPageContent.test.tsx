@@ -12,6 +12,10 @@
  * - Create dialog validates required fields (title + body)
  * - Toggle-active calls the toggleActive API
  * - Duplicate calls the duplicate API
+ * - Delete button shown when api.delete is provided
+ * - Delete button absent when api.delete is not provided
+ * - Clicking delete icon opens confirmation dialog
+ * - Confirming delete calls DELETE API
  * - showHospital=true renders Hospital column
  * - showHospital=false hides Hospital column
  * - Scope label "Tous les utilisateurs" shown for scopeType=all
@@ -27,10 +31,11 @@ import type { ApiCall } from "../../services/api.types";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-const mockGet   = vi.fn();
-const mockPost  = vi.fn().mockResolvedValue({ data: {} });
-const mockPatch = vi.fn().mockResolvedValue({ data: {} });
-const mockAxios = { get: mockGet, post: mockPost, patch: mockPatch };
+const mockGet    = vi.fn();
+const mockPost   = vi.fn().mockResolvedValue({ data: {} });
+const mockPatch  = vi.fn().mockResolvedValue({ data: {} });
+const mockDelete = vi.fn().mockResolvedValue({});
+const mockAxios  = { get: mockGet, post: mockPost, patch: mockPatch, delete: mockDelete };
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => mockAxios }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -64,13 +69,14 @@ const MESSAGES: CommunicationMessage[] = [
 ];
 
 // Minimal API set
-function makeApi(overrides: Partial<Record<string, () => ApiCall>> = {}) {
+function makeApi(overrides: Partial<Record<string, ((...args: unknown[]) => ApiCall) | undefined>> = {}) {
   return {
-    list:         vi.fn((): ApiCall => ({ method: "get",   url: "/comm"            })),
-    create:       vi.fn((): ApiCall => ({ method: "post",  url: "/comm"            })),
-    toggleActive: vi.fn((id: number): ApiCall => ({ method: "patch", url: `/comm/${id}/toggle-active` })),
-    duplicate:    vi.fn((id: number): ApiCall => ({ method: "post",  url: `/comm/${id}/duplicate`     })),
-    listUsers:    vi.fn((): ApiCall => ({ method: "get",   url: "/comm/users"      })),
+    list:         vi.fn((): ApiCall => ({ method: "get",    url: "/comm"                      })),
+    create:       vi.fn((): ApiCall => ({ method: "post",   url: "/comm"                      })),
+    delete:       vi.fn((id: number): ApiCall => ({ method: "delete", url: `/comm/${id}`      })),
+    toggleActive: vi.fn((id: number): ApiCall => ({ method: "patch",  url: `/comm/${id}/toggle-active` })),
+    duplicate:    vi.fn((id: number): ApiCall => ({ method: "post",   url: `/comm/${id}/duplicate`     })),
+    listUsers:    vi.fn((): ApiCall => ({ method: "get",    url: "/comm/users"                })),
     ...overrides,
   };
 }
@@ -94,6 +100,7 @@ beforeEach(() => {
   mockGet.mockResolvedValue({ data: MESSAGES });
   mockPost.mockResolvedValue({ data: makeMsg() });
   mockPatch.mockResolvedValue({ data: makeMsg() });
+  mockDelete.mockResolvedValue({});
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -234,13 +241,13 @@ describe("CommunicationPageContent", () => {
 
   // ── Toggle active ─────────────────────────────────────────────────────────────
 
-  it("calls toggleActive API when power button is clicked", async () => {
+  it("calls toggleActive API when toggle button is clicked", async () => {
     const api = makeApi();
     renderContent(api);
     await waitFor(() => expect(screen.getByText("Notif active")).toBeInTheDocument());
-    // Click the first power button (message id=1)
-    const powerButtons = screen.getAllByTestId("PowerSettingsNewIcon");
-    fireEvent.click(powerButtons[0].closest("button")!);
+    // ToggleOnIcon for active message, ToggleOffIcon for inactive
+    const toggleIcons = screen.getAllByTestId(/ToggleOn|ToggleOff/);
+    fireEvent.click(toggleIcons[0].closest("button")!);
     await waitFor(() =>
       expect(mockPatch).toHaveBeenCalledWith("/comm/1/toggle-active")
     );
@@ -257,5 +264,54 @@ describe("CommunicationPageContent", () => {
     await waitFor(() =>
       expect(mockPost).toHaveBeenCalledWith("/comm/1/duplicate")
     );
+  });
+
+  // ── Delete ────────────────────────────────────────────────────────────────────
+
+  it("shows delete icon when api.delete is provided", async () => {
+    renderContent(makeApi());
+    await waitFor(() => expect(screen.getByText("Notif active")).toBeInTheDocument());
+    expect(screen.getAllByTestId("DeleteOutlineIcon").length).toBeGreaterThan(0);
+  });
+
+  it("hides delete icon when api.delete is not provided", async () => {
+    const api = makeApi({ delete: undefined });
+    renderContent(api);
+    await waitFor(() => expect(screen.getByText("Notif active")).toBeInTheDocument());
+    expect(screen.queryByTestId("DeleteOutlineIcon")).not.toBeInTheDocument();
+  });
+
+  it("clicking delete icon opens the confirmation dialog", async () => {
+    renderContent(makeApi());
+    await waitFor(() => expect(screen.getByText("Notif active")).toBeInTheDocument());
+    const deleteIcons = screen.getAllByTestId("DeleteOutlineIcon");
+    fireEvent.click(deleteIcons[0].closest("button")!);
+    await waitFor(() =>
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    );
+    expect(screen.getByText(/Supprimer ce message/i)).toBeInTheDocument();
+  });
+
+  it("confirming delete calls DELETE API", async () => {
+    renderContent(makeApi());
+    await waitFor(() => expect(screen.getByText("Notif active")).toBeInTheDocument());
+    const deleteIcons = screen.getAllByTestId("DeleteOutlineIcon");
+    fireEvent.click(deleteIcons[0].closest("button")!);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^Supprimer$/i }));
+    await waitFor(() =>
+      expect(mockDelete).toHaveBeenCalledWith("/comm/1")
+    );
+  });
+
+  it("cancel button closes the confirmation dialog without calling DELETE", async () => {
+    renderContent(makeApi());
+    await waitFor(() => expect(screen.getByText("Notif active")).toBeInTheDocument());
+    const deleteIcons = screen.getAllByTestId("DeleteOutlineIcon");
+    fireEvent.click(deleteIcons[0].closest("button")!);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^Annuler$/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });

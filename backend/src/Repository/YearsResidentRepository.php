@@ -170,6 +170,27 @@ class YearsResidentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Returns all distinct hospital IDs associated with a resident via their academic years.
+     * Used for scoping communication messages to the resident's hospital(s).
+     *
+     * @return int[]
+     */
+    public function findHospitalIdsByResident(int $residentId): array
+    {
+        $rows = $this->createQueryBuilder('yr')
+            ->join('yr.year', 'y')
+            ->join('y.hospital', 'h')
+            ->where('yr.resident = :residentId')
+            ->setParameter('residentId', $residentId)
+            ->select('h.id')
+            ->distinct()
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_column($rows, 'id');
+    }
+
+    /**
      * Load multiple YearsResident entities by primary key in a single query
      * and return them indexed by their ID — eliminates the N+1 find() per
      * resident in the statistics controllers.

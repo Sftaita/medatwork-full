@@ -24,11 +24,13 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Hospital-admin endpoints for CommunicationMessage management.
  * All operations are scoped to the current admin's hospital — never cross-hospital.
  *
- * POST  /api/hospital-admin/communications                   → create message
- * GET   /api/hospital-admin/communications                   → list hospital messages
- * PATCH /api/hospital-admin/communications/{id}/toggle-active → activate/deactivate
- * POST  /api/hospital-admin/communications/{id}/duplicate    → duplicate
- * GET   /api/hospital-admin/communications/users             → list users in hospital
+ * POST   /api/hospital-admin/communications                   → create message
+ * GET    /api/hospital-admin/communications                   → list hospital messages
+ * PUT    /api/hospital-admin/communications/{id}             → update message
+ * DELETE /api/hospital-admin/communications/{id}             → delete message
+ * PATCH  /api/hospital-admin/communications/{id}/toggle-active → activate/deactivate
+ * POST   /api/hospital-admin/communications/{id}/duplicate   → duplicate
+ * GET    /api/hospital-admin/communications/users            → list users in hospital
  */
 #[Route('/api/hospital-admin/communications')]
 #[IsGranted('ROLE_HOSPITAL_ADMIN')]
@@ -160,6 +162,60 @@ class HospitalAdminCommunicationController extends AbstractController
         $this->entityManager->flush();
 
         return $this->json($this->serialize($message));
+    }
+
+    #[Route('/{id}', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    public function update(int $id, Request $request): JsonResponse
+    {
+        $message = $this->messageRepo->find($id);
+
+        if ($message === null) {
+            return $this->json(['error' => 'Message introuvable.'], 404);
+        }
+        if ($err = $this->assertOwnership($message, $this->resolveHospital()?->getId())) {
+            return $err;
+        }
+
+        try {
+            $dto = CommunicationInputDTO::fromRequest($request);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], 422);
+        }
+
+        $message->setType($dto->type);
+        $message->setTitle($dto->title);
+        $message->setBody($dto->body);
+        $message->setImageUrl($dto->imageUrl);
+        $message->setLinkUrl($dto->linkUrl);
+        $message->setButtonLabel($dto->buttonLabel);
+        $message->setTargetUrl($dto->targetUrl);
+        $message->setPriority($dto->priority);
+        $message->setScopeType($dto->scopeType);
+        $message->setTargetRole($dto->targetRole);
+        $message->setTargetUserId($dto->targetUserId);
+        $message->setTargetUserType($dto->targetUserType);
+
+        $this->entityManager->flush();
+
+        return $this->json($this->serialize($message));
+    }
+
+    #[Route('/{id}', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    public function delete(int $id): JsonResponse
+    {
+        $message = $this->messageRepo->find($id);
+
+        if ($message === null) {
+            return $this->json(['error' => 'Message introuvable.'], 404);
+        }
+        if ($err = $this->assertOwnership($message, $this->resolveHospital()?->getId())) {
+            return $err;
+        }
+
+        $this->entityManager->remove($message);
+        $this->entityManager->flush();
+
+        return $this->json(null, 204);
     }
 
     #[Route('/{id}/duplicate', methods: ['POST'], requirements: ['id' => '\d+'])]

@@ -18,6 +18,9 @@ const communicationsApi = {
   markNotificationRead(id: number): ApiCall {
     return { method: "patch", url: `${COMMUNICATIONS_API}/notifications/${id}/read` };
   },
+  markNotificationUnread(id: number): ApiCall {
+    return { method: "delete", url: `${COMMUNICATIONS_API}/notifications/${id}/read` };
+  },
   markAllNotificationsRead(): ApiCall {
     return { method: "patch", url: `${COMMUNICATIONS_API}/notifications/read-all` };
   },
@@ -40,6 +43,12 @@ export const adminCommunicationsApi = {
   create(): ApiCall {
     return { method: "post", url: ADMIN_COMMUNICATIONS_API };
   },
+  update(id: number): ApiCall {
+    return { method: "put", url: `${ADMIN_COMMUNICATIONS_API}/${id}` };
+  },
+  delete(id: number): ApiCall {
+    return { method: "delete", url: `${ADMIN_COMMUNICATIONS_API}/${id}` };
+  },
   toggleActive(id: number): ApiCall {
     return { method: "patch", url: `${ADMIN_COMMUNICATIONS_API}/${id}/toggle-active` };
   },
@@ -59,6 +68,12 @@ export const hospitalAdminCommunicationsApi = {
   },
   create(): ApiCall {
     return { method: "post", url: HOSPITAL_ADMIN_COMMUNICATIONS_API };
+  },
+  update(id: number): ApiCall {
+    return { method: "put", url: `${HOSPITAL_ADMIN_COMMUNICATIONS_API}/${id}` };
+  },
+  delete(id: number): ApiCall {
+    return { method: "delete", url: `${HOSPITAL_ADMIN_COMMUNICATIONS_API}/${id}` };
   },
   toggleActive(id: number): ApiCall {
     return { method: "patch", url: `${HOSPITAL_ADMIN_COMMUNICATIONS_API}/${id}/toggle-active` };

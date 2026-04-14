@@ -40,7 +40,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import type { ManagerRow, ManagerStatus, HospitalYear } from "../../services/hospitalAdminApi";
 
-type ChipColor = "success" | "warning" | "error" | "default";
+type ChipColor = "success" | "info" | "error" | "default";
 
 const STATUS_LABEL: Record<ManagerStatus, string> = {
   active: "Actif",
@@ -56,7 +56,7 @@ const STATUS_TOOLTIP: Record<ManagerStatus, string> = {
 
 const STATUS_COLOR: Record<ManagerStatus, ChipColor> = {
   active: "success",
-  pending: "warning",
+  pending: "info",
   incomplete: "error",
 };
 

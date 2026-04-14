@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import Box from "@mui/material/Box";
@@ -24,6 +24,11 @@ import DialogActions from "@mui/material/DialogActions";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import type { AuditLogEntry } from "../../services/hospitalAdminApi";
@@ -55,7 +60,7 @@ const ACTION_COLOR: Record<string, ChipColor> = {
   resend_invite_maccs: "default", resend_invite_manager: "default",
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -118,19 +123,58 @@ const HospitalAdminAuditLogPage = () => {
   useAxiosPrivate();
   const [page, setPage] = useState(1);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [filterAction, setFilterAction] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
+  // Load all entries at once so we can filter client-side
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["hospital-admin-audit-log", page],
-    queryFn: () => hospitalAdminApi.getAuditLog(PAGE_SIZE, (page - 1) * PAGE_SIZE),
+    queryKey: ["hospital-admin-audit-log"],
+    queryFn: () => hospitalAdminApi.getAuditLog(1000, 0),
   });
 
-  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
+  const filtered = useMemo(() => {
+    if (!data?.logs) return [];
+    return data.logs.filter((log: AuditLogEntry) => {
+      if (filterAction && log.action !== filterAction) return false;
+      if (filterFrom) {
+        const logDate = new Date(log.createdAt);
+        const from = new Date(filterFrom);
+        from.setHours(0, 0, 0, 0);
+        if (logDate < from) return false;
+      }
+      if (filterTo) {
+        const logDate = new Date(log.createdAt);
+        const to = new Date(filterTo);
+        to.setHours(23, 59, 59, 999);
+        if (logDate > to) return false;
+      }
+      return true;
+    });
+  }, [data, filterAction, filterFrom, filterTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedLogs = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const hasFilters = Boolean(filterAction || filterFrom || filterTo);
+
+  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setFilterAction("");
+    setFilterFrom("");
+    setFilterTo("");
+    setPage(1);
+  };
 
   const handleExportCsv = () => {
-    if (!data?.logs.length) return;
+    if (!filtered.length) return;
     const rows = [
       ["Date", "Admin", "Action", "Type entité", "Description"],
-      ...data.logs.map((l: AuditLogEntry) => [
+      ...filtered.map((l: AuditLogEntry) => [
         new Date(l.createdAt).toLocaleString("fr-BE"),
         l.adminName,
         ACTION_LABEL[l.action] ?? l.action,
@@ -163,19 +207,69 @@ const HospitalAdminAuditLogPage = () => {
             {data && ` — ${data.total} entrée${data.total > 1 ? "s" : ""}`}
           </Typography>
         </Box>
-        <Button variant="outlined" size="small" onClick={handleExportCsv} disabled={!data?.logs.length}>
+        <Button variant="outlined" size="small" onClick={handleExportCsv} disabled={!filtered.length}>
           Exporter CSV
         </Button>
+      </Box>
+
+      {/* ── Filters ── */}
+      <Box display="flex" alignItems="center" gap={2} mb={2} flexWrap="wrap">
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Type d'action</InputLabel>
+          <Select
+            value={filterAction}
+            label="Type d'action"
+            onChange={(e) => handleFilterChange(setFilterAction)(e.target.value)}
+          >
+            <MenuItem value="">Toutes les actions</MenuItem>
+            {Object.entries(ACTION_LABEL).map(([key, label]) => (
+              <MenuItem key={key} value={key}>{label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <TextField
+          label="Du"
+          type="date"
+          size="small"
+          value={filterFrom}
+          onChange={(e) => handleFilterChange(setFilterFrom)(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          sx={{ width: 160 }}
+        />
+        <TextField
+          label="Au"
+          type="date"
+          size="small"
+          value={filterTo}
+          onChange={(e) => handleFilterChange(setFilterTo)(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          sx={{ width: 160 }}
+        />
+
+        {hasFilters && (
+          <Button size="small" onClick={handleResetFilters} sx={{ whiteSpace: "nowrap" }}>
+            Réinitialiser
+          </Button>
+        )}
+
+        {hasFilters && (
+          <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
+            {filtered.length} résultat{filtered.length !== 1 ? "s" : ""}
+          </Typography>
+        )}
       </Box>
 
       {isLoading && <CircularProgress size={24} />}
       {isError && <Alert severity="error">Erreur lors du chargement du journal.</Alert>}
 
-      {!isLoading && data?.logs.length === 0 && (
-        <Alert severity="info">Aucune action enregistrée pour le moment.</Alert>
+      {!isLoading && data && filtered.length === 0 && (
+        <Alert severity="info">
+          {hasFilters ? "Aucun résultat pour ces filtres." : "Aucune action enregistrée pour le moment."}
+        </Alert>
       )}
 
-      {!isLoading && data && data.logs.length > 0 && (
+      {!isLoading && filtered.length > 0 && (
         <>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
@@ -188,7 +282,7 @@ const HospitalAdminAuditLogPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.logs.map((log: AuditLogEntry) => (
+                {pagedLogs.map((log: AuditLogEntry) => (
                   <TableRow key={log.id} hover>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <Typography variant="caption" color="text.secondary">

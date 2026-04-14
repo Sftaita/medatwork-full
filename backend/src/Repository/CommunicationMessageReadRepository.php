@@ -57,6 +57,22 @@ class CommunicationMessageReadRepository extends ServiceEntityRepository
     }
 
     /**
+     * Marks a single message as unread by deleting the read record.
+     * Idempotent: does nothing if not read.
+     */
+    public function markAsUnread(CommunicationMessage $message, string $userType, int $userId): void
+    {
+        $record = $this->findOneByMessageAndUser($message, $userType, $userId);
+
+        if ($record === null) {
+            return; // already unread
+        }
+
+        $this->entityManager->remove($record);
+        $this->entityManager->flush();
+    }
+
+    /**
      * Marks all unread notification-type messages as read for a user.
      * Used by "Marquer tout comme lu".
      */

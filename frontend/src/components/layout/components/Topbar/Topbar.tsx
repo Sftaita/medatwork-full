@@ -70,14 +70,13 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
               py: 0.2,
               borderRadius: 1,
               bgcolor: "primary.main",
-              color: "white",
               fontSize: "0.65rem",
               fontWeight: 700,
               letterSpacing: "0.06em",
               lineHeight: 1.4,
             }}
           >
-            ADMIN
+            <span style={{ color: "white" }}>ADMIN</span>
           </Box>
         )}
         {authentication.role === "hospital_admin" && authentication.hospitalName && (

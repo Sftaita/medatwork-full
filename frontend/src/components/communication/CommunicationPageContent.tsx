@@ -39,7 +39,15 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Autocomplete from "@mui/material/Autocomplete";
 import AddIcon from "@mui/icons-material/Add";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditIcon from "@mui/icons-material/Edit";
+import ToggleOnIcon from "@mui/icons-material/ToggleOn";
+import ToggleOffIcon from "@mui/icons-material/ToggleOff";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
+import Divider from "@mui/material/Divider";
 
 import type { CommunicationMessage, CommUserTarget, Hospital } from "../../types/entities";
 import type { ApiCall } from "../../services/api.types";
@@ -47,6 +55,8 @@ import type { ApiCall } from "../../services/api.types";
 interface ApiSet {
   list(): ApiCall;
   create(): ApiCall;
+  update?(id: number): ApiCall;
+  delete?(id: number): ApiCall;
   toggleActive(id: number): ApiCall;
   duplicate(id: number): ApiCall;
   listUsers(): ApiCall;
@@ -110,11 +120,97 @@ const EMPTY_FORM: FormState = {
   targetUserType: "",
 };
 
+// ── Help dialog ───────────────────────────────────────────────────────────────
+
+const HelpDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <DialogTitle>Comment utiliser les messages ?</DialogTitle>
+    <DialogContent dividers>
+      <Typography variant="body2" gutterBottom>
+        Les messages vous permettent d'envoyer des communications ciblées aux utilisateurs de votre
+        hôpital — résidents, managers ou administrateurs.
+      </Typography>
+
+      <Typography variant="subtitle2" mt={2} mb={0.5}>Types de message</Typography>
+      <List dense disablePadding>
+        {[
+          ["Notification", "Apparaît dans la cloche en haut à droite. L'utilisateur peut la lire et la marquer comme lue depuis son centre de notifications."],
+          ["Modal (connexion)", "S'affiche automatiquement en popup à la prochaine connexion de l'utilisateur. Idéal pour des annonces importantes."],
+        ].map(([label, desc]) => (
+          <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
+            <ListItemText
+              primary={label}
+              secondary={desc}
+              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+              secondaryTypographyProps={{ variant: "caption" }}
+            />
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      <Typography variant="subtitle2" mb={0.5}>Ciblage</Typography>
+      <List dense disablePadding>
+        {[
+          ["Tous les utilisateurs", "Envoie le message à tous les membres de votre hôpital."],
+          ["Par rôle", "Cible uniquement les MACCS, les managers, ou les admins hôpital."],
+          ["Utilisateur spécifique", "Envoie à une seule personne identifiée par son nom."],
+        ].map(([label, desc]) => (
+          <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
+            <ListItemText
+              primary={label}
+              secondary={desc}
+              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+              secondaryTypographyProps={{ variant: "caption" }}
+            />
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      <Typography variant="subtitle2" mb={0.5}>Champs optionnels utiles</Typography>
+      <List dense disablePadding>
+        {[
+          ["URL cible au clic", "Pour les notifications : redirige l'utilisateur vers une page de l'application quand il clique sur le message. Ex : /hospital-admin/dashboard"],
+          ["Priorité (modal uniquement)", "Si plusieurs modals sont en attente, celui avec la valeur la plus basse s'affiche en premier."],
+        ].map(([label, desc]) => (
+          <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
+            <ListItemText
+              primary={label}
+              secondary={desc}
+              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+              secondaryTypographyProps={{ variant: "caption" }}
+            />
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      <Typography variant="body2" color="text.secondary">
+        Un message peut être <strong>désactivé</strong> à tout moment sans le supprimer — il ne sera
+        plus visible par les utilisateurs. Vous pouvez aussi le <strong>dupliquer</strong> pour
+        réutiliser sa structure.
+      </Typography>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} variant="contained">Fermer</Button>
+    </DialogActions>
+  </Dialog>
+);
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props) => {
   const axiosPrivate = useAxiosPrivate();
   const qc = useQueryClient();
   const [filter, setFilter] = useState<FilterType>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<CommunicationMessage | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [selectedUser, setSelectedUser] = useState<CommUserTarget | null>(null);
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
@@ -158,15 +254,54 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       const res = await axiosPrivate[method](url, payload);
       return res.data;
     },
-    onSuccess: () => {
-      toast.success("Message créé.");
-      qc.invalidateQueries({ queryKey });
+    onMutate: async (payload) => {
+      // Ferme le dialog immédiatement — feedback instantané
       setDialogOpen(false);
       setForm(EMPTY_FORM);
       setSelectedUser(null);
       setSelectedHospital(null);
+
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<CommunicationMessage[]>(queryKey);
+
+      const optimistic: CommunicationMessage = {
+        id: -Date.now(), // ID temporaire négatif
+        type: payload.type as "notification" | "modal",
+        title: payload.title as string,
+        body: payload.body as string,
+        imageUrl: (payload.imageUrl as string | null) ?? null,
+        linkUrl: (payload.linkUrl as string | null) ?? null,
+        buttonLabel: (payload.buttonLabel as string | null) ?? null,
+        targetUrl: (payload.targetUrl as string | null) ?? null,
+        scopeType: payload.scopeType as "all" | "role" | "user",
+        targetRole: (payload.targetRole as string | null) ?? null,
+        targetUserId: (payload.targetUserId as number | null) ?? null,
+        targetUserType: (payload.targetUserType as string | null) ?? null,
+        hospital: selectedHospital ? { id: selectedHospital.id, name: selectedHospital.name } : null,
+        isActive: true,
+        authorType: "hospital_admin",
+        authorId: 0,
+        readCount: 0,
+        createdAt: new Date().toISOString(),
+      };
+
+      qc.setQueryData<CommunicationMessage[]>(queryKey, (old = []) => [optimistic, ...old]);
+      return { previous };
     },
-    onError: () => toast.error("Impossible de créer le message."),
+    onError: (_err, _payload, context) => {
+      // Rollback
+      if (context?.previous !== undefined) {
+        qc.setQueryData(queryKey, context.previous);
+      }
+      toast.error("Impossible de créer le message.");
+    },
+    onSuccess: () => {
+      toast.success("Message créé.");
+    },
+    onSettled: () => {
+      // Synchronise avec le serveur dans tous les cas
+      qc.invalidateQueries({ queryKey });
+    },
   });
 
   const toggleMutation = useMutation({
@@ -174,8 +309,23 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       const { method, url } = api.toggleActive(id);
       await axiosPrivate[method](url);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Impossible de modifier le statut."),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<CommunicationMessage[]>(queryKey);
+      qc.setQueryData<CommunicationMessage[]>(queryKey, (old = []) =>
+        old.map((m) => (m.id === id ? { ...m, isActive: !m.isActive } : m))
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous !== undefined) {
+        qc.setQueryData(queryKey, context.previous);
+      }
+      toast.error("Impossible de modifier le statut.");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey });
+    },
   });
 
   const duplicateMutation = useMutation({
@@ -184,11 +334,90 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       const res = await axiosPrivate[method](url);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (newMessage: CommunicationMessage) => {
       toast.success("Message dupliqué.");
-      qc.invalidateQueries({ queryKey });
+      qc.setQueryData<CommunicationMessage[]>(queryKey, (old = []) => [newMessage, ...old]);
     },
     onError: () => toast.error("Impossible de dupliquer le message."),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: Record<string, unknown> }) => {
+      const call = api.update!(id);
+      const res = await axiosPrivate[call.method](call.url, payload);
+      return res.data as CommunicationMessage;
+    },
+    onMutate: async ({ id, payload }) => {
+      setDialogOpen(false);
+      setEditingMessage(null);
+      setForm(EMPTY_FORM);
+      setSelectedUser(null);
+      setSelectedHospital(null);
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<CommunicationMessage[]>(queryKey);
+      qc.setQueryData<CommunicationMessage[]>(queryKey, (old = []) =>
+        old.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                type:           payload.type as "notification" | "modal",
+                title:          payload.title as string,
+                body:           payload.body as string,
+                imageUrl:       (payload.imageUrl as string | null) ?? null,
+                linkUrl:        (payload.linkUrl as string | null) ?? null,
+                buttonLabel:    (payload.buttonLabel as string | null) ?? null,
+                targetUrl:      (payload.targetUrl as string | null) ?? null,
+                scopeType:      payload.scopeType as "all" | "role" | "user",
+                targetRole:     (payload.targetRole as string | null) ?? null,
+                targetUserId:   (payload.targetUserId as number | null) ?? null,
+                targetUserType: (payload.targetUserType as string | null) ?? null,
+              }
+            : m
+        )
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous !== undefined) {
+        qc.setQueryData(queryKey, context.previous);
+      }
+      toast.error("Impossible de modifier le message.");
+    },
+    onSuccess: () => {
+      toast.success("Message modifié.");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const call = api.delete!(id);
+      await axiosPrivate[call.method](call.url);
+    },
+    onMutate: async (id) => {
+      setConfirmDeleteId(null);
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<CommunicationMessage[]>(queryKey);
+      qc.setQueryData<CommunicationMessage[]>(queryKey, (old = []) => old.filter((m) => m.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous !== undefined) {
+        qc.setQueryData(queryKey, context.previous);
+      }
+      toast.error("Impossible de supprimer le message.");
+    },
+    onSuccess: () => {
+      toast.success("Message supprimé.");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey });
+    },
   });
 
   // ── Filter ────────────────────────────────────────────────────────────────────
@@ -206,6 +435,27 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
   const set = (field: keyof FormState) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const handleOpenEdit = (m: CommunicationMessage) => {
+    setEditingMessage(m);
+    setForm({
+      type:           m.type,
+      title:          m.title,
+      body:           m.body,
+      imageUrl:       m.imageUrl ?? "",
+      linkUrl:        m.linkUrl ?? "",
+      buttonLabel:    m.buttonLabel ?? "",
+      targetUrl:      m.targetUrl ?? "",
+      priority:       "",
+      scopeType:      m.scopeType,
+      targetRole:     m.targetRole ?? "",
+      targetUserId:   m.targetUserId?.toString() ?? "",
+      targetUserType: m.targetUserType ?? "",
+    });
+    setSelectedHospital(m.hospital ? { id: m.hospital.id, name: m.hospital.name } : null);
+    setSelectedUser(null); // autocomplete reset — user must reselect if needed
+    setDialogOpen(true);
+  };
 
   const handleSubmit = () => {
     if (!form.title.trim() || !form.body.trim()) {
@@ -229,7 +479,12 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
     if (showHospital && selectedHospital) {
       payload.hospitalId = selectedHospital.id;
     }
-    createMutation.mutate(payload);
+
+    if (editingMessage && api.update) {
+      updateMutation.mutate({ id: editingMessage.id, payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   // ── Scope description ─────────────────────────────────────────────────────────
@@ -330,13 +585,29 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
                         </TableCell>
                         <TableCell align="center">
                           <Box display="flex" gap={0.5} justifyContent="center">
-                            <Tooltip title={m.isActive ? "Désactiver" : "Activer"}>
+                            {api.update && (
+                              <Tooltip title="Modifier">
+                                <IconButton size="small" onClick={() => handleOpenEdit(m)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title={m.isActive ? "Cliquer pour désactiver" : "Cliquer pour activer"}>
                               <IconButton
                                 size="small"
                                 onClick={() => toggleMutation.mutate(m.id)}
-                                color={m.isActive ? "error" : "success"}
+                                sx={{
+                                  color: m.isActive ? "success.main" : "text.disabled",
+                                  "&:hover": {
+                                    bgcolor: m.isActive ? "error.50" : "success.50",
+                                    color: m.isActive ? "error.main" : "success.main",
+                                  },
+                                }}
                               >
-                                <PowerSettingsNewIcon fontSize="small" />
+                                {m.isActive
+                                  ? <ToggleOnIcon sx={{ fontSize: 26 }} />
+                                  : <ToggleOffIcon sx={{ fontSize: 26 }} />
+                                }
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Dupliquer">
@@ -344,6 +615,17 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
                                 <ContentCopyIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
+                            {api.delete && (
+                              <Tooltip title="Supprimer">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setConfirmDeleteId(m.id)}
+                                  sx={{ color: "text.disabled", "&:hover": { color: "error.main" } }}
+                                >
+                                  <DeleteOutlineIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Box>
                         </TableCell>
                       </TableRow>
@@ -354,9 +636,48 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
         </Paper>
       )}
 
-      {/* Create dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Nouveau message</DialogTitle>
+      {/* Delete confirm dialog */}
+      <Dialog open={confirmDeleteId !== null} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Supprimer ce message ?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Cette action est irréversible. Le message sera définitivement supprimé et ne sera plus
+            visible par les utilisateurs.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteId(null)}>Annuler</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => confirmDeleteId !== null && deleteMutation.mutate(confirmDeleteId)}
+            disabled={deleteMutation.isPending}
+          >
+            Supprimer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Help dialog */}
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {/* Create / Edit dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => { setDialogOpen(false); setEditingMessage(null); setForm(EMPTY_FORM); setSelectedUser(null); setSelectedHospital(null); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <span>{editingMessage ? "Modifier le message" : "Nouveau message"}</span>
+            <Tooltip title="Comment ça fonctionne ?">
+              <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ color: "text.secondary" }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </DialogTitle>
         <DialogContent dividers>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
             {/* Type */}
@@ -447,11 +768,15 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setDialogOpen(false); setForm(EMPTY_FORM); setSelectedUser(null); setSelectedHospital(null); }}>
+          <Button onClick={() => { setDialogOpen(false); setEditingMessage(null); setForm(EMPTY_FORM); setSelectedUser(null); setSelectedHospital(null); }}>
             Annuler
           </Button>
-          <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>
-            Créer
+          <Button
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={createMutation.isPending || updateMutation.isPending}
+          >
+            {editingMessage ? "Enregistrer" : "Créer"}
           </Button>
         </DialogActions>
       </Dialog>

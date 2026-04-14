@@ -189,7 +189,7 @@ const AdminResidentsPage = () => {
                       <TableCell>
                         <Chip
                           label={r.validatedAt !== null ? "Actif" : "En attente"}
-                          color={r.validatedAt !== null ? "success" : "warning"}
+                          color={r.validatedAt !== null ? "success" : "info"}
                           size="small"
                         />
                       </TableCell>

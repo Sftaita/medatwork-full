@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-13
+**Dernière mise à jour :** 2026-04-14 (session 14)
 
 ## Vue d'Ensemble
 
@@ -144,7 +144,7 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `AdminController` | `GET\|POST /api/admin/*` — gestion hôpitaux, demandes, invitation admins (ROLE_SUPER_ADMIN) |
 | `CommunicationAPI/UserCommunicationController` | `GET\|PATCH /api/communications/*` — notifications & modals pour tout utilisateur authentifié |
 | `CommunicationAPI/AdminCommunicationController` | `GET\|POST\|PATCH /api/admin/communications/*` — gestion globale des messages (ROLE_SUPER_ADMIN) |
-| `CommunicationAPI/HospitalAdminCommunicationController` | `GET\|POST\|PATCH /api/hospital-admin/communications/*` — gestion messages scoped à l'hôpital (ROLE_HOSPITAL_ADMIN) |
+| `CommunicationAPI/HospitalAdminCommunicationController` | `GET\|POST\|PUT\|DELETE\|PATCH /api/hospital-admin/communications/*` — gestion messages scoped à l'hôpital (ROLE_HOSPITAL_ADMIN) |
 
 ### Commandes CLI (`src/Command/`)
 
@@ -371,16 +371,21 @@ Système de messagerie interne permettant aux admins (super-admin et hospital-ad
 | `GET /api/communications/notifications` | Authentifié | Toutes les notifications de l'utilisateur |
 | `GET /api/communications/notifications/unread-count` | Authentifié | Nombre de notifications non lues (polling 30s) |
 | `PATCH /api/communications/notifications/{id}/read` | Authentifié | Marquer une notification comme lue |
+| `DELETE /api/communications/notifications/{id}/read` | Authentifié | Marquer une notification comme non lue |
 | `PATCH /api/communications/notifications/read-all` | Authentifié | Marquer tout comme lu |
 | `GET /api/communications/modals/pending` | Authentifié | Modals non encore lus (appelé à la connexion) |
 | `PATCH /api/communications/modals/{id}/read` | Authentifié | Acquitter un modal |
 | `GET /api/admin/communications` | ROLE_SUPER_ADMIN | Historique global des messages |
 | `POST /api/admin/communications` | ROLE_SUPER_ADMIN | Créer un message |
+| `PUT /api/admin/communications/{id}` | ROLE_SUPER_ADMIN | Modifier un message |
+| `DELETE /api/admin/communications/{id}` | ROLE_SUPER_ADMIN | Supprimer un message |
 | `PATCH /api/admin/communications/{id}/toggle-active` | ROLE_SUPER_ADMIN | Activer/désactiver |
 | `POST /api/admin/communications/{id}/duplicate` | ROLE_SUPER_ADMIN | Dupliquer |
 | `GET /api/admin/communications/users` | ROLE_SUPER_ADMIN | Liste tous les utilisateurs (autocomplete) |
 | `GET /api/hospital-admin/communications` | ROLE_HOSPITAL_ADMIN | Historique messages de l'hôpital |
 | `POST /api/hospital-admin/communications` | ROLE_HOSPITAL_ADMIN | Créer un message (hospital auto-scopé) |
+| `PUT /api/hospital-admin/communications/{id}` | ROLE_HOSPITAL_ADMIN | Modifier un message (ownership check) |
+| `DELETE /api/hospital-admin/communications/{id}` | ROLE_HOSPITAL_ADMIN | Supprimer un message (ownership check) |
 | `PATCH /api/hospital-admin/communications/{id}/toggle-active` | ROLE_HOSPITAL_ADMIN | Activer/désactiver (ownership check) |
 | `POST /api/hospital-admin/communications/{id}/duplicate` | ROLE_HOSPITAL_ADMIN | Dupliquer |
 | `GET /api/hospital-admin/communications/users` | ROLE_HOSPITAL_ADMIN | Utilisateurs de l'hôpital seulement |
@@ -426,6 +431,62 @@ SidebarNav badge = legacyCount + commUnreadCount (max affichée: 9)
 
 `HospitalAdminCommunicationPage` et `AdminCommunicationPage` partagent le composant `CommunicationPageContent` (paramétrable via prop `api` + `showHospital`).
 
+#### Fonctionnalités UI — CommunicationPageContent (2026-04-14)
+
+Le composant accepte un `ApiSet` optionnel — les boutons actions sont conditionnellement affichés selon la présence des méthodes :
+
+| Méthode `ApiSet` | Bouton rendu | Comportement |
+|---|---|---|
+| `create()` | "Nouveau message" (toujours présent) | Dialog création |
+| `update?(id)` | Crayon — conditionnel | Dialog édition (pré-rempli), titre "Modifier le message" |
+| `delete?(id)` | Poubelle — conditionnel | Dialog confirmation + suppression irréversible |
+| `toggleActive(id)` | ToggleOn/ToggleOff | Activation/désactivation |
+| `duplicate(id)` | Copie | Duplication |
+
+Toutes les mutations utilisent l'**optimistic update** : fermeture immédiate du dialog, mise à jour du cache, rollback sur erreur réseau, `invalidateQueries` pour synchronisation finale.
+
+#### Fonctionnalités UI — HospitalAdminNotificationsPage (2026-04-14)
+
+- **Pagination client-side** : 20 notifications par page, reset au changement de filtre
+- **Dialog de détail** : titre, date, corps complet, bouton "Ouvrir le lien" (si `targetUrl`), bouton "Marquer non lu" (si `isRead === true`)
+- **Marquer non lu** : appelle `DELETE /api/communications/notifications/{id}/read`, met à jour l'état du dialog immédiatement
+
+#### Fonctionnalités UI — HospitalAdminAuditLogPage (2026-04-14)
+
+- **Chargement global** : toutes les entrées en une requête (limit=1 000), filtrage/pagination client-side
+- **Filtres** : type d'action (Select), plage de dates (Du / Au), compteur de résultats, bouton "Réinitialiser"
+- **Export CSV** : exporte uniquement la vue filtrée courante
+
+### Design System — Chips MUI (2026-04-13)
+
+Tous les `<Chip>` de l'application partagent une convention visuelle unifiée, définie dans `src/doc/CustomizedTheme.tsx` :
+
+```tsx
+components: {
+  MuiChip: {
+    defaultProps: {
+      variant: "outlined",  // outlined partout
+      size: "small",
+    },
+  },
+},
+```
+
+**Palette sémantique des chips :**
+
+| Statut / Contexte | Couleur | Notes |
+|---|---|---|
+| Actif / Conforme | `success` | `#2e7d32` (vert forêt — remplace le vert néon `#56CA00`) |
+| En attente / Invité | `info` | Bleu — signale un état informationnel en attente d'action |
+| Incomplet / Erreur | `error` | Rouge |
+| Inactif / Retiré | `default` | Gris |
+| Opting-out | `primary` | Violet (couleur de marque) |
+| Action log (audit) | variable | success/error/warning/info/default selon le type d'action |
+
+Ce système s'applique à tous les fichiers : `HospitalAdminResidentsPage`, `HospitalAdminManagersPage`, `HospitalAdminYearResidentsPage`, `AdminHospitalAdminsPage`, `AdminHospitalDetailPage`, `AdminManagersPage`, `AdminResidentsPage`, `CommunicationPageContent`, etc.
+
+---
+
 ### QueryClient Global (`lib/queryClient.ts`)
 
 ```ts
@@ -457,6 +518,28 @@ new QueryClient({
   <Route path="/management" element={<ManagementPage />} />
 </Route>
 ```
+
+Les routes sont organisées en blocs par rôle dans `App.tsx` :
+
+| Guard | Condition | Routes |
+|-------|-----------|--------|
+| `ManagerRoute` | `role === "manager"` | `/manager/*` |
+| `HospitalAdminRoute` | `role === "hospital_admin"` ou `role === "manager" && hospitalName` | `/hospital-admin/*` **+ `/manager/year-detail`** |
+| `ResidentRoute` | `role === "resident"` | `/resident/*` |
+| `SuperAdminRoute` | `role === "super_admin"` | `/admin/*` |
+
+> `/manager/year-detail` est déclaré dans les deux blocs (`ManagerRoute` et `HospitalAdminRoute`) car les hospital-admins naviguent vers cette page depuis leur dashboard.
+
+**Correspondance rôle → route d'accueil après login :**
+
+| `role` retourné par `AuthenticationSuccessListener` | Redirection |
+|-----------------------------------------------------|-------------|
+| `hospital_admin` | `/hospital-admin/dashboard` |
+| `manager` | `/manager/realtime` |
+| `resident` | `/resident/home` |
+| `super_admin` | `/admin` |
+
+Un `Manager` promu admin d'hôpital (`adminHospital !== null`) reçoit `role: "hospital_admin"` + `hospitalId` + `hospitalName` dans le payload JWT — même si son entité reste `Manager` en base.
 
 ---
 
@@ -747,4 +830,4 @@ Mise à jour disponible
 | Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
 | devOptions activé (test dev) | ✅ `vite.config.js` |
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-07*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-13 (session 13)*

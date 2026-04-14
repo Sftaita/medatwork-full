@@ -23,21 +23,24 @@ class CommunicationMessageRepository extends ServiceEntityRepository
      * excluding messages the user has already read.
      *
      * A message targets a user when:
-     *   - scopeType = 'all'  AND (hospital IS NULL OR hospital.id = $hospitalId)
-     *   - scopeType = 'role' AND targetRole = $userType AND (hospital IS NULL OR hospital.id = $hospitalId)
+     *   - scopeType = 'all'  AND (hospital IS NULL OR hospital.id IN $hospitalContext)
+     *   - scopeType = 'role' AND targetRole = $userType AND (hospital IS NULL OR hospital.id IN $hospitalContext)
      *   - scopeType = 'user' AND targetUserId = $userId AND targetUserType = $userType
      *
-     * @param string   $userType   'manager' | 'resident' | 'hospital_admin'
-     * @param int      $userId     Primary key of the user
-     * @param int|null $hospitalId Hospital the user belongs to (used for scoping)
-     * @param string   $msgType    'notification' | 'modal'
+     * @param string       $userType        'manager' | 'resident' | 'hospital_admin'
+     * @param int          $userId          Primary key of the user
+     * @param int|int[]|null $hospitalContext Hospital(s) the user belongs to.
+     *                                       int   → single hospital (managers / hospital admins)
+     *                                       int[] → multiple hospitals (residents linked to several years)
+     *                                       null  → global messages only
+     * @param string       $msgType         'notification' | 'modal'
      *
      * @return CommunicationMessage[]
      */
     public function findUnreadForUser(
         string $userType,
         int $userId,
-        ?int $hospitalId,
+        int|array|null $hospitalContext,
         string $msgType
     ): array {
         $qb = $this->createQueryBuilder('m')
@@ -60,13 +63,7 @@ class CommunicationMessageRepository extends ServiceEntityRepository
             ->orderBy('m.priority', 'ASC')
             ->addOrderBy('m.createdAt', 'DESC');
 
-        // Restrict to the user's hospital unless the message targets all hospitals (hospital IS NULL)
-        if ($hospitalId !== null) {
-            $qb->andWhere('m.hospital IS NULL OR h.id = :hospitalId')
-               ->setParameter('hospitalId', $hospitalId);
-        } else {
-            $qb->andWhere('m.hospital IS NULL');
-        }
+        $this->applyHospitalFilter($qb, $hospitalContext);
 
         return $qb->getQuery()->getResult();
     }
@@ -74,12 +71,13 @@ class CommunicationMessageRepository extends ServiceEntityRepository
     /**
      * All messages (read + unread) targeting a user — used for the notification page list.
      *
+     * @param int|int[]|null $hospitalContext See findUnreadForUser() for semantics.
      * @return CommunicationMessage[]
      */
     public function findAllForUser(
         string $userType,
         int $userId,
-        ?int $hospitalId,
+        int|array|null $hospitalContext,
         string $msgType
     ): array {
         $qb = $this->createQueryBuilder('m')
@@ -99,38 +97,58 @@ class CommunicationMessageRepository extends ServiceEntityRepository
             ->setParameter('scopeUser', CommunicationMessage::SCOPE_USER)
             ->orderBy('m.createdAt', 'DESC');
 
-        if ($hospitalId !== null) {
-            $qb->andWhere('m.hospital IS NULL OR h.id = :hospitalId')
-               ->setParameter('hospitalId', $hospitalId);
-        } else {
-            $qb->andWhere('m.hospital IS NULL');
-        }
+        $this->applyHospitalFilter($qb, $hospitalContext);
 
         return $qb->getQuery()->getResult();
     }
 
     /**
      * Count unread notifications for a user (used for the badge endpoint).
+     *
+     * @param int|int[]|null $hospitalContext See findUnreadForUser() for semantics.
      */
     public function countUnreadNotificationsForUser(
         string $userType,
         int $userId,
-        ?int $hospitalId
+        int|array|null $hospitalContext
     ): int {
-        return count($this->findUnreadForUser($userType, $userId, $hospitalId, CommunicationMessage::TYPE_NOTIFICATION));
+        return count($this->findUnreadForUser($userType, $userId, $hospitalContext, CommunicationMessage::TYPE_NOTIFICATION));
     }
 
     /**
      * Pending modals for a user (unread modals, ordered by priority then createdAt).
      *
+     * @param int|int[]|null $hospitalContext See findUnreadForUser() for semantics.
      * @return CommunicationMessage[]
      */
     public function findPendingModalsForUser(
         string $userType,
         int $userId,
-        ?int $hospitalId
+        int|array|null $hospitalContext
     ): array {
-        return $this->findUnreadForUser($userType, $userId, $hospitalId, CommunicationMessage::TYPE_MODAL);
+        return $this->findUnreadForUser($userType, $userId, $hospitalContext, CommunicationMessage::TYPE_MODAL);
+    }
+
+    /**
+     * Restricts query builder to messages scoped to the user's hospital(s).
+     * Global messages (hospital IS NULL) are always included.
+     *
+     * @param int|int[]|null $hospitalContext
+     */
+    private function applyHospitalFilter(\Doctrine\ORM\QueryBuilder $qb, int|array|null $hospitalContext): void
+    {
+        if ($hospitalContext === null || $hospitalContext === []) {
+            // No hospital context → only globally-scoped messages
+            $qb->andWhere('m.hospital IS NULL');
+        } elseif (is_array($hospitalContext)) {
+            // Multiple hospitals (residents linked to several academic years)
+            $qb->andWhere('m.hospital IS NULL OR h.id IN (:hospitalIds)')
+               ->setParameter('hospitalIds', $hospitalContext);
+        } else {
+            // Single hospital (manager / hospital admin)
+            $qb->andWhere('m.hospital IS NULL OR h.id = :hospitalId')
+               ->setParameter('hospitalId', $hospitalContext);
+        }
     }
 
     /**

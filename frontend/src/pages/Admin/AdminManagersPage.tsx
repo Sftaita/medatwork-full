@@ -35,7 +35,7 @@ import type { AdminManager } from "../../types/entities";
 
 // ── Status chip helpers ───────────────────────────────────────────────────────
 
-type ChipColor = "success" | "default" | "warning" | "error";
+type ChipColor = "success" | "default" | "warning" | "error" | "info";
 
 const STATUS_LABEL: Record<string, string> = {
   active: "Actif",
@@ -46,7 +46,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_COLOR: Record<string, ChipColor> = {
   active: "success",
   inactive: "default",
-  pending_hospital: "warning",
+  pending_hospital: "info",
 };
 
 // validatedAt=null → profile not yet completed

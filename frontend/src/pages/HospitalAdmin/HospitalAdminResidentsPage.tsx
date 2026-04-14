@@ -53,7 +53,7 @@ import type {
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
-type ChipColor = "success" | "warning" | "error" | "default";
+type ChipColor = "success" | "warning" | "error" | "default" | "info" | "primary";
 
 const STATUS_LABEL: Record<MaccsStatus, string> = {
   active: "Actif",
@@ -71,10 +71,11 @@ const STATUS_TOOLTIP: Record<MaccsStatus, string> = {
 
 const STATUS_COLOR: Record<MaccsStatus, ChipColor> = {
   active: "success",
-  pending: "warning",
+  pending: "info",
   incomplete: "error",
   retired: "default",
 };
+
 
 // ── Actions menu ──────────────────────────────────────────────────────────────
 
@@ -220,7 +221,7 @@ const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => voi
             </Typography>
             <Box mt={0.5}>
               {row.optingOut ? (
-                <Chip label="Oui — exclu des statistiques" size="small" color="warning" />
+                <Chip label="Oui — exclu des statistiques" size="small" color="primary" variant="outlined" />
               ) : (
                 <Typography variant="body2">Non</Typography>
               )}
@@ -235,7 +236,9 @@ const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => voi
                 <Chip
                   label={STATUS_LABEL[row.status]}
                   color={STATUS_COLOR[row.status]}
+                  variant="outlined"
                   size="small"
+
                 />
               </Tooltip>
             </Box>
@@ -1008,7 +1011,7 @@ const HospitalAdminResidentsPage = () => {
                   <TableCell>{row.yearTitle ?? "—"}</TableCell>
                   <TableCell>
                     {row.optingOut ? (
-                      <Chip label="Oui" size="small" color="warning" />
+                      <Chip label="Oui" size="small" color="primary" variant="outlined" />
                     ) : (
                       <Typography variant="body2" color="text.secondary">
                         —
@@ -1020,7 +1023,9 @@ const HospitalAdminResidentsPage = () => {
                       <Chip
                         label={STATUS_LABEL[row.status]}
                         color={STATUS_COLOR[row.status]}
+                        variant="outlined"
                         size="small"
+      
                       />
                     </Tooltip>
                   </TableCell>

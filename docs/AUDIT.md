@@ -1,28 +1,28 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-13 (session 12)
+**Dernière mise à jour :** 2026-04-14 (session 14)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 18
-**Statut :** Professionnalisation en cours — Audit HospitalAdmin + audit Manager/Resident terminés
+**Statut :** Professionnalisation en cours — UX/Fonctionnel communication complété + tests + édition messages + pagination notifications
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 |
-| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 |
-| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) | Valeur (2026-04-14 s14) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 | **~171** |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 | ~265 |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 | 26 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 | 7 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ | 35+ |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ | 19+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 | 58 |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 | **1 027 (+6)** |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | **19 (+9)** |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 | **243 (+8)** |
+| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 | 92/100 |
 
 ### Tableau des Risques (mis à jour)
 
@@ -265,6 +265,93 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-14 (session 14) — UX Communication + Tests + Édition messages + Pagination notifications
+
+**Vérification sécurité :**
+- Audit du code actuel confirme que toutes les failles de l'audit initial sont déjà corrigées : `md5(uniqid())` → `bin2hex(random_bytes(32))` partout, pas de `dd()`/`die()` en production, pas de désactivation SSL. Les occurrences `md5`/`uniqid` restantes sont dans des fichiers de config auto-générés ou des tests (contexte non-sécuritaire).
+
+**UX / Fonctionnel — Journal d'activité (`HospitalAdminAuditLogPage.tsx`) :**
+- Chargement de toutes les entrées en une seule requête (limit=1000)
+- Filtre "Type d'action" : `Select` MUI avec tous les types `ACTION_LABEL`
+- Filtre "Du / Au" : date range client-side, normalisation début/fin de journée
+- `useMemo` pour filtrage réactif, reset de page automatique au changement de filtre
+- Compteur de résultats filtré, bouton "Réinitialiser" conditionnel
+- Export CSV opère sur la vue filtrée (pas sur toutes les données)
+- Pagination réduite à 25 entrées/page (était 50)
+
+**UX / Fonctionnel — Suppression de message (`CommunicationPageContent.tsx`) :**
+- Backend : `DELETE /api/hospital-admin/communications/{id}` avec vérification de propriété → 204
+- API frontend : `delete(id)` ajouté à `adminCommunicationsApi` et `hospitalAdminCommunicationsApi`
+- `ApiSet` : `delete?` en optionnel → contrôle l'affichage du bouton par contexte
+- Bouton poubelle (`DeleteOutlineIcon`) dans la colonne actions, rouge au survol
+- Dialog de confirmation avant suppression irréversible
+- `deleteMutation` : optimistic removal du cache avec rollback sur erreur
+
+**UX / Fonctionnel — Marquer non lu (`HospitalAdminNotificationsPage.tsx`) :**
+- Backend : `markAsUnread()` dans `CommunicationMessageReadRepository` (supprime l'enregistrement de lecture)
+- Backend : `DELETE /api/communications/notifications/{id}/read`
+- API frontend : `markNotificationUnread(id)` dans `communicationsApi`
+- Bouton "Marquer non lu" dans le dialog de détail, visible uniquement si `isRead === true`
+- Met à jour l'état du dialog immédiatement + invalide les deux query keys (liste + badge)
+
+**UX / Fonctionnel — Édition de message (`CommunicationPageContent.tsx`) :**
+- Backend : `PUT /api/hospital-admin/communications/{id}`, réutilise `CommunicationInputDTO`, vérification propriété, flush → 200
+- API frontend : `update(id)` ajouté à `adminCommunicationsApi` et `hospitalAdminCommunicationsApi`
+- `ApiSet` : `update?` en optionnel
+- Bouton crayon (`EditIcon`) dans la colonne actions
+- `handleOpenEdit()` pré-remplit le formulaire avec les valeurs existantes
+- Le même `Dialog` est réutilisé en mode "création" et "édition" (titre + bouton adaptés)
+- `updateMutation` : optimistic update du cache, fermeture immédiate du dialog, rollback sur erreur
+
+**UX / Fonctionnel — Pagination des notifications (`HospitalAdminNotificationsPage.tsx`) :**
+- `PAGE_SIZE = 20`, `useMemo` pour le filtrage, `pagedNotifs` pour le rendu
+- Composant `Pagination` MUI sous le tableau, visible uniquement si `totalPages > 1`
+- Reset de la page au changement de filtre (Toutes / Non lues)
+
+**Tests frontend (`CommunicationPageContent.test.tsx`) :**
+- Correction : test toggle brisé (`PowerSettingsNewIcon` → `ToggleOnIcon`/`ToggleOffIcon`)
+- Ajout `mockDelete` dans le mock axios
+- 5 nouveaux tests : bouton delete visible, bouton absent sans `api.delete`, dialog confirm, appel DELETE API, annulation sans appel
+- Total : 19 → 24 tests
+
+**Tests frontend (`HospitalAdminNotificationsPage.test.tsx`) :**
+- Ajout `markNotificationUnread` + `mockDelete` dans les mocks
+- 3 nouveaux tests : "Marquer non lu" visible si lu, masqué si non lu, appel DELETE API
+- Total : 17 → 20 tests
+
+**Tests backend (`CommunicationMessageReadRepositoryTest.php`) — nouveau fichier :**
+- 6 tests d'intégration SQLite in-memory : `findOneByMessageAndUser` null, `markAsRead` création, idempotence, `markAsUnread` suppression, idempotence sur non-lu, isolation inter-utilisateurs
+- Pattern identique à `CommunicationMessageRepositoryTest` (WebTestCase, kernel partagé, `tearDown` sans parent)
+
+---
+
+### 2026-04-13 (session 13) — Design System chips + UX fixes frontend
+
+**Design System — Chip MUI (systématique) :**
+- `CustomizedTheme.tsx` : `MuiChip.defaultProps = { variant: "outlined", size: "small" }` → tous les Chip de l'app sont désormais outlined par défaut, sans modifier chaque fichier
+- `success.main` changé de `#56CA00` (vert néon) → `#2e7d32` (vert forêt professionnel) — affecte aussi les Alerts, boutons success
+- Convention sémantique unifiée : `pending`/`invited`/`En attente` → `color="info"` (bleu) au lieu de `"warning"` (orange), dans 6 fichiers : `HospitalAdminResidentsPage`, `HospitalAdminManagersPage`, `HospitalAdminYearResidentsPage`, `AdminHospitalAdminsPage`, `AdminHospitalDetailPage`, `AdminManagersPage`, `AdminResidentsPage`
+- Opting-out chips → `color="primary"` (violet) dans `HospitalAdminResidentsPage` + `HospitalAdminYearResidentsPage`
+
+**Bug fix — Login redirect hospital_admin :**
+- `AuthenticationSuccessListener.php` : un `Manager` avec `adminHospital !== null` retournait `role: "manager"` via `getRole()` (champ DB) au lieu de `role: "hospital_admin"` → le frontend le routait vers `/manager/realtime` au lieu de `/hospital-admin/dashboard`
+- Fix : priorité sur `getAdminHospital() !== null` pour retourner `hospital_admin` + `hospitalId` + `hospitalName`
+
+**Bug fix — Route year-detail inaccessible aux hospital_admin :**
+- `/manager/year-detail` était derrière `ManagerRoute` (role === "manager" seulement) → hospital_admin redirigé vers `/login` en cliquant sur une carte du dashboard
+- Fix : route dupliquée dans le bloc `HospitalAdminRoute` dans `App.tsx`
+
+**UX — Sidebar et Topbar :**
+- `sidebarNavData.tsx` : `linkTextSx` enrichi de `display: "block"` → les `<a>` NavLink sont désormais bloc, le `Button fullWidth` prend toute la largeur correctement
+- `SidebarNav.tsx` : `sx={{ textAlign: "left" }}` ajouté sur le `Button` NavItem pour éviter tout centrage du texte en cas d'héritage CSS
+- `Topbar.tsx` : badge "ADMIN" → texte enveloppé dans `<span style={{ color: "white" }}>` (inline style) pour garantir la lisibilité indépendamment de la couleur héritée du parent
+
+**Modal d'aide — Journal d'activité :**
+- `HospitalAdminAuditLogPage.tsx` : composant `HelpModal` ajouté (Dialog MUI) expliquant ce qui est tracé, qui peut consulter, durée de conservation
+- Bouton `HelpOutlineIcon` à côté du titre "Journal d'activité"
+
+---
 
 ### 2026-04-13 (session 12) — Audit Manager/Resident — bugs sécurité et qualité
 

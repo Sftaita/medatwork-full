@@ -41,8 +41,8 @@ import type { HospitalYear, AdminManager } from "../../types/entities";
 
 const ADMIN_TYPE_LABEL: Record<string, string> = { invited: "Invité externe", promoted: "Manager promu" };
 const ADMIN_STATUS_LABEL: Record<string, string> = { active: "Actif", invited: "En attente" };
-type ChipColor = "success" | "warning" | "default";
-const ADMIN_STATUS_COLOR: Record<string, ChipColor> = { active: "success", invited: "warning" };
+type ChipColor = "success" | "info" | "default";
+const ADMIN_STATUS_COLOR: Record<string, ChipColor> = { active: "success", invited: "info" };
 
 const MANAGER_STATUS_LABEL: Record<string, string> = {
   active: "Actif",
@@ -52,7 +52,7 @@ const MANAGER_STATUS_LABEL: Record<string, string> = {
 const MANAGER_STATUS_COLOR: Record<string, ChipColor> = {
   active: "success",
   inactive: "default",
-  pending_hospital: "warning",
+  pending_hospital: "info",
 };
 
 type HospitalAdminRow = {

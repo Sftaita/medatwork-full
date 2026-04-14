@@ -37,10 +37,10 @@ const STATUS_LABEL: Record<string, string> = {
   invited: "Invité",
 };
 
-type ChipColor = "success" | "warning";
+type ChipColor = "success" | "info";
 const STATUS_COLOR: Record<string, ChipColor> = {
   active: "success",
-  invited: "warning",
+  invited: "info",
 };
 
 // ── Actions menu ──────────────────────────────────────────────────────────────

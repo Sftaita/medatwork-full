@@ -21,7 +21,7 @@ import type { MaccsRow, MaccsStatus } from "../../services/hospitalAdminApi";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
-type ChipColor = "success" | "warning" | "error" | "default";
+type ChipColor = "success" | "info" | "error" | "default";
 
 const STATUS_LABEL: Record<MaccsStatus, string> = {
   active: "Actif",
@@ -32,7 +32,7 @@ const STATUS_LABEL: Record<MaccsStatus, string> = {
 
 const STATUS_COLOR: Record<MaccsStatus, ChipColor> = {
   active: "success",
-  pending: "warning",
+  pending: "info",
   incomplete: "error",
   retired: "default",
 };
