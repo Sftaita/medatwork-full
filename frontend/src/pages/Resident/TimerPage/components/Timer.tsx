@@ -16,8 +16,7 @@ import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
+import NumberSpinnerField from "../../../../components/small/NumberSpinnerField";
 import CustomSelect from "../../../../components/medium/CustomSelect";
 import CircularProgress from "@mui/material/CircularProgress";
 
@@ -276,46 +275,28 @@ const Timer = ({
             {!timesheet.called && (
               <>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
+                  <NumberSpinnerField
                     label="Pause"
-                    name="pause"
-                    type="number"
                     value={timesheet.pause}
-                    onChange={(event) =>
-                      setTimesheet((prev) => ({
-                        ...prev,
-                        pause: Math.max(0, Number(event.target.value)),
-                      }))
+                    step={5}
+                    min={0}
+                    onChange={(_, val) =>
+                      setTimesheet((prev) => ({ ...prev, pause: val ?? 0 }))
                     }
-                    inputProps={{ min: 0, step: 5 }}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">min</InputAdornment>
-                      ),
-                    }}
+                    endAdornment="min"
                   />
                 </Grid>
 
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
+                  <NumberSpinnerField
                     label="Scientifique"
-                    name="scientific"
-                    type="number"
                     value={timesheet.scientific}
-                    onChange={(event) =>
-                      setTimesheet((prev) => ({
-                        ...prev,
-                        scientific: Math.max(0, Number(event.target.value)),
-                      }))
+                    step={5}
+                    min={0}
+                    onChange={(_, val) =>
+                      setTimesheet((prev) => ({ ...prev, scientific: val ?? 0 }))
                     }
-                    inputProps={{ min: 0, step: 5 }}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">min</InputAdornment>
-                      ),
-                    }}
+                    endAdornment="min"
                   />
                 </Grid>
               </>
