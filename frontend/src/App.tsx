@@ -393,6 +393,30 @@ function App() {
                         </Suspense>
                       }
                     />
+                    <Route
+                      path="/manager/calendar"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <ManagerCalendar />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/manager/week-dispatcher"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <WeekDispatcherPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/manager/week-creator"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <WeekCreatorPage />
+                        </Suspense>
+                      }
+                    />
                   </Route>
 
                   {/* Manager routes */}

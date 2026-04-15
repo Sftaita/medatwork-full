@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-15 (session 16)
+**Dernière mise à jour :** 2026-04-15 (session 17)
 
 ## Vue d'Ensemble
 
@@ -578,7 +578,7 @@ Les routes sont organisées en blocs par rôle dans `App.tsx` :
 | Guard | Condition | Routes |
 |-------|-----------|--------|
 | `ManagerRoute` | `role === "manager"` | `/manager/*` |
-| `HospitalAdminRoute` | `role === "hospital_admin"` ou `role === "manager" && hospitalName` | `/hospital-admin/*` **+ `/manager/year-detail`** |
+| `HospitalAdminRoute` | `role === "hospital_admin"` ou `role === "manager" && hospitalName` | `/hospital-admin/*` **+ `/manager/year-detail` + `/manager/calendar` + `/manager/week-dispatcher` + `/manager/week-creator`** |
 | `ResidentRoute` | `role === "resident"` | `/resident/*` |
 | `SuperAdminRoute` | `role === "super_admin"` | `/admin/*` |
 
@@ -830,6 +830,99 @@ API Platform 2.7.18 est installé. Les entités utilisent le nouveau namespace `
 
 ---
 
+## Module Agenda / Postes de travail (2026-04-15)
+
+### Accès hospital-admin
+
+Les hospital-admins ont accès aux trois pages du module agenda manager via `role_hierarchy` dans `security.yaml` :
+
+```yaml
+role_hierarchy:
+  ROLE_HOSPITAL_ADMIN: [ROLE_MANAGER]
+```
+
+Côté frontend, les routes `/manager/calendar`, `/manager/week-dispatcher` et `/manager/week-creator` sont déclarées dans le bloc `HospitalAdminRoute` de `App.tsx`. Les entrées correspondantes sont ajoutées dans `sidebarNavData.tsx` pour le menu hospital-admin (groupe "Agenda").
+
+### Backend — WeekTemplates
+
+#### WeekTemplateVoter (`src/Security/Voter/WeekTemplateVoter.php`)
+
+Le voter autorise désormais les `HospitalAdmin` sans restriction (même accès que `canEdit = true`) :
+
+```php
+if ($user instanceof HospitalAdmin) return true;
+// puis vérification canEdit pour les Manager
+```
+
+#### WeekTemplatesController — endpoints
+
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `GET /api/managers/weekTemplates` | GET | Liste tous les templates (HospitalAdmin → `findAll()`, Manager → ses propres) |
+| `POST /api/managers/weekTemplate` | POST | Créer un template |
+| `PUT /api/managers/weekTemplate/{id}` | PUT | Modifier (voter) |
+| `DELETE /api/managers/weekTemplate/{id}` | DELETE | Supprimer (voter) |
+| `POST /api/managers/weekTemplate/{id}/copy` | POST | **Nouveau** — Dupliquer un template avec toutes ses tâches |
+| `POST /api/managers/weekTemplate/{id}/task` | POST | Ajouter une tâche |
+| `PUT /api/managers/weekTask/{id}` | PUT | Modifier une tâche (incl. `dayOfWeek` pour le drag & drop) |
+| `DELETE /api/managers/weekTask/{id}` | DELETE | Supprimer une tâche |
+
+**Serialisation** : `serializeTemplate(?ManagerWeekTemplate $join)` utilise `?->getCanEdit() ?? true` — les hospital-admins reçoivent `canEdit: true` même sans ligne `ManagerWeekTemplate`.
+
+#### WeekController supprimé
+
+`backend/src/Controller/WeekTemplatesAPI/ManagersAPI/WeekController.php` a été **supprimé** — il contenait 2 méthodes sans route valide (typo `/manerweekTemplate`) et du code mort.
+
+### Frontend — WeekCreator (`pages/Management/Agenda/WeekCreator/`)
+
+#### Layout
+
+```
+WeekCreatorPage
+└── WeekCreator (flexbox column, height: 82vh)
+    ├── TopBar                     ← chips templates + progression heures
+    └── [flex row]
+        ├── AddBloc (28%)          ← formulaire ajout/édition tâche
+        └── TimelineBloc (72%)     ← sélecteur jour + timeline visuelle
+```
+
+La colonne droite `TimeSummaryBloc` (cercle heures + barres par jour) a été **supprimée** — les statistiques sont affichées directement dans la `TopBar`.
+
+#### TopBar
+
+- **Chips** : un chip par template, couleur personnalisée, scroll horizontal invisible si trop nombreux — le compteur d'heures reste toujours visible à droite (`flexShrink: 0`)
+- **Icône ✏️** : s'affiche sur le chip sélectionné → ouvre le drawer `UpdateWeekTemplate`
+- **Bouton `+`** : ouvre le drawer `CreateWeekForm`
+- **Barre de progression** : `{X}h / 72h` avec `LinearProgress`, rouge si ≥ 100 %
+
+#### TimelineBloc
+
+- Day selector **sticky** (reste visible au scroll de la timeline)
+- Drag & drop natif HTML5 (`draggable` / `onDragStart` / `onDrop`) — `DRAG_TASK_KEY = "application/week-task-id"` partagé avec `VisualTimeline`
+- Optimistic update + revert sur erreur pour les déplacements de tâche entre jours
+
+#### VisualTimeline
+
+Timeline positionnée absolument, 06:00–23:00, `PX_PER_MIN = 1.2` (1 224 px total). Les `TaskBlock` sont `draggable`, cliquables pour ouvrir le formulaire d'édition.
+
+#### WeekTaskForm
+
+- `AdapterDayjs` (plus `AdapterMoment`) — compatible avec l'environnement Docker
+- `serverError` state : affiche un `<Alert severity="error">` sur erreur 400 backend
+- Submit désactivé si `title.trim() === ""`
+
+#### Tests (16/16 passing — Vitest)
+
+| Fichier | Tests |
+|---------|-------|
+| `VisualTimeline.test.tsx` | État vide, affichage titres, positionnement px |
+| `WeekTaskForm.test.tsx` | Submit disabled/enabled, alert erreur serveur, annuler reset |
+| `WeekTemplatesList.test.tsx` | Titres, variant contained, barres couleur, clic handler |
+| `HoursCircle.test.tsx` | Label présent, cap à 100 % pour 80h |
+| `TimeSummaryBloc.test.tsx` | 7 jours, dayOfWeek string, hors plage ignoré |
+
+---
+
 ## PWA — Progressive Web App
 
 **Score Lighthouse estimé : 92/100** (2026-04-04)
@@ -884,4 +977,4 @@ Mise à jour disponible
 | Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
 | devOptions activé (test dev) | ✅ `vite.config.js` |
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-13 (session 13)*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-15 (session 17)*

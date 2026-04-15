@@ -29,7 +29,7 @@ const weekTemplatesApi = {
     };
   },
 
-  addTaskToWeekTemplate(): ApiCall {
+  addTaskToWeekTemplate(_weekTemplateId?: string | number): ApiCall {
     return {
       method: "post",
       url: "managers/weekTask/create",
@@ -55,6 +55,10 @@ const weekTemplatesApi = {
       method: "post",
       url: "managers/year/weektemplateLink",
     };
+  },
+
+  copyTemplate(id: string | number): ApiCall {
+    return { method: "post", url: `managers/weekTemplate/${id}/copy` };
   },
 };
 

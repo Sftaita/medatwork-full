@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\WeekTemplatesAPI\ManagersAPI;
 
 use App\DTO\WeekTemplateInputDTO;
+use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\ManagerWeekTemplate;
 use App\Entity\WeekTask;
@@ -55,8 +56,18 @@ class WeekTemplatesController extends AbstractController
     #[Route('/api/managers/allweekTemplates', methods: ['GET'])]
     public function getAllWeekTemplates(Security $security): JsonResponse
     {
+        $user = $security->getUser();
+
+        if ($user instanceof HospitalAdmin) {
+            $allTemplates = $this->weekTemplatesRepository->findAll();
+            $data         = array_map(fn (WeekTemplates $t) => $this->serializeTemplate($t, null), $allTemplates);
+            usort($data, fn (array $a, array $b) => $a['title'] <=> $b['title']);
+
+            return $this->json($data, 200);
+        }
+
         /** @var Manager $manager */
-        $manager              = $security->getUser();
+        $manager              = $user;
         $managerWeekTemplates = $this->managerWeekTemplateRepository->findBy(['manager' => $manager]);
 
         $data = [];
@@ -92,20 +103,26 @@ class WeekTemplatesController extends AbstractController
             return new JsonResponse(['error' => implode(', ', array_map(fn ($e) => $e->getMessage(), iterator_to_array($errors)))], Response::HTTP_BAD_REQUEST);
         }
 
-        /** @var Manager $manager */
-        $manager = $security->getUser();
-
-        $managerWeekTemplate = (new ManagerWeekTemplate())
-            ->setManager($manager)
-            ->setWeekTemplate($weekTemplate)
-            ->setCanEdit(true)
-            ->setCanShare(true);
-
         $this->entityManager->persist($weekTemplate);
-        $this->entityManager->persist($managerWeekTemplate);
+
+        $user = $security->getUser();
+
+        if ($user instanceof Manager) {
+            $managerWeekTemplate = (new ManagerWeekTemplate())
+                ->setManager($user)
+                ->setWeekTemplate($weekTemplate)
+                ->setCanEdit(true)
+                ->setCanShare(true);
+            $this->entityManager->persist($managerWeekTemplate);
+            $this->entityManager->flush();
+
+            return $this->json($this->serializeTemplate($weekTemplate, $managerWeekTemplate), Response::HTTP_CREATED);
+        }
+
+        // HospitalAdmin: template sans lien manager
         $this->entityManager->flush();
 
-        return $this->json($this->serializeTemplate($weekTemplate, $managerWeekTemplate), Response::HTTP_CREATED);
+        return $this->json($this->serializeTemplate($weekTemplate, null), Response::HTTP_CREATED);
     }
 
     #[Route('/api/managers/weekTemplate/{weekTemplateId}', methods: ['PUT'])]
@@ -169,26 +186,68 @@ class WeekTemplatesController extends AbstractController
         return new JsonResponse(['message' => 'Association supprimée.'], 200);
     }
 
+    #[Route('/api/managers/weekTemplate/{weekTemplateId}/copy', methods: ['POST'])]
+    public function copy(int $weekTemplateId, Security $security): JsonResponse
+    {
+        $original = $this->weekTemplatesRepository->find($weekTemplateId);
+        if (!$original) {
+            return new JsonResponse(['error' => 'WeekTemplate non trouvé.'], Response::HTTP_NOT_FOUND);
+        }
+        $this->denyAccessUnlessGranted(WeekTemplateVoter::VIEW, $original);
+
+        $copy = (new WeekTemplates())
+            ->setTitle($original->getTitle() . ' (copie)')
+            ->setDescription($original->getDescription())
+            ->setColor($original->getColor());
+
+        foreach ($original->getWeekTaskList() as $task) {
+            $origStart = $task->getStartTime();
+            $origEnd   = $task->getEndTime();
+            if ($origStart === null || $origEnd === null) { continue; }
+            $taskCopy = (new WeekTask())
+                ->setTitle($task->getTitle())
+                ->setDescription($task->getDescription() ?? '')
+                ->setDayOfWeek($task->getDayOfWeek())
+                ->setStartTime(clone $origStart)
+                ->setEndTime(clone $origEnd)
+                ->setWeekTemplate($copy);
+            $this->entityManager->persist($taskCopy);
+        }
+        $this->entityManager->persist($copy);
+
+        $user = $security->getUser();
+        if ($user instanceof Manager) {
+            $mwt = (new ManagerWeekTemplate())
+                ->setManager($user)->setWeekTemplate($copy)
+                ->setCanEdit(true)->setCanShare(true);
+            $this->entityManager->persist($mwt);
+            $this->entityManager->flush();
+            return $this->json($this->serializeTemplate($copy, $mwt), Response::HTTP_CREATED);
+        }
+        $this->entityManager->flush();
+        return $this->json($this->serializeTemplate($copy, null), Response::HTTP_CREATED);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /** @return array<string, mixed> */
-    private function serializeTemplate(WeekTemplates $template, ManagerWeekTemplate $relation): array
+    private function serializeTemplate(WeekTemplates $template, ?ManagerWeekTemplate $relation): array
     {
         return [
             'id'           => $template->getId(),
             'title'        => $template->getTitle(),
             'description'  => $template->getDescription(),
             'color'        => $template->getColor(),
-            'canEdit'      => $relation->getCanEdit(),
-            'canShare'     => $relation->getCanShare(),
+            'canEdit'      => $relation?->getCanEdit() ?? true,
+            'canShare'     => $relation?->getCanShare() ?? true,
             'weekTaskList' => array_map(
                 fn (WeekTask $t) => [
                     'id'             => $t->getId(),
                     'title'          => $t->getTitle(),
                     'description'    => $t->getDescription(),
                     'dayOfWeek'      => $t->getDayOfWeek(),
-                    'startTime'      => $t->getStartTime()->format('H:i'),
-                    'endTime'        => $t->getEndTime()->format('H:i'),
+                    'startTime'      => $t->getStartTime()?->format('H:i'),
+                    'endTime'        => $t->getEndTime()?->format('H:i'),
                     'weekTemplateId' => $template->getId(),
                 ],
                 $template->getWeekTaskList()->getValues(),

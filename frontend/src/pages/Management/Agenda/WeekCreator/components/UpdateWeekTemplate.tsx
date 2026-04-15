@@ -5,6 +5,7 @@ import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import weekTemplatesApi from "../../../../../services/weekTemplatesApi";
 import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTheme } from "@mui/material/styles";
 
 // Material UI
@@ -26,7 +27,7 @@ const UpdateWeekTemplates = ({ onCancel }) => {
 
   const axiosPrivate = useAxiosPrivate();
 
-  const { weekTemplates, selectedWeekId, setWeekTemplates } = useWeekShedulerContext();
+  const { weekTemplates, selectedWeekId, setWeekTemplates, setSelectedWeekId } = useWeekShedulerContext();
   // Trouver le weekType par son id
   const selectedWeekTemplate = weekTemplates.find((weekType) => weekType.id === selectedWeekId);
 
@@ -83,6 +84,21 @@ const UpdateWeekTemplates = ({ onCancel }) => {
       handleApiError(error);
       toast.error("Oups! Une erreur s'est produite.", toastError);
       setWeekTemplates(initialWeekTemplates);
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      const { method, url } = weekTemplatesApi.copyTemplate(selectedWeekId);
+      const response = await axiosPrivate[method](url);
+      const newTemplate = response.data;
+      setWeekTemplates([...weekTemplates, newTemplate]);
+      setSelectedWeekId(newTemplate.id);
+      onCancel();
+      toast.success("Semaine dupliquée avec succès.", toastSuccess);
+    } catch (error) {
+      handleApiError(error);
+      toast.error("Oups! Une erreur s'est produite lors de la duplication.", toastError);
     }
   };
 
@@ -173,6 +189,11 @@ const UpdateWeekTemplates = ({ onCancel }) => {
                 </Grid>
               </>
             )}
+            <Grid item>
+              <Button onClick={handleCopy} title="Dupliquer">
+                <ContentCopyIcon color="primary" />
+              </Button>
+            </Grid>
             <Grid item>
               <Button onClick={handleClickOpen}>
                 <DeleteIcon style={{ color: theme.palette.warning.main }} />

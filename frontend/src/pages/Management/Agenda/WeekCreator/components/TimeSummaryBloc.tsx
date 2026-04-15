@@ -30,7 +30,7 @@ const TimeSummaryBloc = () => {
   };
 
   let totalTimeSeconds = 0;
-  const dayTimeTotalSeconds = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
+  const dayTimeTotalSeconds: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
 
   const selectedWeek = weekTemplates.find((weekType) => weekType.id === selectedWeekId) || {
     tasks: [],
@@ -40,8 +40,11 @@ const TimeSummaryBloc = () => {
     for (const task of selectedWeek.weekTaskList) {
       const timeObj = calculateTime(task.startTime, task.endTime);
       const seconds = timeObj.hours * 3600 + timeObj.minutes * 60;
+      const dayKey = Number(task.dayOfWeek);
 
-      dayTimeTotalSeconds[task.dayOfWeek] += seconds;
+      if (dayKey >= 1 && dayKey <= 7) {
+        dayTimeTotalSeconds[dayKey] += seconds;
+      }
       totalTimeSeconds += seconds;
     }
   }

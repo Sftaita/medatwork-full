@@ -46,7 +46,7 @@ const HoursCircle = ({ hours, minutes }) => {
     defaultMatches: true,
   });
   const totalHours = 72;
-  const completedPercentage = ((hours * 60 + minutes) / (totalHours * 60)) * 100;
+  const completedPercentage = Math.min(((hours * 60 + minutes) / (totalHours * 60)) * 100, 100);
 
   const angle48 = (48 / totalHours) * 360 - 90;
   const angle60 = (60 / totalHours) * 360 - 90;

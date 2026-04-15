@@ -3,6 +3,7 @@ import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext"
 
 // Material UI
 import Grid from "@mui/material/Grid";
+import Box from "@mui/material/Box";
 import EditIcon from "@mui/icons-material/Edit";
 import { ButtonGroup, Button, IconButton } from "@mui/material";
 import Drawer from "@mui/material/Drawer";
@@ -38,7 +39,7 @@ const WeekTemplatesList = () => {
 
   return (
     <>
-      <Grid container spacing={1} sx={{ maxHeight: "20vh", overflowY: "auto" }}>
+      <Grid container spacing={1} sx={{ maxHeight: "35vh", overflowY: "auto", pr: 0.5 }}>
         {weekTemplates.map((weekType) => (
           <Grid key={weekType.id} item md={12} sx={{ paddingBottom: 0, width: "100%" }}>
             <ButtonGroup
@@ -46,6 +47,15 @@ const WeekTemplatesList = () => {
               variant={weekType.id === selectedWeekId ? "contained" : "outlined"}
               aria-label="split button"
             >
+              <Box
+                sx={{
+                  width: 4,
+                  flexShrink: 0,
+                  backgroundColor: weekType.color || "#16b1ff",
+                  alignSelf: "stretch",
+                }}
+                aria-hidden="true"
+              />
               <Button
                 onClick={() => handleWeekTypeClick(weekType)}
                 sx={{ justifyContent: "flex-start" }}

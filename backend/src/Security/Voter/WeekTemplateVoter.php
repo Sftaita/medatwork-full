@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Security\Voter;
 
+use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\WeekTemplates;
 use App\Repository\ManagerWeekTemplateRepository;
@@ -37,6 +38,11 @@ final class WeekTemplateVoter extends Voter
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
         $user = $token->getUser();
+
+        // Hospital admins have full access to all week templates
+        if ($user instanceof HospitalAdmin) {
+            return true;
+        }
 
         if (! $user instanceof Manager) {
             return false;
