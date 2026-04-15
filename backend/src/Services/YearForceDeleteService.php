@@ -68,17 +68,27 @@ class YearForceDeleteService
         $conn   = $em->getConnection();
         $yearId = $year->getId();
 
-        // Level 3 — grandchildren of year (via years_resident)
-        $yrSub = 'SELECT id FROM years_resident WHERE year_id = :yearId';
+        // Level 3 — grandchildren of year
+        $yrSub  = 'SELECT id FROM years_resident      WHERE year_id = :yearId';
+        $tplSub = 'SELECT id FROM years_week_templates WHERE year_id = :yearId';
+        $ivlSub = 'SELECT id FROM years_week_intervals WHERE year_id = :yearId';
+
         $conn->executeStatement("DELETE FROM year_resident_parameters WHERE related_to_id IN ({$yrSub})", ['yearId' => $yearId]);
-        $conn->executeStatement("DELETE FROM resident_year_calendar   WHERE years_resident_id IN ({$yrSub})", ['yearId' => $yearId]);
-        $conn->executeStatement("DELETE FROM staff_planner_resources  WHERE years_resident_id IN ({$yrSub})", ['yearId' => $yearId]);
+
+        // resident_year_calendar has FKs on both years_resident AND years_week_templates
+        $conn->executeStatement(
+            "DELETE FROM resident_year_calendar
+             WHERE years_resident_id IN ({$yrSub})
+                OR years_week_templates_id IN ({$tplSub})",
+            ['yearId' => $yearId],
+        );
 
         // Level 2 — children of week intervals/templates and period_validation
+        // resident_weekly_schedule has FKs on both years_week_intervals AND years_week_templates
         $conn->executeStatement(
-            'DELETE rws FROM resident_weekly_schedule rws
-             INNER JOIN years_week_intervals ywi ON rws.years_week_intervals_id = ywi.id
-             WHERE ywi.year_id = :yearId',
+            "DELETE FROM resident_weekly_schedule
+             WHERE years_week_intervals_id IN ({$ivlSub})
+                OR years_week_templates_id  IN ({$tplSub})",
             ['yearId' => $yearId],
         );
         $conn->executeStatement(

@@ -23,9 +23,11 @@ use PHPUnit\Framework\TestCase;
  * Unit tests for YearForceDeleteService.
  *
  * Covers:
- * - 13 DBAL executeStatement calls are executed in FK-safe order:
- *     3 grandchildren (year_resident_parameters, resident_year_calendar, staff_planner_resources)
- *   + 2 JOIN-based deletes (resident_weekly_schedule, resident_validation)
+ * - 12 DBAL executeStatement calls are executed in FK-safe order:
+ *     1 (year_resident_parameters via years_resident)
+ *   + 1 (resident_year_calendar — OR on years_resident + years_week_templates)
+ *   + 1 (resident_weekly_schedule — OR on years_week_intervals + years_week_templates)
+ *   + 1 (resident_validation JOIN period_validation)
  *   + 8 direct children (years_resident, timesheet, garde, absence,
  *                         period_validation, years_week_intervals, years_week_templates, manager_years)
  * - The year itself is removed via ORM
@@ -125,10 +127,11 @@ final class YearForceDeleteServiceTest extends TestCase
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    public function testExecutes13DbalStatements(): void
+    public function testExecutes12DbalStatements(): void
     {
-        // 3 grandchildren + 2 JOIN-based deletes + 8 direct children = 13
-        $conn = $this->makeConn(13);
+        // 1 (yr_params) + 1 (resident_year_calendar OR) + 1 (resident_weekly_schedule OR)
+        // + 1 (resident_validation JOIN) + 8 direct children = 12
+        $conn = $this->makeConn(12);
 
         $this->service->execute(
             $this->makeYear(),
