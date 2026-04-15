@@ -105,6 +105,9 @@ const updateYear = (id: number, data: Partial<YearInput> & { status?: YearStatus
 const deleteYear = (id: number): Promise<void> =>
   axiosPrivate.delete(`hospital-admin/years/${id}`).then(() => undefined);
 
+const forceDeleteYear = (id: number): Promise<void> =>
+  axiosPrivate.delete(`hospital-admin/years/${id}/force`).then(() => undefined);
+
 // ── Dashboard stats ───────────────────────────────────────────────────────────
 
 const getDashboardStats = (): Promise<DashboardStats> =>
@@ -208,6 +211,7 @@ const hospitalAdminApi = {
   createYear,
   updateYear,
   deleteYear,
+  forceDeleteYear,
   // dashboard
   getDashboardStats,
   // audit

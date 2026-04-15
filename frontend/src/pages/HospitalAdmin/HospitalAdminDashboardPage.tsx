@@ -33,6 +33,15 @@ import FormControl from "@mui/material/FormControl";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Autocomplete from "@mui/material/Autocomplete";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Paper from "@mui/material/Paper";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 
 import SearchIcon from "@mui/icons-material/Search";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
@@ -47,6 +56,8 @@ import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import ViewModuleIcon from "@mui/icons-material/ViewModule";
+import ViewListIcon from "@mui/icons-material/ViewList";
 
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -152,7 +163,6 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
 
   // Archived years are read-only; draft, active and closed can still be edited
   const editable = year.status !== "archived";
-  const canDelete = (year.residentCount ?? 0) === 0 && (year.managerCount ?? 0) === 0;
 
   return (
     <Card
@@ -327,7 +337,6 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
             onDelete(year);
           }}
           sx={{ color: "error.main" }}
-          disabled={!canDelete}
         >
           Supprimer
         </MenuItem>
@@ -780,7 +789,7 @@ const HospitalAdminDashboardPage = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: hospitalAdminApi.deleteYear,
+    mutationFn: hospitalAdminApi.forceDeleteYear,
     onSuccess: () => { toast.success("Année supprimée"); setDeleteTarget(null); invalidate(); },
     onError: (err: { response?: { data?: { message?: string } } }) =>
       toast.error(err?.response?.data?.message ?? "Impossible de supprimer cette année"),
@@ -948,17 +957,21 @@ const HospitalAdminDashboardPage = () => {
       />
 
       {/* ── Delete confirm ────────────────────────────────────────────────── */}
-      <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Supprimer cette année ?</DialogTitle>
+      <Dialog open={deleteTarget !== null} onClose={() => !deleteMutation.isPending && setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: "error.main" }}>Supprimer définitivement cette année ?</DialogTitle>
         <DialogContent>
-          <Typography>
-            <strong>{deleteTarget?.title}</strong> sera supprimée définitivement. Cette action est{" "}
-            <strong>irréversible</strong>.
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Cette action est <strong>irréversible</strong>. Toutes les données associées seront effacées :
+            feuilles de temps, gardes, absences, plannings, validations de période.
+          </Alert>
+          <Typography variant="body2" mb={1}>
+            Année : <strong>{deleteTarget?.title}</strong>
           </Typography>
           {((deleteTarget?.residentCount ?? 0) > 0 || (deleteTarget?.managerCount ?? 0) > 0) && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-              Impossible : des résidents ou managers sont encore liés à cette année.
-            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              {deleteTarget?.residentCount ?? 0} résident(s) et {deleteTarget?.managerCount ?? 0} manager(s) liés
+              seront <strong>notifiés par email</strong>.
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
@@ -968,14 +981,10 @@ const HospitalAdminDashboardPage = () => {
           <Button
             color="error"
             variant="contained"
-            disabled={
-              deleteMutation.isPending ||
-              (deleteTarget?.residentCount ?? 0) > 0 ||
-              (deleteTarget?.managerCount ?? 0) > 0
-            }
+            disabled={deleteMutation.isPending}
             onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
           >
-            {deleteMutation.isPending ? <CircularProgress size={16} /> : "Supprimer"}
+            {deleteMutation.isPending ? <CircularProgress size={16} /> : "Supprimer tout"}
           </Button>
         </DialogActions>
       </Dialog>

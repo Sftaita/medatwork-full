@@ -25,6 +25,7 @@ use App\Repository\YearsRepository;
 use App\Repository\YearsResidentRepository;
 use App\Services\EmailReset\PasswordResetServiceInterface;
 use App\Services\HospitalAdminAuditService;
+use App\Services\YearForceDeleteService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -1288,6 +1289,41 @@ class HospitalAdminController extends AbstractController
 
         $em->remove($year);
         $em->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-delete a year with all associated data.
+     * Sends email notifications to linked residents, managers and hospital admins.
+     * DELETE /api/hospital-admin/years/{id}/force
+     */
+    #[Route('/years/{id}/force', name: 'hospital_admin_years_force_delete', methods: ['DELETE'])]
+    public function forceDeleteYear(
+        int $id,
+        YearsRepository $yearsRepository,
+        YearsResidentRepository $yrRepo,
+        EntityManagerInterface $em,
+        YearForceDeleteService $service,
+    ): JsonResponse {
+        $hospital = $this->resolveHospital();
+        $year     = $yearsRepository->find($id);
+
+        if ($year === null) {
+            return new JsonResponse(['message' => 'Année introuvable'], Response::HTTP_NOT_FOUND);
+        }
+        if ($year->getHospital()?->getId() !== $hospital->getId()) {
+            return new JsonResponse(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $actor = $this->getUser();
+        $service->execute(
+            $year,
+            $hospital,
+            $yrRepo,
+            $em,
+            ($actor instanceof HospitalAdmin || $actor instanceof Manager) ? $actor : null,
+        );
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
