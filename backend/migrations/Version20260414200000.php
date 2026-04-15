@@ -22,11 +22,32 @@ final class Version20260414200000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE hospital_request DROP FOREIGN KEY FK_HOSP_REQ_MANAGER');
-        $this->addSql('DROP INDEX IDX_HOSPITAL_REQUEST_MANAGER ON hospital_request');
-        $this->addSql('ALTER TABLE hospital_request CHANGE manager_id requested_by_id INT NOT NULL');
-        $this->addSql('CREATE INDEX IDX_C92AEE644DA1E751 ON hospital_request (requested_by_id)');
-        $this->addSql('ALTER TABLE hospital_request ADD CONSTRAINT FK_C92AEE644DA1E751 FOREIGN KEY (requested_by_id) REFERENCES manager (id)');
+        // Introspect current state so the migration is idempotent:
+        // if the column was already renamed outside Doctrine we can skip the rename steps.
+        $sm      = $this->connection->createSchemaManager();
+        $table   = $sm->introspectTable('hospital_request');
+
+        // Doctrine returns names in lowercase — normalise everything for safe comparison
+        $columns = array_map('strtolower', array_keys($table->getColumns()));
+        $fks     = array_map('strtolower', array_map(static fn($fk) => $fk->getName(), $table->getForeignKeys()));
+        $indexes = array_map('strtolower', array_keys($table->getIndexes()));
+
+        if (in_array('manager_id', $columns, true)) {
+            if (in_array('fk_hosp_req_manager', $fks, true)) {
+                $this->addSql('ALTER TABLE hospital_request DROP FOREIGN KEY FK_HOSP_REQ_MANAGER');
+            }
+            if (in_array('idx_hospital_request_manager', $indexes, true)) {
+                $this->addSql('DROP INDEX IDX_HOSPITAL_REQUEST_MANAGER ON hospital_request');
+            }
+            $this->addSql('ALTER TABLE hospital_request CHANGE manager_id requested_by_id INT NOT NULL');
+        }
+
+        if (!in_array('idx_c92aee644da1e751', $indexes, true)) {
+            $this->addSql('CREATE INDEX IDX_C92AEE644DA1E751 ON hospital_request (requested_by_id)');
+        }
+        if (!in_array('fk_c92aee644da1e751', $fks, true)) {
+            $this->addSql('ALTER TABLE hospital_request ADD CONSTRAINT FK_C92AEE644DA1E751 FOREIGN KEY (requested_by_id) REFERENCES manager (id)');
+        }
     }
 
     public function down(Schema $schema): void

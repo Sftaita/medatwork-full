@@ -38,50 +38,39 @@ const Loginpage = () => {
 
   return (
     <Box
-      position={"relative"}
-      minHeight={"calc(100vh - 247px)"}
-      display={"flex"}
-      justifyContent={"center"}
-      height={0.8}
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      minHeight={{ xs: "calc(100vh - 58px)", sm: "calc(100vh - 66px)", md: "calc(100vh - 71px)" }}
+      px={2}
+      py={{ xs: 4, md: 0 }}
     >
-      <Box
-        maxWidth={"100%"}
-        paddingLeft={theme.spacing(2)}
-        paddingRight={theme.spacing(2)}
-        paddingTop={theme.spacing(2)}
-      >
-        {!loading && (
-          <Container>
-            <Grid container spacing={6}>
-              {isMd ? (
-                <Grid item container justifyContent={"center"} md={6}>
-                  <Box height={1} width={1} maxWidth={500}>
-                    <Box
-                      component={"img"}
-                      src={
-                        "https://assets.maccarianagency.com/svg/illustrations/drawkit-illustration2.svg"
-                      }
-                      width={1}
-                      height={1}
-                      sx={{
-                        filter: theme.palette.mode === "dark" ? "brightness(0.8)" : "none",
-                      }}
-                    />
-                  </Box>
-                </Grid>
-              ) : null}
-              <Grid item container alignItems={"center"} justifyContent={"center"} xs={12} md={6}>
-                <Form status={status} />
+      {!loading && (
+        <Container>
+          <Grid container spacing={6} alignItems="center">
+            {isMd ? (
+              <Grid item container justifyContent={"center"} md={6}>
+                <Box width={1} maxWidth={500}>
+                  <Box
+                    component={"img"}
+                    src={
+                      "https://assets.maccarianagency.com/svg/illustrations/drawkit-illustration2.svg"
+                    }
+                    width={1}
+                    sx={{
+                      filter: theme.palette.mode === "dark" ? "brightness(0.8)" : "none",
+                    }}
+                  />
+                </Box>
               </Grid>
+            ) : null}
+            <Grid item container alignItems={"center"} justifyContent={"center"} xs={12} md={6}>
+              <Form status={status} />
             </Grid>
-          </Container>
-        )}
-        {loading && (
-          <Box display="flex" alignItems="center" minHeight={"100%"}>
-            <CircularProgress />
-          </Box>
-        )}
-      </Box>
+          </Grid>
+        </Container>
+      )}
+      {loading && <CircularProgress />}
     </Box>
   );
 };

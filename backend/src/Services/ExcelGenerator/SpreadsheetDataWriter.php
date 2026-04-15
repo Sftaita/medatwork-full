@@ -44,7 +44,7 @@ final class SpreadsheetDataWriter
     {
         foreach ($totalMonthHours as $monthKey => $hours) {
             $dates   = $this->statisticTools->boudariesDates(
-                (int) (new DateTime($monthKey . '-01'))->format('mY')
+                (int) (new DateTime($monthKey . '-01'))->format('n')
             );
             $counter = $this->statisticTools->hoursCounter(
                 $hours['timesheets'],

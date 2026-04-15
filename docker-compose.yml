@@ -51,13 +51,16 @@ services:
       - '8000:8000'
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # On first boot: install deps, generate JWT keys (if absent), migrate, then serve
+    # On first boot: install deps, generate JWT keys (if absent), migrate, then serve.
+    # PHP built-in server is used instead of symfony serve because symfony serve
+    # binds to 127.0.0.1 (container loopback) even with --allow-all-ip, making
+    # Docker port-forwarding impossible. PHP -S 0.0.0.0 works reliably in containers.
     command: >
       sh -c "
         composer install --no-interaction --prefer-dist --no-progress &&
         php bin/console lexik:jwt:generate-keypair --skip-if-exists --no-interaction &&
         php bin/console doctrine:migrations:migrate --no-interaction &&
-        symfony serve --no-tls --port=8000 --allow-all-ip
+        php -S 0.0.0.0:8000 -t public/ public/index.php
       "
 
   # ── React frontend ────────────────────────────────────────────────────────────

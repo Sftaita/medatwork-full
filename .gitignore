@@ -37,3 +37,9 @@ sendgrid.env
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 .env
+
+# ── Divers locaux ────────────────────────────────────────────────────────────
+.claude/
+backend/public/uploads/
+frontend/dev-dist/
+node_modules/

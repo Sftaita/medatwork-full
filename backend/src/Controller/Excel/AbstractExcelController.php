@@ -14,13 +14,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 abstract class AbstractExcelController extends AbstractController
 {
-    private const TEMPLATE_PATH  = 'Timesheet.xlsx';
-    private const CONTENT_TYPE   = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    private const FILENAME        = 'export.xlsx';
+    private const TEMPLATE_FILENAME = 'Timesheet.xlsx';
+    private const CONTENT_TYPE      = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    private const FILENAME           = 'export.xlsx';
 
     protected function loadTemplate(): Spreadsheet
     {
-        return IOFactory::createReader('Xlsx')->load(self::TEMPLATE_PATH);
+        $path = $this->getParameter('kernel.project_dir') . '/public/' . self::TEMPLATE_FILENAME;
+
+        return IOFactory::createReader('Xlsx')->load($path);
     }
 
     protected function setActiveSheetToCurrentMonth(Spreadsheet $spreadsheet): void
