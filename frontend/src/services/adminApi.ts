@@ -145,6 +145,45 @@ const resetManagerPassword = (id: number): Promise<void> =>
 const activateManager = (id: number): Promise<void> =>
   axiosPrivate.post(`admin/users/managers/${id}/activate`).then(() => undefined);
 
+// ── Audit log (super-admin — tous hôpitaux) ────────────────────────────────────
+
+export interface AdminAuditLogEntry {
+  id: number;
+  adminName: string;
+  hospitalId: number;
+  hospitalName: string;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  description: string;
+  changes: Record<string, unknown> | null;
+  status: "success" | "error";
+  createdAt: string;
+}
+
+export interface AdminAuditLogResponse {
+  total: number;
+  logs: AdminAuditLogEntry[];
+}
+
+const getAuditLog = (params: {
+  hospitalId?: number;
+  action?: string;
+  entityType?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AdminAuditLogResponse> => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== "" && v !== null) query.append(k, String(v));
+  });
+  const qs = query.toString();
+  return axiosPrivate.get(`admin/audit-log${qs ? "?" + qs : ""}`).then((r) => r.data);
+};
+
 const adminApi = {
   getHospital,
   listAllYears,
@@ -178,6 +217,7 @@ const adminApi = {
   deleteManager,
   resetManagerPassword,
   activateManager,
+  getAuditLog,
 };
 
 export default adminApi;

@@ -52,6 +52,10 @@ class HospitalAdminAuditLog
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $changes = null;
 
+    /** Résultat de l'action : 'success' ou 'error' */
+    #[ORM\Column(type: 'string', length: 10, options: ['default' => 'success'])]
+    private string $status = 'success';
+
     #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
@@ -87,6 +91,9 @@ class HospitalAdminAuditLog
     public function getChanges(): ?array { return $this->changes; }
     /** @param array<string, mixed>|null $changes */
     public function setChanges(?array $changes): self { $this->changes = $changes; return $this; }
+
+    public function getStatus(): string { return $this->status; }
+    public function setStatus(string $status): self { $this->status = $status; return $this; }
 
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function setCreatedAt(\DateTimeInterface $dt): self { $this->createdAt = $dt; return $this; }

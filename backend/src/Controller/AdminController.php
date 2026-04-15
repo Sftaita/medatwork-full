@@ -15,6 +15,7 @@ use App\Enum\HospitalAdminStatus;
 use App\Entity\Years;
 use App\Enum\HospitalRequestStatus;
 use App\Enum\ManagerStatus;
+use App\Repository\HospitalAdminAuditLogRepository;
 use App\Repository\HospitalAdminRepository;
 use App\Repository\HospitalRepository;
 use App\Repository\HospitalRequestRepository;
@@ -793,6 +794,65 @@ class AdminController extends AbstractController
         $em->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    // ── Audit log (super-admin view — tous les hôpitaux) ─────────────────────────
+
+    /**
+     * GET /api/admin/audit-log
+     *
+     * Query params (all optional):
+     *   hospitalId  int     filtre par hôpital
+     *   action      string  filtre par type d'action
+     *   entityType  string  filtre par type d'entité (resident, manager, year)
+     *   status      string  filtre par statut (success, error)
+     *   dateFrom    string  YYYY-MM-DD
+     *   dateTo      string  YYYY-MM-DD
+     *   limit       int     max 500, défaut 200
+     *   offset      int     défaut 0
+     */
+    #[Route('/audit-log', name: 'admin_audit_log', methods: ['GET'])]
+    public function getAuditLog(
+        Request $request,
+        HospitalAdminAuditLogRepository $auditRepo,
+        HospitalRepository $hospitalRepo,
+    ): JsonResponse {
+        $limit  = min(500, max(1, (int) ($request->query->get('limit', 200))));
+        $offset = max(0, (int) ($request->query->get('offset', 0)));
+
+        $filters = array_filter([
+            'hospitalId'  => $request->query->getInt('hospitalId') ?: null,
+            'action'      => $request->query->get('action') ?: null,
+            'entityType'  => $request->query->get('entityType') ?: null,
+            'status'      => $request->query->get('status') ?: null,
+            'dateFrom'    => $request->query->get('dateFrom') ?: null,
+            'dateTo'      => $request->query->get('dateTo') ?: null,
+        ]);
+
+        $total = $auditRepo->countWithFilters($filters);
+        $logs  = $auditRepo->findWithFilters($filters, $limit, $offset);
+
+        // Build hospitalId → name map to avoid N+1 queries
+        $hospitalNames = [];
+        foreach ($hospitalRepo->findAll() as $h) {
+            $hospitalNames[$h->getId()] = $h->getName();
+        }
+
+        $data = array_map(static fn ($log) => [
+            'id'           => $log->getId(),
+            'adminName'    => $log->getAdminName(),
+            'hospitalId'   => $log->getHospitalId(),
+            'hospitalName' => $hospitalNames[$log->getHospitalId()] ?? 'Hôpital #' . $log->getHospitalId(),
+            'action'       => $log->getAction(),
+            'entityType'   => $log->getEntityType(),
+            'entityId'     => $log->getEntityId(),
+            'description'  => $log->getDescription(),
+            'changes'      => $log->getChanges(),
+            'status'       => $log->getStatus(),
+            'createdAt'    => $log->getCreatedAt()->format(\DateTimeInterface::ATOM),
+        ], $logs);
+
+        return $this->json(['total' => $total, 'logs' => $data]);
     }
 
     #[Route('/hospital-admins/{id}/reinvite', name: 'admin_hospital_admins_reinvite', methods: ['POST'])]

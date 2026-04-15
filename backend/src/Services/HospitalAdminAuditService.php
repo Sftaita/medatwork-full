@@ -28,6 +28,7 @@ class HospitalAdminAuditService
         ?int $entityId,
         string $description,
         ?array $changes = null,
+        string $status = 'success',
     ): void {
         $adminId = $actor->getId() ?? 0;
         $adminName = match (true) {
@@ -43,7 +44,8 @@ class HospitalAdminAuditService
             ->setEntityType($entityType)
             ->setEntityId($entityId)
             ->setDescription($description)
-            ->setChanges($changes);
+            ->setChanges($changes)
+            ->setStatus($status);
 
         $this->em->persist($log);
         // Do NOT flush here — caller flushes after its own operations
