@@ -23,7 +23,7 @@ import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import PhoneForwardedIcon from "@mui/icons-material/PhoneForwarded";
 import RunningWithErrorsIcon from "@mui/icons-material/RunningWithErrors";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
-import { Avatar, IconButton, Popover } from "@mui/material";
+import { Avatar, IconButton, Popover, Tooltip as MuiTooltip } from "@mui/material";
 import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import BeachAccessIcon from "@mui/icons-material/BeachAccess";
@@ -32,6 +32,9 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 // General component
 import ScrollDialog from "../../../../components/medium/ScrollDialog";
+import ExcelLogo from "../../../../images/icons/ExcelLogo";
+import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
+import { handleApiError } from "@/services/apiError";
 
 export const title = "Informations";
 export const text = [
@@ -111,6 +114,32 @@ const StatisticCard = ({ item }) => {
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
   });
+  const axiosPrivate = useAxiosPrivate();
+  const [excelLoading, setExcelLoading] = useState(false);
+
+  const handleExcel = async () => {
+    setExcelLoading(true);
+    try {
+      const response = await axiosPrivate({
+        url: `managers/ExcelGenerator/${item.yearId}/${item.residentId}`,
+        method: "GET",
+        responseType: "blob",
+        headers: { Accept: "application/vnd.ms-excel" },
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Horaire-${item.lastname}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setExcelLoading(false);
+    }
+  };
 
   const transformData = (item) => {
     const data = Object.keys(item.week).map((key) => ({
@@ -191,9 +220,18 @@ const StatisticCard = ({ item }) => {
               },
             }}
             action={
-              <IconButton onClick={() => setOpen(true)}>
-                <QuestionMarkIcon color="primary" />
-              </IconButton>
+              <Box display="flex" alignItems="center">
+                <MuiTooltip title="Télécharger l'horaire Excel" arrow>
+                  <span>
+                    <IconButton onClick={handleExcel} disabled={excelLoading} size="small">
+                      <ExcelLogo />
+                    </IconButton>
+                  </span>
+                </MuiTooltip>
+                <IconButton onClick={() => setOpen(true)}>
+                  <QuestionMarkIcon color="primary" />
+                </IconButton>
+              </Box>
             }
           />
           <CardContent

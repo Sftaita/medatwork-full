@@ -90,6 +90,7 @@ class GetRealTimeStatisticsAsManager extends AbstractController
                 $resident['lastname'],
                 $year->getTitle(),
                 $yearId,
+                $residentId,
                 $monthStats,
                 $processedAbsence,
             );
@@ -180,6 +181,7 @@ class GetRealTimeStatisticsAsManager extends AbstractController
                 $resident['lastname'],
                 $currentYear['title'],
                 $yearId,
+                $residentId,
                 $monthStats,
                 $processedAbsence,
             );

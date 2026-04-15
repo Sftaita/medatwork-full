@@ -127,15 +127,17 @@ class ResidentStatisticsBuilder
         string $lastname,
         string $yearTitle,
         int $yearId,
+        int $residentId,
         array $monthStats,
         array $processedAbsence,
     ): array {
         return array_merge(
             [
-                'firstname' => $firstname,
-                'lastname'  => $lastname,
-                'yearTitle' => $yearTitle,
-                'yearId'    => $yearId,
+                'firstname'  => $firstname,
+                'lastname'   => $lastname,
+                'yearTitle'  => $yearTitle,
+                'yearId'     => $yearId,
+                'residentId' => $residentId,
             ],
             $monthStats,
             ['absences' => $processedAbsence],
