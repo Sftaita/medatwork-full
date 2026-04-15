@@ -744,7 +744,7 @@ class HospitalAdminController extends AbstractController
             }
         }
 
-        $priority = ['active' => 0, 'pending' => 1, 'incomplete' => 2];
+        $priority = ['active' => 0, 'pending' => 1, 'not_registered' => 2];
         usort($result, fn ($a, $b) => ($priority[$a['status']] ?? 99) <=> ($priority[$b['status']] ?? 99));
 
         return $this->json($result);
@@ -1152,13 +1152,15 @@ class HospitalAdminController extends AbstractController
 
     private function computeManagerStatus(ManagerYears $my): string
     {
-        if ($my->getInvitedAt() !== null) {
+        $m = $my->getManager();
+        if ($m === null) {
+            return 'not_registered';
+        }
+        // Token set → invite sent but account not yet activated
+        if ($m->getToken() !== null) {
             return 'pending';
         }
-        $m = $my->getManager();
-        if ($m === null || $m->getValidatedAt() === null) {
-            return 'incomplete';
-        }
+        // token === null → account is functional (manual or normal activation)
         return 'active';
     }
 
@@ -1170,6 +1172,7 @@ class HospitalAdminController extends AbstractController
             'firstname' => $manager?->getFirstname(),
             'lastname'  => $manager?->getLastname(),
             'email'     => $manager?->getEmail(),
+            'avatarUrl' => $this->buildAvatarUrl($manager?->getAvatarPath()),
             'job'       => $manager?->getJob(),
             'yearId'    => $year?->getId(),
             'yearTitle' => $year?->getTitle(),

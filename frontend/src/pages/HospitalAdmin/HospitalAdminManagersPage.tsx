@@ -36,28 +36,29 @@ import SearchIcon from "@mui/icons-material/Search";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
 import Tooltip from "@mui/material/Tooltip";
+import Avatar from "@mui/material/Avatar";
 import CloseIcon from "@mui/icons-material/Close";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import type { ManagerRow, ManagerStatus, HospitalYear } from "../../services/hospitalAdminApi";
 
-type ChipColor = "success" | "info" | "error" | "default";
+type ChipColor = "success" | "warning" | "error" | "default";
 
 const STATUS_LABEL: Record<ManagerStatus, string> = {
-  active: "Actif",
-  pending: "En attente",
-  incomplete: "Incomplet",
+  active:         "Actif",
+  pending:        "En attente",
+  not_registered: "Sans compte",
 };
 
 const STATUS_TOOLTIP: Record<ManagerStatus, string> = {
-  active: "Le manager a un compte actif et peut se connecter",
-  pending: "Invitation envoyée — le manager n'a pas encore accepté",
-  incomplete: "Compte créé mais non activé — le manager n'a pas encore défini son mot de passe",
+  active:         "Le manager a un compte actif et peut se connecter",
+  pending:        "Invitation envoyée — le manager n'a pas encore défini son mot de passe",
+  not_registered: "Aucun compte lié — l'invitation n'a jamais été envoyée",
 };
 
 const STATUS_COLOR: Record<ManagerStatus, ChipColor> = {
-  active: "success",
-  pending: "info",
-  incomplete: "error",
+  active:         "success",
+  pending:        "warning",
+  not_registered: "error",
 };
 
 // ── Actions menu ─────────────────────────────────────────────────────────────
@@ -143,9 +144,18 @@ const ViewDrawer = ({ row, onClose }: { row: ManagerRow | null; onClose: () => v
     {row && (
       <>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h6" fontWeight={700}>
-            Détail Manager
-          </Typography>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Avatar
+              src={row.avatarUrl ?? undefined}
+              alt={`${row.firstname ?? ""} ${row.lastname ?? ""}`}
+              sx={{ width: 44, height: 44 }}
+            >
+              {!row.avatarUrl && (row.firstname?.[0] ?? "?").toUpperCase()}
+            </Avatar>
+            <Typography variant="h6" fontWeight={700}>
+              Détail Manager
+            </Typography>
+          </Box>
           <IconButton size="small" onClick={onClose}>
             <CloseIcon />
           </IconButton>
@@ -479,7 +489,16 @@ const HospitalAdminManagersPage = () => {
               {filtered.map((row) => (
                 <TableRow key={row.myId} hover>
                   <TableCell>
-                    {row.lastname ?? "—"} {row.firstname ?? ""}
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Avatar
+                        src={row.avatarUrl ?? undefined}
+                        alt={`${row.firstname ?? ""} ${row.lastname ?? ""}`}
+                        sx={{ width: 28, height: 28, fontSize: "0.75rem" }}
+                      >
+                        {!row.avatarUrl && (row.firstname?.[0] ?? "?").toUpperCase()}
+                      </Avatar>
+                      {row.lastname ?? "—"} {row.firstname ?? ""}
+                    </Box>
                   </TableCell>
                   <TableCell>{row.email ?? "—"}</TableCell>
                   <TableCell>{row.job || "—"}</TableCell>

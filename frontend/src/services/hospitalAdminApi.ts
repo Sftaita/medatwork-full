@@ -48,7 +48,7 @@ export interface YearInput {
   status?: YearStatus;
 }
 
-export type ManagerStatus = "active" | "pending" | "incomplete";
+export type ManagerStatus = "active" | "pending" | "not_registered";
 
 export interface ManagerRow {
   myId: number;
@@ -56,6 +56,7 @@ export interface ManagerRow {
   firstname: string | null;
   lastname: string | null;
   email: string | null;
+  avatarUrl: string | null;
   job: string | null;
   yearId: number | null;
   yearTitle: string | null;
