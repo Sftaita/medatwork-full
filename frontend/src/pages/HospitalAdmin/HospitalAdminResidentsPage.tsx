@@ -41,6 +41,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import Tooltip from "@mui/material/Tooltip";
+import Avatar from "@mui/material/Avatar";
 import CloseIcon from "@mui/icons-material/Close";
 import LinearProgress from "@mui/material/LinearProgress";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -56,24 +57,24 @@ import type {
 type ChipColor = "success" | "warning" | "error" | "default" | "info" | "primary";
 
 const STATUS_LABEL: Record<MaccsStatus, string> = {
-  active: "Actif",
-  pending: "En attente",
-  incomplete: "Incomplet",
-  retired: "Retiré",
+  active:         "Actif",
+  pending:        "En attente",
+  not_registered: "Sans compte",
+  retired:        "Retiré",
 };
 
 const STATUS_TOOLTIP: Record<MaccsStatus, string> = {
-  active: "Le MACCS a activé son compte et peut se connecter",
-  pending: "Invitation envoyée — le MACCS n'a pas encore défini son mot de passe",
-  incomplete: "Compte créé mais jamais activé — aucun accès à la plateforme",
-  retired: "Le MACCS a été retiré de cette année académique",
+  active:         "Le MACCS a un compte actif et peut se connecter",
+  pending:        "Invitation envoyée — le MACCS n'a pas encore défini son mot de passe",
+  not_registered: "Aucun compte lié — l'invitation n'a jamais été envoyée",
+  retired:        "Le MACCS a été retiré de cette année académique",
 };
 
 const STATUS_COLOR: Record<MaccsStatus, ChipColor> = {
-  active: "success",
-  pending: "info",
-  incomplete: "error",
-  retired: "default",
+  active:         "success",
+  pending:        "warning",
+  not_registered: "error",
+  retired:        "default",
 };
 
 
@@ -187,9 +188,18 @@ const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => voi
     {row && (
       <>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h6" fontWeight={700}>
-            Détail MACCS
-          </Typography>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Avatar
+              src={row.avatarUrl ?? undefined}
+              alt={`${row.firstname ?? ""} ${row.lastname ?? ""}`}
+              sx={{ width: 44, height: 44 }}
+            >
+              {!row.avatarUrl && (row.firstname?.[0] ?? "?").toUpperCase()}
+            </Avatar>
+            <Typography variant="h6" fontWeight={700}>
+              Détail MACCS
+            </Typography>
+          </Box>
           <IconButton size="small" onClick={onClose}>
             <CloseIcon />
           </IconButton>
@@ -895,7 +905,7 @@ const HospitalAdminResidentsPage = () => {
             <MenuItem value="">Tous</MenuItem>
             <MenuItem value="active">Actif</MenuItem>
             <MenuItem value="pending">En attente</MenuItem>
-            <MenuItem value="incomplete">Incomplet</MenuItem>
+            <MenuItem value="not_registered">Sans compte</MenuItem>
             <MenuItem value="retired">Retiré</MenuItem>
           </Select>
         </FormControl>
@@ -1005,7 +1015,16 @@ const HospitalAdminResidentsPage = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    {row.lastname ?? "—"} {row.firstname ?? ""}
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Avatar
+                        src={row.avatarUrl ?? undefined}
+                        alt={`${row.firstname ?? ""} ${row.lastname ?? ""}`}
+                        sx={{ width: 28, height: 28, fontSize: "0.75rem" }}
+                      >
+                        {!row.avatarUrl && (row.firstname?.[0] ?? "?").toUpperCase()}
+                      </Avatar>
+                      {row.lastname ?? "—"} {row.firstname ?? ""}
+                    </Box>
                   </TableCell>
                   <TableCell>{row.email ?? "—"}</TableCell>
                   <TableCell>{row.yearTitle ?? "—"}</TableCell>

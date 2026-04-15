@@ -70,8 +70,9 @@ services:
 
   App\Controller\HospitalAdminController:
     arguments:
-      $frontendUrl: '%env(FRONTEND_URL)%'
-      $apiUrl: '%env(API_URL)%'
+      $frontendUrl:     '%env(FRONTEND_URL)%'
+      $apiUrl:          '%env(API_URL)%'
+      $uploadsBaseUrl:  '%env(UPLOADS_BASE_URL)%'
 
   App\Controller\AdminController:
     arguments:

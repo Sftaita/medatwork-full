@@ -2,7 +2,7 @@ import { axiosPrivate } from "./Axios";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type MaccsStatus = "active" | "pending" | "incomplete" | "retired";
+export type MaccsStatus = "active" | "pending" | "not_registered" | "retired";
 export type YearStatus = "draft" | "active" | "closed" | "archived";
 
 export interface MaccsRow {
@@ -11,6 +11,7 @@ export interface MaccsRow {
   firstname: string | null;
   lastname: string | null;
   email: string | null;
+  avatarUrl: string | null;
   yearId: number | null;
   yearTitle: string | null;
   optingOut: boolean | null;

@@ -48,6 +48,7 @@ class HospitalAdminController extends AbstractController
         private readonly PasswordResetServiceInterface $passwordResetService,
         private readonly string $frontendUrl,
         private readonly string $apiUrl,
+        private readonly string $uploadsBaseUrl,
         private readonly HospitalAdminAuditService $auditService,
     ) {
     }
@@ -269,8 +270,8 @@ class HospitalAdminController extends AbstractController
             }
         }
 
-        // Sort by status priority: active first, then pending, incomplete, retired last
-        $priority = ['active' => 0, 'pending' => 1, 'incomplete' => 2, 'retired' => 3];
+        // Sort by status priority: active first, then pending, not_registered, retired last
+        $priority = ['active' => 0, 'pending' => 1, 'not_registered' => 2, 'retired' => 3];
         usort($result, fn($a, $b) => ($priority[$a['status']] ?? 99) <=> ($priority[$b['status']] ?? 99));
 
         return $this->json($result);
@@ -1046,16 +1047,16 @@ class HospitalAdminController extends AbstractController
         }
         $r = $yr->getResident();
         if ($r === null) {
-            return 'incomplete';
+            // No Resident entity linked — invitation was never sent or data is orphaned
+            return 'not_registered';
         }
-        // Has a pending token (password reset / invite not yet completed)
+        // Invite sent but password not yet set
         if ($r->getToken() !== null) {
             return 'pending';
         }
-        if ($r->getValidatedAt() === null) {
-            return 'incomplete';
-        }
 
+        // token === null means the resident has a working password (either via invite
+        // or manual validation) → treat as active regardless of validatedAt
         return 'active';
     }
 
@@ -1077,20 +1078,30 @@ class HospitalAdminController extends AbstractController
         );
     }
 
+    private function buildAvatarUrl(?string $avatarPath): ?string
+    {
+        if ($avatarPath === null) {
+            return null;
+        }
+        $token = pathinfo($avatarPath, PATHINFO_FILENAME);
+        return rtrim($this->uploadsBaseUrl, '/') . '/api/profile/avatar/' . $token;
+    }
+
     private function serializeYearsResident(YearsResident $yr, ?Years $year, ?Resident $resident): array
     {
         return [
-            'yrId'      => $yr->getId(),
+            'yrId'       => $yr->getId(),
             'residentId' => $resident?->getId(),
-            'firstname' => $resident?->getFirstname(),
-            'lastname'  => $resident?->getLastname(),
-            'email'     => $resident?->getEmail(),
-            'yearId'    => $year?->getId(),
-            'yearTitle' => $year?->getTitle(),
-            'optingOut' => $yr->getOptingOut(),
-            'allowed'   => $yr->getAllowed(),
-            'status'    => $this->computeStatus($yr),
-            'createdAt' => $yr->getCreatedAt()->format(\DateTimeInterface::ATOM),
+            'firstname'  => $resident?->getFirstname(),
+            'lastname'   => $resident?->getLastname(),
+            'email'      => $resident?->getEmail(),
+            'avatarUrl'  => $this->buildAvatarUrl($resident?->getAvatarPath()),
+            'yearId'     => $year?->getId(),
+            'yearTitle'  => $year?->getTitle(),
+            'optingOut'  => $yr->getOptingOut(),
+            'allowed'    => $yr->getAllowed(),
+            'status'     => $this->computeStatus($yr),
+            'createdAt'  => $yr->getCreatedAt()->format(\DateTimeInterface::ATOM),
         ];
     }
 
