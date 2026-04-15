@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import AvatarPickerField from "../../components/AvatarPickerField";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -32,6 +33,7 @@ const ManagerSetupPage = () => {
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState("");
+  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     managerSetupApi
@@ -71,11 +73,11 @@ const ManagerSetupPage = () => {
 
     setSubmitting(true);
     try {
-      await managerSetupApi.completeProfile(token, {
-        password: form.password,
-        sexe: form.sexe,
-        job: form.job,
-      });
+      await managerSetupApi.completeProfile(
+        token,
+        { password: form.password, sexe: form.sexe, job: form.job },
+        avatarBlob,
+      );
       setStatus("done");
     } catch (err: any) {
       setFieldError(err?.response?.data?.message ?? "Une erreur est survenue.");
@@ -126,6 +128,11 @@ const ManagerSetupPage = () => {
               <Typography variant="h5" fontWeight={700} gutterBottom>
                 Compléter votre profil manager
               </Typography>
+
+              <Box mb={3} display="flex" justifyContent="center">
+                <AvatarPickerField onChange={setAvatarBlob} />
+              </Box>
+
               <Typography color="text.secondary" mb={3}>
                 {context.hospitalName && (
                   <>

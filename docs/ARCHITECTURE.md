@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-14 (session 15)
+**Dernière mise à jour :** 2026-04-15 (session 16)
 
 ## Vue d'Ensemble
 
@@ -143,6 +143,8 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `HospitalRequestController` | `POST/GET /api/hospital-requests` — demandes d'ajout d'hôpital (managers) |
 | `AdminController` | `GET\|POST /api/admin/*` — gestion hôpitaux, demandes, invitation admins (ROLE_SUPER_ADMIN) |
 | `ProfileAvatarController` | `POST /api/profile/avatar` — upload avatar (JPEG/PNG/WebP ≤ 2 Mo) ; `DELETE /api/profile/avatar` — suppression avatar ; accessible à tous les rôles authentifiés |
+| `MaccsSetupController` | `GET/POST /api/maccs/setup/{token}` — complétion de profil MACCS après invitation ; accepte `multipart/form-data` (avec avatar) ou JSON |
+| `ManagerInviteController` | `GET/POST /api/managers/setup/{token}` — complétion de profil Manager après invitation ; accepte `multipart/form-data` ou JSON |
 | `CommunicationAPI/UserCommunicationController` | `GET\|PATCH /api/communications/*` — notifications & modals pour tout utilisateur authentifié |
 | `CommunicationAPI/AdminCommunicationController` | `GET\|POST\|PATCH /api/admin/communications/*` — gestion globale des messages (ROLE_SUPER_ADMIN) |
 | `CommunicationAPI/HospitalAdminCommunicationController` | `GET\|POST\|PUT\|DELETE\|PATCH /api/hospital-admin/communications/*` — gestion messages scoped à l'hôpital (ROLE_HOSPITAL_ADMIN) |
@@ -177,6 +179,7 @@ php bin/console app:notifications:purge --read-days=60 --unread-days=180
 | `ExcelGenerator/` | Génération de rapports Excel |
 | `ExcelGenerator/CallableGardeMapper` | Calcul des intervalles gardes appelables |
 | `StaffPlanner/` | Algorithme de planification RH |
+| `AvatarUploadHelper` | Traitement des uploads d'avatar (validation MIME/taille, suppression ancienne photo, stockage) |
 | `Statistics/` | Calcul des statistiques |
 | `Schedule/` | Gestion des plannings |
 | `YearsManagement/` | Gestion des années académiques |
@@ -214,6 +217,55 @@ try {
     return new JsonResponse(['message' => $e->getMessage()], 400);
 }
 ```
+
+### Upload d'Avatar — Pattern Multipart (2026-04-15)
+
+Quatre formulaires acceptent une photo de profil à la création de compte :
+
+| Formulaire | Endpoint backend |
+|------------|-----------------|
+| Inscription MACCS (signup) | `POST /api/create/newResident` |
+| Inscription Manager (signup) | `POST /api/create/newManager` |
+| Complétion profil MACCS (invitation) | `POST /api/maccs/setup/{token}` |
+| Complétion profil Manager (invitation) | `POST /api/managers/setup/{token}` |
+
+**Backend — `AvatarUploadHelper`**
+
+Service central partagé entre tous les endpoints :
+
+```php
+// Valide MIME (JPEG/PNG/WebP), taille (≤ 2 Mo), supprime l'ancienne photo,
+// génère un nom aléatoire (bin2hex(random_bytes(16)).ext), déplace le fichier.
+$avatarHelper->process(UploadedFile $file, object $entity): void
+// throws \InvalidArgumentException si validation échoue
+```
+
+**Détection multipart dans les contrôleurs :**
+
+```php
+$isMultipart = str_contains($request->headers->get('Content-Type', ''), 'multipart');
+$data = $isMultipart ? $request->request->all() : (json_decode($request->getContent(), true) ?? []);
+```
+
+Les endpoints signup retournent 200 même si l'avatar est invalide (erreur non bloquante). Les endpoints setup retournent 422 si l'avatar est invalide.
+
+**Frontend — `AvatarPickerField`**
+
+Composant réutilisable (`src/components/AvatarPickerField.tsx`) :
+- Avatar circulaire 96 px avec overlay bouton caméra
+- Input fichier caché (JPEG/PNG/WebP, max 2 Mo — validation client)
+- Dialog de recadrage : `react-easy-crop`, format 1:1, zoom 1–3×
+- Callback `onChange: (blob: Blob | null) => void` — le parent passe le blob à l'API
+
+```tsx
+<AvatarPickerField onChange={setAvatarBlob} />
+```
+
+**Compatibilité JSON / multipart :**
+
+Les services API (`residentsApi`, `managersApi`, `maccsSetupApi`, `managerSetupApi`) envoient automatiquement `multipart/form-data` si un blob est fourni, et `application/json` sinon. Le backend est rétrocompatible avec les deux.
+
+---
 
 ### Pattern Sérialisation (notifications)
 

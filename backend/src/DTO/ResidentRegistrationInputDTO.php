@@ -30,7 +30,11 @@ final class ResidentRegistrationInputDTO
      */
     public static function fromRequest(Request $request): self
     {
-        $data = json_decode($request->getContent(), true);
+        // Support both JSON and multipart/form-data (multipart is used when an avatar file is included)
+        $isMultipart = str_contains($request->headers->get('Content-Type', ''), 'multipart');
+        $data = $isMultipart
+            ? $request->request->all()
+            : json_decode($request->getContent(), true);
 
         if (! is_array($data)) {
             throw new \InvalidArgumentException('Invalid JSON body');

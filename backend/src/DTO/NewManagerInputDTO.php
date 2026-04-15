@@ -31,7 +31,11 @@ final class NewManagerInputDTO
      */
     public static function fromRequest(Request $request): self
     {
-        $data = json_decode($request->getContent(), true);
+        // Support both JSON and multipart/form-data (multipart is used when an avatar file is included)
+        $isMultipart = str_contains($request->headers->get('Content-Type', ''), 'multipart');
+        $data = $isMultipart
+            ? $request->request->all()
+            : json_decode($request->getContent(), true);
 
         if (! is_array($data)) {
             throw new \InvalidArgumentException('Invalid JSON body');
@@ -65,11 +69,12 @@ final class NewManagerInputDTO
         $hospitalId   = null;
         $hospitalName = null;
 
-        if (array_key_exists('hospitalId', $data) && $data['hospitalId'] !== null) {
-            if (! is_int($data['hospitalId']) || $data['hospitalId'] <= 0) {
+        if (array_key_exists('hospitalId', $data) && $data['hospitalId'] !== null && $data['hospitalId'] !== '') {
+            $hid = filter_var($data['hospitalId'], FILTER_VALIDATE_INT);
+            if ($hid === false || $hid <= 0) {
                 throw new \InvalidArgumentException('hospitalId must be a positive integer');
             }
-            $hospitalId = $data['hospitalId'];
+            $hospitalId = $hid;
         }
 
         if (array_key_exists('hospitalName', $data) && $data['hospitalName'] !== null) {

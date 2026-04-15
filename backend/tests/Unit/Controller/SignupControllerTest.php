@@ -13,6 +13,7 @@ use App\Entity\Resident;
 use App\Repository\HospitalRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
+use App\Services\AvatarUploadHelper;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -43,16 +44,18 @@ final class SignupControllerTest extends TestCase
     private ManagerRepository $managerRepo;
     private HospitalRepository $hospitalRepo;
     private RateLimiterFactoryInterface $limiterFactory;
+    private AvatarUploadHelper $avatarHelper;
 
     protected function setUp(): void
     {
-        $this->mailer       = $this->createMock(MailerController::class);
-        $this->hasher       = $this->createMock(UserPasswordHasherInterface::class);
-        $this->validator    = $this->createMock(ValidatorInterface::class);
-        $this->em           = $this->createMock(EntityManagerInterface::class);
+        $this->mailer        = $this->createMock(MailerController::class);
+        $this->hasher        = $this->createMock(UserPasswordHasherInterface::class);
+        $this->validator     = $this->createMock(ValidatorInterface::class);
+        $this->em            = $this->createMock(EntityManagerInterface::class);
         $this->residentRepo  = $this->createMock(ResidentRepository::class);
         $this->managerRepo   = $this->createMock(ManagerRepository::class);
         $this->hospitalRepo  = $this->createMock(HospitalRepository::class);
+        $this->avatarHelper  = $this->createMock(AvatarUploadHelper::class);
 
         // Hasher always returns a dummy hash
         $this->hasher->method('hashPassword')->willReturn('$hashed');
@@ -140,6 +143,7 @@ final class SignupControllerTest extends TestCase
             $this->residentRepo,
             $this->managerRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -162,6 +166,7 @@ final class SignupControllerTest extends TestCase
             $this->managerRepo,
             $this->hospitalRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -190,6 +195,7 @@ final class SignupControllerTest extends TestCase
             $this->residentRepo,
             $this->managerRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertNotNull($capturedExpiration, 'tokenExpiration must be set on new resident');
@@ -223,6 +229,7 @@ final class SignupControllerTest extends TestCase
             $this->managerRepo,
             $this->hospitalRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertNotNull($capturedExpiration, 'tokenExpiration must be set on new manager');
@@ -256,6 +263,7 @@ final class SignupControllerTest extends TestCase
             $this->residentRepo,
             $this->managerRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertNotNull($capturedToken);
@@ -283,6 +291,7 @@ final class SignupControllerTest extends TestCase
             $this->managerRepo,
             $this->hospitalRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertNotNull($capturedToken);
@@ -309,6 +318,7 @@ final class SignupControllerTest extends TestCase
             $this->managerRepo,
             $this->hospitalRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $requestEntities = array_filter($persisted, fn ($o) => $o instanceof HospitalRequest);
@@ -338,6 +348,7 @@ final class SignupControllerTest extends TestCase
             $this->managerRepo,
             $this->hospitalRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $requestEntities = array_filter($persisted, fn ($o) => $o instanceof HospitalRequest);
@@ -359,6 +370,7 @@ final class SignupControllerTest extends TestCase
             $this->residentRepo,
             $this->managerRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -378,6 +390,7 @@ final class SignupControllerTest extends TestCase
             $this->managerRepo,
             $this->hospitalRepo,
             $this->limiterFactory,
+            $this->avatarHelper,
         );
 
         $this->assertSame(200, $response->getStatusCode());

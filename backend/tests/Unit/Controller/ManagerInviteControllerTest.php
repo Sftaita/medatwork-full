@@ -8,10 +8,12 @@ use App\Controller\ManagerInviteController;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
 use App\Repository\ManagerRepository;
+use App\Services\AvatarUploadHelper;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -31,6 +33,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * - POST /setup/{token} → 404 when token not found
  * - POST /setup/{token} → 410 when already validated
  * - POST /setup/{token} → 410 when token expired
+ * - POST /setup/{token} → avatar present → avatarHelper->process() called
+ * - POST /setup/{token} → avatar with bad MIME → 422
+ * - POST /setup/{token} → no avatar → avatarHelper->process() NOT called
  * - GET /accept-year/{token} → 200 HTML, invitations cleared, token cleared
  * - GET /accept-year/{token} → 410 HTML when token not found
  * - GET /accept-year/{token} → 410 HTML when token expired
@@ -43,18 +48,21 @@ final class ManagerInviteControllerTest extends TestCase
     private ManagerRepository $repo;
     private EntityManagerInterface $em;
     private UserPasswordHasherInterface $hasher;
+    private AvatarUploadHelper $avatarHelper;
 
     protected function setUp(): void
     {
-        $this->repo   = $this->createMock(ManagerRepository::class);
-        $this->em     = $this->createMock(EntityManagerInterface::class);
-        $this->hasher = $this->createMock(UserPasswordHasherInterface::class);
+        $this->repo         = $this->createMock(ManagerRepository::class);
+        $this->em           = $this->createMock(EntityManagerInterface::class);
+        $this->hasher       = $this->createMock(UserPasswordHasherInterface::class);
+        $this->avatarHelper = $this->createMock(AvatarUploadHelper::class);
     }
 
     private function buildController(): ManagerInviteController
     {
         $controller = new ManagerInviteController();
         $controller->setContainer(new Container());
+
         return $controller;
     }
 
@@ -166,6 +174,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -186,6 +195,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
     }
 
@@ -195,7 +205,7 @@ final class ManagerInviteControllerTest extends TestCase
         $request = new Request([], [], [], [], [], [], 'not-json');
 
         $response = $this->buildController()->completeSetup(
-            'validtoken', $request, $this->repo, $this->em, $this->hasher,
+            'validtoken', $request, $this->repo, $this->em, $this->hasher, $this->avatarHelper,
         );
 
         $this->assertSame(400, $response->getStatusCode());
@@ -211,6 +221,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(400, $response->getStatusCode());
@@ -226,6 +237,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(400, $response->getStatusCode());
@@ -241,6 +253,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(400, $response->getStatusCode());
@@ -256,6 +269,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(404, $response->getStatusCode());
@@ -271,6 +285,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(410, $response->getStatusCode());
@@ -286,6 +301,7 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(410, $response->getStatusCode());
@@ -306,6 +322,89 @@ final class ManagerInviteControllerTest extends TestCase
             $this->repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
+        );
+    }
+
+    // ── POST /setup/{token} — avatar upload ───────────────────────────────────
+
+    public function testCompleteSetupWithAvatarCallsProcess(): void
+    {
+        $manager = $this->makeManager();
+        $this->repo->method('findOneBy')->willReturn($manager);
+        $this->hasher->method('hashPassword')->willReturn('$2y$hashed');
+
+        $avatarFile = $this->createMock(UploadedFile::class);
+        $request    = new Request(
+            [],
+            ['password' => 'Secure123', 'sexe' => 'male', 'job' => 'doctor'],
+            [],
+            [],
+            ['avatar' => $avatarFile],
+            ['CONTENT_TYPE' => 'multipart/form-data; boundary=----abc'],
+        );
+
+        $this->avatarHelper->expects($this->once())
+            ->method('process')
+            ->with($avatarFile, $manager);
+
+        $response = $this->buildController()->completeSetup(
+            'validtoken',
+            $request,
+            $this->repo,
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testCompleteSetupWithInvalidAvatarReturns422(): void
+    {
+        $manager = $this->makeManager();
+        $this->repo->method('findOneBy')->willReturn($manager);
+        $this->hasher->method('hashPassword')->willReturn('$2y$hashed');
+
+        $avatarFile = $this->createMock(UploadedFile::class);
+        $request    = new Request(
+            [],
+            ['password' => 'Secure123', 'sexe' => 'male', 'job' => 'doctor'],
+            [],
+            [],
+            ['avatar' => $avatarFile],
+            ['CONTENT_TYPE' => 'multipart/form-data; boundary=----abc'],
+        );
+
+        $this->avatarHelper->method('process')
+            ->willThrowException(new \InvalidArgumentException('Format non supporté'));
+
+        $response = $this->buildController()->completeSetup(
+            'validtoken',
+            $request,
+            $this->repo,
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
+        );
+
+        $this->assertSame(422, $response->getStatusCode());
+    }
+
+    public function testCompleteSetupWithNoAvatarDoesNotCallProcess(): void
+    {
+        $this->repo->method('findOneBy')->willReturn($this->makeManager());
+        $this->hasher->method('hashPassword')->willReturn('$2y$hashed');
+
+        $this->avatarHelper->expects($this->never())->method('process');
+
+        $this->buildController()->completeSetup(
+            'validtoken',
+            $this->makeRequest(['password' => 'Secure123', 'sexe' => 'male', 'job' => 'doctor']),
+            $this->repo,
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
         );
     }
 

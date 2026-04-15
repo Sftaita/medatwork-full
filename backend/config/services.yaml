@@ -83,6 +83,10 @@ services:
       $uploadsBaseUrl: '%env(UPLOADS_BASE_URL)%'
       $uploadsDir:     '%env(default:uploads_dir:UPLOADS_DIR)%'
 
+  App\Services\AvatarUploadHelper:
+    arguments:
+      $uploadsDir: '%env(default:uploads_dir:UPLOADS_DIR)%'
+
   App\Services\EmailReset\PasswordResetService:
     arguments:
       $frontendUrl: '%env(FRONTEND_URL)%'

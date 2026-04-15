@@ -11,10 +11,12 @@ use App\Entity\Years;
 use App\Entity\YearsResident;
 use App\Enum\Sexe;
 use App\Repository\ResidentRepository;
+use App\Services\AvatarUploadHelper;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -36,16 +38,20 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *     - missing speciality      → 400
  *     - missing university      → 400
  *     - valid payload           → 200, sets validatedAt + clears token
+ *     - avatar file present     → avatarHelper->process() called
+ *     - avatar with bad MIME    → 422
  */
 final class MaccsSetupControllerTest extends TestCase
 {
     private EntityManagerInterface $em;
     private UserPasswordHasherInterface $hasher;
+    private AvatarUploadHelper $avatarHelper;
 
     protected function setUp(): void
     {
-        $this->em     = $this->createMock(EntityManagerInterface::class);
-        $this->hasher = $this->createMock(UserPasswordHasherInterface::class);
+        $this->em           = $this->createMock(EntityManagerInterface::class);
+        $this->hasher       = $this->createMock(UserPasswordHasherInterface::class);
+        $this->avatarHelper = $this->createMock(AvatarUploadHelper::class);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -54,6 +60,7 @@ final class MaccsSetupControllerTest extends TestCase
     {
         $controller = new MaccsSetupController();
         $controller->setContainer(new Container());
+
         return $controller;
     }
 
@@ -71,6 +78,7 @@ final class MaccsSetupControllerTest extends TestCase
                 : new \DateTime('+1 day')
         );
         $r->method('getYearsResidents')->willReturn(new ArrayCollection());
+
         return $r;
     }
 
@@ -91,6 +99,7 @@ final class MaccsSetupControllerTest extends TestCase
         $r->method('getEmail')->willReturn('alice@test.be');
         $r->method('getTokenExpiration')->willReturn(new \DateTime('+1 day'));
         $r->method('getYearsResidents')->willReturn(new ArrayCollection([$yr]));
+
         return $r;
     }
 
@@ -98,6 +107,7 @@ final class MaccsSetupControllerTest extends TestCase
     {
         $repo = $this->createMock(ResidentRepository::class);
         $repo->method('findOneBy')->willReturn($resident);
+
         return $repo;
     }
 
@@ -116,6 +126,17 @@ final class MaccsSetupControllerTest extends TestCase
     private function postRequest(array $payload): Request
     {
         return new Request([], [], [], [], [], [], json_encode($payload));
+    }
+
+    private function setupResident(): Resident
+    {
+        $resident = $this->makeResident();
+        foreach (['setPassword', 'setSexe', 'setDateOfMaster', 'setDateOfBirth',
+                  'setUniversity', 'setSpeciality', 'setValidatedAt', 'setToken', 'setTokenExpiration'] as $m) {
+            $resident->method($m)->willReturnSelf();
+        }
+
+        return $resident;
     }
 
     // ── GET checkToken ────────────────────────────────────────────────────────
@@ -168,6 +189,7 @@ final class MaccsSetupControllerTest extends TestCase
             $repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
         $this->assertSame(404, $response->getStatusCode());
     }
@@ -181,6 +203,7 @@ final class MaccsSetupControllerTest extends TestCase
             $repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
         $this->assertSame(410, $response->getStatusCode());
     }
@@ -199,6 +222,7 @@ final class MaccsSetupControllerTest extends TestCase
             $repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -232,16 +256,7 @@ final class MaccsSetupControllerTest extends TestCase
 
     public function testCompleteProfileValidPayloadReturns200(): void
     {
-        $resident = $this->makeResident();
-        $resident->method('setPassword')->willReturnSelf();
-        $resident->method('setSexe')->willReturnSelf();
-        $resident->method('setDateOfMaster')->willReturnSelf();
-        $resident->method('setDateOfBirth')->willReturnSelf();
-        $resident->method('setUniversity')->willReturnSelf();
-        $resident->method('setValidatedAt')->willReturnSelf();
-        $resident->method('setToken')->willReturnSelf();
-        $resident->method('setTokenExpiration')->willReturnSelf();
-
+        $resident = $this->setupResident();
         $this->hasher->method('hashPassword')->willReturn('hashed');
         $this->em->expects($this->once())->method('flush');
 
@@ -252,6 +267,7 @@ final class MaccsSetupControllerTest extends TestCase
             $repo,
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -263,7 +279,6 @@ final class MaccsSetupControllerTest extends TestCase
     {
         $resident = $this->makeResident();
 
-        // Capture the calls
         $resident->expects($this->once())->method('setValidatedAt')
             ->with($this->isInstanceOf(\DateTimeInterface::class))
             ->willReturnSelf();
@@ -273,11 +288,10 @@ final class MaccsSetupControllerTest extends TestCase
         $resident->expects($this->once())->method('setTokenExpiration')
             ->with(null)
             ->willReturnSelf();
-        $resident->method('setPassword')->willReturnSelf();
-        $resident->method('setSexe')->willReturnSelf();
-        $resident->method('setDateOfMaster')->willReturnSelf();
-        $resident->method('setDateOfBirth')->willReturnSelf();
-        $resident->method('setUniversity')->willReturnSelf();
+        foreach (['setPassword', 'setSexe', 'setDateOfMaster', 'setDateOfBirth',
+                  'setUniversity', 'setSpeciality'] as $m) {
+            $resident->method($m)->willReturnSelf();
+        }
 
         $this->hasher->method('hashPassword')->willReturn('hashed');
 
@@ -287,6 +301,7 @@ final class MaccsSetupControllerTest extends TestCase
             $this->makeRepo($resident),
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
         );
     }
 
@@ -296,13 +311,10 @@ final class MaccsSetupControllerTest extends TestCase
         $resident->expects($this->once())->method('setSexe')
             ->with(Sexe::Female)
             ->willReturnSelf();
-        $resident->method('setPassword')->willReturnSelf();
-        $resident->method('setDateOfMaster')->willReturnSelf();
-        $resident->method('setDateOfBirth')->willReturnSelf();
-        $resident->method('setUniversity')->willReturnSelf();
-        $resident->method('setValidatedAt')->willReturnSelf();
-        $resident->method('setToken')->willReturnSelf();
-        $resident->method('setTokenExpiration')->willReturnSelf();
+        foreach (['setPassword', 'setDateOfMaster', 'setDateOfBirth', 'setUniversity',
+                  'setSpeciality', 'setValidatedAt', 'setToken', 'setTokenExpiration'] as $m) {
+            $resident->method($m)->willReturnSelf();
+        }
 
         $this->hasher->method('hashPassword')->willReturn('hashed');
 
@@ -312,6 +324,89 @@ final class MaccsSetupControllerTest extends TestCase
             $this->makeRepo($resident),
             $this->em,
             $this->hasher,
+            $this->avatarHelper,
+        );
+    }
+
+    // ── POST completeProfile — avatar upload ──────────────────────────────────
+
+    public function testCompleteProfileWithAvatarCallsProcess(): void
+    {
+        $resident = $this->setupResident();
+        $this->hasher->method('hashPassword')->willReturn('hashed');
+
+        $avatarFile = $this->createMock(UploadedFile::class);
+        $request    = new Request(
+            [],
+            [],
+            [],
+            [],
+            ['avatar' => $avatarFile],
+            [],
+            json_encode($this->validPayload()),
+        );
+
+        $this->avatarHelper->expects($this->once())
+            ->method('process')
+            ->with($avatarFile, $resident);
+
+        $response = $this->buildController()->completeProfile(
+            'validtoken',
+            $request,
+            $this->makeRepo($resident),
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testCompleteProfileWithInvalidAvatarReturns422(): void
+    {
+        $resident = $this->setupResident();
+        $this->hasher->method('hashPassword')->willReturn('hashed');
+
+        $avatarFile = $this->createMock(UploadedFile::class);
+        $request    = new Request(
+            [],
+            [],
+            [],
+            [],
+            ['avatar' => $avatarFile],
+            [],
+            json_encode($this->validPayload()),
+        );
+
+        $this->avatarHelper->method('process')
+            ->willThrowException(new \InvalidArgumentException('Format non supporté'));
+
+        $response = $this->buildController()->completeProfile(
+            'validtoken',
+            $request,
+            $this->makeRepo($resident),
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
+        );
+
+        $this->assertSame(422, $response->getStatusCode());
+    }
+
+    public function testCompleteProfileWithNoAvatarDoesNotCallProcess(): void
+    {
+        $resident = $this->setupResident();
+        $this->hasher->method('hashPassword')->willReturn('hashed');
+
+        $this->avatarHelper->expects($this->never())->method('process');
+
+        $this->buildController()->completeProfile(
+            'validtoken',
+            $this->postRequest($this->validPayload()),
+            $this->makeRepo($resident),
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
         );
     }
 }

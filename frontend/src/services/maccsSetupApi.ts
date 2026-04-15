@@ -20,13 +20,26 @@ export type MaccsSetupPayload = {
 const checkToken = (token: string): Promise<MaccsSetupContext> =>
   axios.get(`${API_URL}maccs/setup/${token}`, { withCredentials: true }).then((r) => r.data);
 
-const completeProfile = (token: string, data: MaccsSetupPayload): Promise<{ message: string }> =>
-  axios
+const completeProfile = (
+  token: string,
+  data: MaccsSetupPayload,
+  avatar?: Blob | null,
+): Promise<{ message: string }> => {
+  if (avatar) {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => fd.append(k, v));
+    fd.append("avatar", avatar, "avatar.jpg");
+    return axios
+      .post(`${API_URL}maccs/setup/${token}`, fd, { withCredentials: true })
+      .then((r) => r.data);
+  }
+  return axios
     .post(`${API_URL}maccs/setup/${token}`, data, {
       headers: { "Content-Type": "application/json" },
       withCredentials: true,
     })
     .then((r) => r.data);
+};
 
 const maccsSetupApi = { checkToken, completeProfile };
 

@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Enum\Sexe;
 use App\Repository\ManagerRepository;
+use App\Services\AvatarUploadHelper;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -107,6 +108,7 @@ class ManagerInviteController extends AbstractController
         ManagerRepository $repo,
         EntityManagerInterface $em,
         UserPasswordHasherInterface $passwordHasher,
+        AvatarUploadHelper $avatarHelper,
     ): JsonResponse {
         $manager = $repo->findOneBy(['token' => $token]);
 
@@ -122,10 +124,15 @@ class ManagerInviteController extends AbstractController
             return new JsonResponse(['message' => 'Ce lien a expiré'], Response::HTTP_GONE);
         }
 
-        $data = json_decode($request->getContent(), true);
-
-        if (!is_array($data)) {
-            return new JsonResponse(['message' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        // Accept both JSON and multipart/form-data
+        $isMultipart = str_contains($request->headers->get('Content-Type', ''), 'multipart');
+        if ($isMultipart) {
+            $data = $request->request->all();
+        } else {
+            $data = json_decode($request->getContent(), true);
+            if (!is_array($data)) {
+                return new JsonResponse(['message' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+            }
         }
 
         $password = trim((string) ($data['password'] ?? ''));
@@ -156,6 +163,16 @@ class ManagerInviteController extends AbstractController
         foreach ($manager->getManagerYears() as $my) {
             if ($my->getInvitedAt() !== null) {
                 $my->setInvitedAt(null);
+            }
+        }
+
+        // Optional avatar upload
+        $avatarFile = $request->files->get('avatar');
+        if ($avatarFile !== null) {
+            try {
+                $avatarHelper->process($avatarFile, $manager);
+            } catch (\InvalidArgumentException $e) {
+                return new JsonResponse(['message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
         }
 

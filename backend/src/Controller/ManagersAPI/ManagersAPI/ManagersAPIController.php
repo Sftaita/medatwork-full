@@ -7,6 +7,7 @@ namespace App\Controller\ManagersAPI\ManagersAPI;
 use App\Controller\MailerController;
 use App\DTO\NewManagerInputDTO;
 use App\DTO\UpdateRightsInputDTO;
+use App\Services\AvatarUploadHelper;
 use App\Entity\HospitalRequest;
 use App\Entity\Manager;
 use App\Enum\HospitalRequestStatus;
@@ -65,7 +66,7 @@ class ManagersAPIController extends AbstractController
     }
 
     #[Route('/api/create/newManager', name: 'newManager', methods: ['POST'])]
-    public function createNewManager(Request $request, EntityManagerInterface $entityManager, ResidentRepository $residentRepository, ManagerRepository $managerRepository, HospitalRepository $hospitalRepository, RateLimiterFactoryInterface $registerLimiter): JsonResponse
+    public function createNewManager(Request $request, EntityManagerInterface $entityManager, ResidentRepository $residentRepository, ManagerRepository $managerRepository, HospitalRepository $hospitalRepository, RateLimiterFactoryInterface $registerLimiter, AvatarUploadHelper $avatarHelper): JsonResponse
     {
         $limiter = $registerLimiter->create($request->getClientIp());
         if (! $limiter->consume(1)->isAccepted()) {
@@ -140,6 +141,16 @@ class ManagersAPIController extends AbstractController
                 $errorMessages['errors'][] = $violation->getPropertyPath() . ': ' . $violation->getMessage();
             }
             return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Optional avatar upload during signup
+        $avatarFile = $request->files->get('avatar');
+        if ($avatarFile !== null) {
+            try {
+                $avatarHelper->process($avatarFile, $manager);
+            } catch (\InvalidArgumentException) {
+                // Avatar errors are non-blocking during signup — registration still succeeds
+            }
         }
 
         $entityManager->persist($manager);

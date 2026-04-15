@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useFormik } from "formik";
+import AvatarPickerField from "../../../../components/AvatarPickerField";
 import * as yup from "yup";
 import residentsApi from "../../../../services/residentsApi";
 import { useNavigate } from "react-router";
@@ -77,6 +78,7 @@ const Form = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error] = useState();
   const [date, setDate] = useState(null);
+  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
 
   const onSubmit = async (values) => {
     const data = {
@@ -94,7 +96,7 @@ const Form = () => {
 
     setIsLoading(true);
     try {
-      await residentsApi.create(data);
+      await residentsApi.create(data, avatarBlob);
       setIsLoading(false);
       navigate("/success", { state: { email: data.email } });
     } catch (error) {
@@ -169,6 +171,11 @@ const Form = () => {
       {!isLoading && (
         <form onSubmit={formik.handleSubmit} id={"ResidentSignUp"}>
           <Grid container spacing={2}>
+            {/* Photo de profil */}
+            <Grid item xs={12} display="flex" justifyContent="center">
+              <AvatarPickerField onChange={setAvatarBlob} />
+            </Grid>
+
             <Grid item xs={12} sm={6}>
               <Typography variant={"subtitle2"} sx={{ marginBottom: 1 }}>
                 Entrez votre prénom

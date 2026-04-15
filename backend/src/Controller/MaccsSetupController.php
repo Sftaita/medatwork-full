@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Enum\Sexe;
 use App\Repository\ResidentRepository;
+use App\Services\AvatarUploadHelper;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -72,6 +73,7 @@ class MaccsSetupController extends AbstractController
         ResidentRepository $repo,
         EntityManagerInterface $em,
         UserPasswordHasherInterface $passwordHasher,
+        AvatarUploadHelper $avatarHelper,
     ): JsonResponse {
         $resident = $repo->findOneBy(['token' => $token]);
 
@@ -83,7 +85,11 @@ class MaccsSetupController extends AbstractController
             return new JsonResponse(['message' => 'Lien expiré'], Response::HTTP_GONE);
         }
 
-        $data = json_decode($request->getContent(), true) ?? [];
+        // Accept both JSON and multipart/form-data
+        $isMultipart = str_contains($request->headers->get('Content-Type', ''), 'multipart');
+        $data = $isMultipart
+            ? $request->request->all()
+            : (json_decode($request->getContent(), true) ?? []);
 
         // ── Validate required fields ──────────────────────────────────────────
 
@@ -150,6 +156,16 @@ class MaccsSetupController extends AbstractController
             ->setTokenExpiration(null);
 
         $resident->setSpeciality($speciality);
+
+        // Optional avatar upload
+        $avatarFile = $request->files->get('avatar');
+        if ($avatarFile !== null) {
+            try {
+                $avatarHelper->process($avatarFile, $resident);
+            } catch (\InvalidArgumentException $e) {
+                return new JsonResponse(['message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
 
         $em->flush();
 

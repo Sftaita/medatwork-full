@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useFormik } from "formik";
+import AvatarPickerField from "../../../../components/AvatarPickerField";
 import * as yup from "yup";
 import axios from "axios";
 import managersApi from "../../../../services/managersApi";
@@ -58,6 +59,7 @@ const Form = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [showPassword, setShowPassword] = useState(false);
+  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     axios
@@ -88,7 +90,7 @@ const Form = () => {
     }
 
     try {
-      await managersApi.create(payload);
+      await managersApi.create(payload, avatarBlob);
       navigate("/success", { state: { email: payload.email } });
     } catch (error) {
       handleApiError(error);
@@ -141,6 +143,11 @@ const Form = () => {
       {!isLoading && (
         <form onSubmit={formik.handleSubmit}>
           <Grid container spacing={4}>
+            {/* Photo de profil */}
+            <Grid item xs={12} display="flex" justifyContent="center">
+              <AvatarPickerField onChange={setAvatarBlob} />
+            </Grid>
+
             {/* Prénom */}
             <Grid item xs={12} sm={6}>
               <Typography variant="subtitle2" sx={{ marginBottom: 2 }}>

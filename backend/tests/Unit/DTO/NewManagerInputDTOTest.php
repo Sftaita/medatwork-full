@@ -115,6 +115,15 @@ class NewManagerInputDTOTest extends TestCase
         $this->assertSame(42, $dto->hospitalId);
     }
 
+    public function testHospitalIdAsStringFromMultipartIsAccepted(): void
+    {
+        // Multipart form-data always sends values as strings; filter_var handles this.
+        $body = $this->validBody();
+        $body['hospitalId'] = '42'; // string as sent by multipart
+        $dto = NewManagerInputDTO::fromRequest($this->makeRequest($body));
+        $this->assertSame(42, $dto->hospitalId);
+    }
+
     public function testInvalidHospitalIdThrows(): void
     {
         $body = $this->validBody();

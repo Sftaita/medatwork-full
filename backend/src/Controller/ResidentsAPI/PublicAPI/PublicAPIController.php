@@ -9,6 +9,7 @@ use App\DTO\ResidentRegistrationInputDTO;
 use App\Entity\Resident;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
+use App\Services\AvatarUploadHelper;
 use DateTime;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,7 +33,7 @@ class PublicAPIController extends AbstractController
     }
 
     #[Route('/api/create/newResident', name: 'newResident', methods: ['POST'])]
-    public function createNewResident(Request $request, EntityManagerInterface $entityManager, ResidentRepository $residentRepository, ManagerRepository $managerRepository, RateLimiterFactoryInterface $registerLimiter): JsonResponse
+    public function createNewResident(Request $request, EntityManagerInterface $entityManager, ResidentRepository $residentRepository, ManagerRepository $managerRepository, RateLimiterFactoryInterface $registerLimiter, AvatarUploadHelper $avatarHelper): JsonResponse
     {
         $limiter = $registerLimiter->create($request->getClientIp());
         if (! $limiter->consume(1)->isAccepted()) {
@@ -93,6 +94,16 @@ class PublicAPIController extends AbstractController
                 $errorMessages['errors'][] = $violation->getPropertyPath() . ': ' . $violation->getMessage();
             }
             return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Optional avatar upload during signup
+        $avatarFile = $request->files->get('avatar');
+        if ($avatarFile !== null) {
+            try {
+                $avatarHelper->process($avatarFile, $resident);
+            } catch (\InvalidArgumentException) {
+                // Avatar errors are non-blocking during signup — registration still succeeds
+            }
         }
 
         $entityManager->persist($resident);
