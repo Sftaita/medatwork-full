@@ -46,6 +46,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -136,7 +137,15 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
   const residentMatch = q.length > 0 && residentNames.some((n) => n.toLowerCase().includes(q));
   const managerMatch = q.length > 0 && managerNames.some((n) => n.toLowerCase().includes(q));
 
-  const goToYear = (defaultTab?: string) =>
+  const goToRealtime = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("realtime_selection") ?? "{}");
+      localStorage.setItem("realtime_selection", JSON.stringify({ ...saved, currentYear: year.id }));
+    } catch { /* localStorage unavailable */ }
+    navigate("/manager/realtime");
+  };
+
+  const goToParams = (defaultTab?: string) =>
     navigate("/manager/year-detail", {
       state: { id: year.id, title: year.title, adminRights: true, defaultTab },
     });
@@ -157,9 +166,9 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
         "&:hover": { boxShadow: 4, borderColor: "primary.main" },
       }}
     >
-      {/* Clickable area — navigates to year detail */}
+      {/* Clickable area — navigates to realtime */}
       <CardActionArea
-        onClick={() => goToYear()}
+        onClick={goToRealtime}
         sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "stretch" }}
       >
         <CardContent
@@ -239,7 +248,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  goToYear("residents");
+                  goToParams("residents");
                 }}
               >
                 <PeopleOutlineIcon
@@ -277,7 +286,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  goToYear("partners");
+                  goToParams("partners");
                 }}
               >
                 <PersonOutlineIcon
@@ -323,6 +332,25 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           Supprimer
         </MenuItem>
       </Menu>
+
+      {/* Paramètres button — outside CardActionArea */}
+      <Divider />
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="flex-end"
+        sx={{ px: 1, py: 0.5 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Button
+          size="small"
+          startIcon={<SettingsOutlinedIcon fontSize="small" />}
+          onClick={(e) => { e.stopPropagation(); goToParams(); }}
+          sx={{ fontSize: "0.75rem", color: "text.secondary" }}
+        >
+          Paramètres
+        </Button>
+      </Box>
 
       {/* Token — outside CardActionArea: copy without navigating */}
       {year.token && (
