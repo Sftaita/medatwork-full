@@ -15,23 +15,25 @@ use App\Entity\YearsResident;
 use App\Repository\YearsResidentRepository;
 use App\Services\HospitalAdminAuditService;
 use App\Services\YearForceDeleteService;
-use Doctrine\ORM\AbstractQuery;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\QueryBuilder;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Unit tests for YearForceDeleteService.
  *
  * Covers:
- * - All YearsResident rows are removed via EntityManager
- * - 7 DQL DELETE statements are executed (one per dependent entity)
- * - The year itself is removed
+ * - 13 DBAL executeStatement calls are executed in FK-safe order:
+ *     3 grandchildren (year_resident_parameters, resident_year_calendar, staff_planner_resources)
+ *   + 2 JOIN-based deletes (resident_weekly_schedule, resident_validation)
+ *   + 8 direct children (years_resident, timesheet, garde, absence,
+ *                         period_validation, years_week_intervals, years_week_templates, manager_years)
+ * - The year itself is removed via ORM
  * - Audit log is written when actor is provided
  * - Emails are sent to residents, managers and hospital admins
  * - Email failures do not propagate (no exception thrown)
  * - No audit log written when actor is null
- * - Works with empty collections (no YearsResidents, no managers, no admins)
+ * - Works with empty collections (no residents, no managers, no admins)
  */
 final class YearForceDeleteServiceTest extends TestCase
 {
@@ -67,22 +69,28 @@ final class YearForceDeleteServiceTest extends TestCase
         return $hospital;
     }
 
-    private function makeEm(int $expectedFlushCalls = 2): EntityManagerInterface
+    private function makeConn(?int $expectedCalls = null): Connection
     {
-        $query = $this->createMock(AbstractQuery::class);
-        $query->method('execute')->willReturn(0);
+        $conn = $this->createMock(Connection::class);
+        if ($expectedCalls !== null) {
+            $conn->expects($this->exactly($expectedCalls))->method('executeStatement')->willReturn(0);
+        } else {
+            $conn->method('executeStatement')->willReturn(0);
+        }
+        return $conn;
+    }
 
+    private function makeEm(?Connection $conn = null): EntityManagerInterface
+    {
         $em = $this->createMock(EntityManagerInterface::class);
-        $em->method('createQuery')->willReturn($query);
-        $em->expects($this->exactly($expectedFlushCalls))->method('flush');
+        $em->method('getConnection')->willReturn($conn ?? $this->makeConn());
+        $em->method('flush');
         return $em;
     }
 
-    private function makeYrRepo(array $yearResidents = []): YearsResidentRepository
+    private function makeYrRepo(): YearsResidentRepository
     {
-        $repo = $this->createMock(YearsResidentRepository::class);
-        $repo->method('findBy')->willReturn($yearResidents);
-        return $repo;
+        return $this->createMock(YearsResidentRepository::class);
     }
 
     private function makeYearsResident(string $email, string $firstname): YearsResident
@@ -117,43 +125,16 @@ final class YearForceDeleteServiceTest extends TestCase
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    public function testRemovesAllYearsResidentsViaORM(): void
+    public function testExecutes13DbalStatements(): void
     {
-        $yr1 = $this->makeYearsResident('r1@chu.be', 'Alice');
-        $yr2 = $this->makeYearsResident('r2@chu.be', 'Bob');
-
-        $em = $this->createMock(EntityManagerInterface::class);
-        // 2 YearsResident + 1 year itself
-        $em->expects($this->exactly(3))->method('remove');
-        $em->method('flush');
-
-        $query = $this->createMock(AbstractQuery::class);
-        $query->method('execute')->willReturn(0);
-        $em->method('createQuery')->willReturn($query);
-
-        $this->service->execute(
-            $this->makeYear(),
-            $this->makeHospital(),
-            $this->makeYrRepo([$yr1, $yr2]),
-            $em,
-            null,
-        );
-    }
-
-    public function testExecutes7DqlBulkDeletes(): void
-    {
-        $query = $this->createMock(AbstractQuery::class);
-        $query->expects($this->exactly(7))->method('execute');
-
-        $em = $this->createMock(EntityManagerInterface::class);
-        $em->method('createQuery')->willReturn($query);
-        $em->method('flush');
+        // 3 grandchildren + 2 JOIN-based deletes + 8 direct children = 13
+        $conn = $this->makeConn(13);
 
         $this->service->execute(
             $this->makeYear(),
             $this->makeHospital(),
             $this->makeYrRepo(),
-            $em,
+            $this->makeEm($conn),
             null,
         );
     }
@@ -198,9 +179,8 @@ final class YearForceDeleteServiceTest extends TestCase
 
     public function testEmailsSentToResidentsManagersAndAdmins(): void
     {
-        // Year with 1 resident and 1 manager
-        $yr = $this->makeYearsResident('resident@chu.be', 'Alice');
-        $my = $this->makeManagerYears('manager@chu.be', 'Bob');
+        $yr    = $this->makeYearsResident('resident@chu.be', 'Alice');
+        $my    = $this->makeManagerYears('manager@chu.be', 'Bob');
         $admin = $this->makeAdmin('admin@chu.be', 'Carol');
 
         $year = $this->createMock(Years::class);

@@ -62,35 +62,51 @@ class YearForceDeleteService
             $adminEmails[] = ['email' => $admin->getEmail(), 'firstname' => $admin->getFirstname()];
         }
 
-        // ── Delete in FK-safe order ───────────────────────────────────────────
+        // ── Delete in FK-safe order via DBAL raw SQL ─────────────────────────
+        // DQL bypasses ORM cascades → use raw SQL to control deletion order.
 
-        // 1. YearsResident with their children (StaffPlannerResources cascade:remove, ResidentYearCalendar orphanRemoval)
-        foreach ($yrRepo->findBy(['year' => $year]) as $yr) {
-            $em->remove($yr);
-        }
-        $em->flush();
+        $conn   = $em->getConnection();
+        $yearId = $year->getId();
 
-        // 2. Bulk-delete remaining dependents via DQL
-        $dql = static fn (string $entity, string $field): string =>
-            "DELETE FROM App\\Entity\\{$entity} e WHERE e.{$field} = :year";
+        // Level 3 — grandchildren of year (via years_resident)
+        $yrSub = 'SELECT id FROM years_resident WHERE year_id = :yearId';
+        $conn->executeStatement("DELETE FROM year_resident_parameters WHERE related_to_id IN ({$yrSub})", ['yearId' => $yearId]);
+        $conn->executeStatement("DELETE FROM resident_year_calendar   WHERE years_resident_id IN ({$yrSub})", ['yearId' => $yearId]);
+        $conn->executeStatement("DELETE FROM staff_planner_resources  WHERE years_resident_id IN ({$yrSub})", ['yearId' => $yearId]);
 
+        // Level 2 — children of week intervals/templates and period_validation
+        $conn->executeStatement(
+            'DELETE rws FROM resident_weekly_schedule rws
+             INNER JOIN years_week_intervals ywi ON rws.years_week_intervals_id = ywi.id
+             WHERE ywi.year_id = :yearId',
+            ['yearId' => $yearId],
+        );
+        $conn->executeStatement(
+            'DELETE rv FROM resident_validation rv
+             INNER JOIN period_validation pv ON rv.period_validation_id = pv.id
+             WHERE pv.year_id = :yearId',
+            ['yearId' => $yearId],
+        );
+
+        // Level 1 — direct children of year
         foreach ([
-            ['Timesheet',         'year'],
-            ['Garde',             'year'],
-            ['Absence',           'year'],
-            ['PeriodValidation',  'year'],
-            ['YearsWeekIntervals','year'],
-            ['YearsWeekTemplates','year'],
-            ['ManagerYears',      'years'],
-        ] as [$entity, $field]) {
-            $em->createQuery($dql($entity, $field))->execute(['year' => $year]);
+            ['years_resident',      'year_id'],
+            ['timesheet',           'year_id'],
+            ['garde',               'year_id'],
+            ['absence',             'year_id'],
+            ['period_validation',   'year_id'],
+            ['years_week_intervals','year_id'],
+            ['years_week_templates','year_id'],
+            ['manager_years',       'years_id'],
+        ] as [$table, $col]) {
+            $conn->executeStatement("DELETE FROM {$table} WHERE {$col} = :yearId", ['yearId' => $yearId]);
         }
 
-        // 3. Audit + remove year
+        // Audit + remove year
         if ($actor !== null) {
             $this->auditService->log(
                 $actor, $hospital,
-                'force_delete_year', 'year', $year->getId(),
+                'force_delete_year', 'year', $yearId,
                 sprintf('Année "%s" supprimée (force) avec toutes les données associées', $yearTitle),
             );
         }
