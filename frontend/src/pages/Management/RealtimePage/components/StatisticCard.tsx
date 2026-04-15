@@ -23,7 +23,7 @@ import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import PhoneForwardedIcon from "@mui/icons-material/PhoneForwarded";
 import RunningWithErrorsIcon from "@mui/icons-material/RunningWithErrors";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
-import { Avatar, IconButton, Popover, Tooltip as MuiTooltip } from "@mui/material";
+import { Avatar, CircularProgress, IconButton, Popover, Tooltip as MuiTooltip } from "@mui/material";
 import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import BeachAccessIcon from "@mui/icons-material/BeachAccess";
@@ -224,7 +224,7 @@ const StatisticCard = ({ item }) => {
                 <MuiTooltip title="Télécharger l'horaire Excel" arrow>
                   <span>
                     <IconButton onClick={handleExcel} disabled={excelLoading} size="small">
-                      <ExcelLogo />
+                      {excelLoading ? <CircularProgress size={25} /> : <ExcelLogo />}
                     </IconButton>
                   </span>
                 </MuiTooltip>
