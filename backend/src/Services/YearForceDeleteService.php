@@ -26,7 +26,6 @@ class YearForceDeleteService
     public function __construct(
         private readonly MailerController $mailer,
         private readonly HospitalAdminAuditService $auditService,
-        private readonly string $frontendUrl,
     ) {}
 
     public function execute(

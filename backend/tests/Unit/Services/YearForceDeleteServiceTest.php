@@ -43,7 +43,7 @@ final class YearForceDeleteServiceTest extends TestCase
     {
         $this->mailer       = $this->createMock(MailerController::class);
         $this->auditService = $this->createMock(HospitalAdminAuditService::class);
-        $this->service      = new YearForceDeleteService($this->mailer, $this->auditService, 'http://localhost:3000');
+        $this->service      = new YearForceDeleteService($this->mailer, $this->auditService);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

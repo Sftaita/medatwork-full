@@ -698,6 +698,95 @@ const StatCard = ({ label, value, icon, color, sublabel }: StatCardProps) => (
   </Card>
 );
 
+// ── Year list row (list view) ─────────────────────────────────────────────────
+
+interface YearListRowProps {
+  year: HospitalYear;
+  onEdit: (year: HospitalYear) => void;
+  onDelete: (year: HospitalYear) => void;
+}
+
+const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
+  const navigate = useNavigate();
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const residentCount = year.residents?.length ?? year.residentCount ?? 0;
+  const managerCount  = year.managers?.length  ?? year.managerCount  ?? 0;
+  const editable      = year.status !== "archived";
+
+  const goToRealtime = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("realtime_selection") ?? "{}");
+      localStorage.setItem("realtime_selection", JSON.stringify({ ...saved, currentYear: year.id }));
+    } catch { /* localStorage unavailable */ }
+    navigate("/manager/realtime");
+  };
+
+  const goToParams = () =>
+    navigate("/manager/year-detail", { state: { id: year.id, title: year.title, adminRights: true } });
+
+  return (
+    <TableRow
+      hover
+      sx={{ cursor: "pointer" }}
+      onClick={goToRealtime}
+    >
+      <TableCell>
+        <Typography variant="body2" fontWeight={600}>{year.title}</Typography>
+        {year.location && (
+          <Typography variant="caption" color="text.secondary">
+            <LocationOnOutlinedIcon sx={{ fontSize: 12, mr: 0.3, verticalAlign: "middle" }} />
+            {year.location}{year.speciality ? ` — ${year.speciality}` : ""}
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell>{year.period}</TableCell>
+      <TableCell>
+        <Chip label={STATUS_LABEL[year.status]} color={STATUS_COLOR[year.status]} size="small" />
+      </TableCell>
+      <TableCell>
+        <Box display="flex" gap={1} alignItems="center">
+          <Box display="inline-flex" alignItems="center" gap={0.5}>
+            <PeopleOutlineIcon sx={{ fontSize: 15, color: "text.secondary" }} />
+            <Typography variant="caption" color="text.secondary">{residentCount}</Typography>
+          </Box>
+          <Box display="inline-flex" alignItems="center" gap={0.5}>
+            <PersonOutlineIcon sx={{ fontSize: 15, color: "text.secondary" }} />
+            <Typography variant="caption" color="text.secondary">{managerCount}</Typography>
+          </Box>
+        </Box>
+      </TableCell>
+      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+        <Tooltip title="Paramètres" placement="top" arrow>
+          <IconButton size="small" onClick={goToParams}>
+            <SettingsOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <IconButton size="small" onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}>
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+          <MenuItem onClick={() => { setMenuAnchor(null); onEdit(year); }}>
+            {editable ? "Modifier" : "Voir / changer le statut"}
+          </MenuItem>
+          <Divider />
+          <MenuItem onClick={() => { setMenuAnchor(null); onDelete(year); }} sx={{ color: "error.main" }}>
+            Supprimer
+          </MenuItem>
+        </Menu>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+// ── View mode persistence ─────────────────────────────────────────────────────
+
+const VIEW_KEY = "hospital_admin_dashboard_view";
+const loadView = (): "grid" | "list" => {
+  try { return (localStorage.getItem(VIEW_KEY) as "grid" | "list") ?? "grid"; }
+  catch { return "grid"; }
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const ALL_TAB = "__all__";
@@ -718,7 +807,14 @@ const HospitalAdminDashboardPage = () => {
 
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState(ALL_TAB);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(loadView);
   const tabInitialized = useRef(false);
+
+  const handleViewMode = (_: React.MouseEvent, val: "grid" | "list" | null) => {
+    if (!val) return;
+    setViewMode(val);
+    try { localStorage.setItem(VIEW_KEY, val); } catch { /* noop */ }
+  };
 
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<HospitalYear | null>(null);
@@ -841,7 +937,7 @@ const HospitalAdminDashboardPage = () => {
             placeholder="Titre, résident, manager…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: "100%", sm: 260 }, flexShrink: 0 }}
+            sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -850,6 +946,24 @@ const HospitalAdminDashboardPage = () => {
               ),
             }}
           />
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewMode}
+            size="small"
+            sx={{ flexShrink: 0 }}
+          >
+            <ToggleButton value="grid" aria-label="vue carte">
+              <Tooltip title="Vue carte" placement="top" arrow>
+                <ViewModuleIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="list" aria-label="vue liste">
+              <Tooltip title="Vue liste" placement="top" arrow>
+                <ViewListIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
       </Box>
 
@@ -895,27 +1009,59 @@ const HospitalAdminDashboardPage = () => {
         </Grid>
       )}
 
-      {/* ── Grid ──────────────────────────────────────────────────────────── */}
-      <Grid container spacing={2.5} alignItems="stretch">
-        {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <Grid key={i} item xs={12} sm={6} md={4} sx={{ display: "flex" }}>
-                <Box width="100%">
-                  <SkeletonCard />
-                </Box>
-              </Grid>
-            ))
-          : filtered.map((year) => (
-              <Grid key={year.id} item xs={12} sm={6} md={4} sx={{ display: "flex" }}>
-                <YearCard
-                  year={year}
-                  searchQuery={search}
-                  onEdit={setEditTarget}
-                  onDelete={setDeleteTarget}
-                />
-              </Grid>
-            ))}
-      </Grid>
+      {/* ── Grid / List ───────────────────────────────────────────────────── */}
+      {viewMode === "grid" ? (
+        <Grid container spacing={2.5} alignItems="stretch">
+          {isLoading
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <Grid key={i} item xs={12} sm={6} md={4} sx={{ display: "flex" }}>
+                  <Box width="100%"><SkeletonCard /></Box>
+                </Grid>
+              ))
+            : filtered.map((year) => (
+                <Grid key={year.id} item xs={12} sm={6} md={4} sx={{ display: "flex" }}>
+                  <YearCard
+                    year={year}
+                    searchQuery={search}
+                    onEdit={setEditTarget}
+                    onDelete={setDeleteTarget}
+                  />
+                </Grid>
+              ))}
+        </Grid>
+      ) : (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "grey.50" }}>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">ANNÉE</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">PÉRIODE</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MEMBRES</Typography></TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 5 }).map((__, j) => (
+                        <TableCell key={j}><Skeleton variant="text" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                : filtered.map((year) => (
+                    <YearListRow
+                      key={year.id}
+                      year={year}
+                      onEdit={setEditTarget}
+                      onDelete={setDeleteTarget}
+                    />
+                  ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* ── Empty state ───────────────────────────────────────────────────── */}
       {!isLoading && filtered.length === 0 && (
