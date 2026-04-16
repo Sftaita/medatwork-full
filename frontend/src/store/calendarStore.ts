@@ -1,13 +1,14 @@
 import { create } from "zustand";
-import type { Year, YearResident, Resident } from "@/types/entities";
+import type { Year, YearResident } from "@/types/entities";
 
 interface CalendarStore {
   years: Year[];
   setYears: (years: Year[]) => void;
   currentYear: Year | null;
   setCurrentYear: (year: Year | null) => void;
-  selectedResidents: Resident[];
-  setSelectedResidents: (residents: Resident[]) => void;
+  /** IDs des résidents sélectionnés (filtre affiché sur le calendrier) */
+  selectedResidents: number[];
+  setSelectedResidents: (residentIds: number[]) => void;
   selectedSchedules: unknown[];
   setSelectedSchedules: (schedules: unknown[]) => void;
   yearResidents: YearResident[];

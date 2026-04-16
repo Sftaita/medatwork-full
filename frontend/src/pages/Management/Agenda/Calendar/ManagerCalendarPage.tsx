@@ -18,12 +18,12 @@ const ManagerCalendarPage = () => {
   return (
     <Grid
       container
-      padding={isMd && 2}
-      paddingTop={!isMd && 2}
-      margin={isMd && 2}
+      padding={isMd ? 2 : 0}
+      paddingTop={!isMd ? 2 : 0}
+      margin={isMd ? 2 : 0}
       direction={isMd ? "row" : "column"}
       justifyContent="center"
-      alignItems="flexStart"
+      alignItems="flex-start"
       sx={{ boxShadow: 3 }}
     >
       {" "}

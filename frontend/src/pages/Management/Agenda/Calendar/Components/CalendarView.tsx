@@ -33,9 +33,9 @@ const ManagerCalendarPage = ({ isMd }) => {
   };
 
   const renderEventContent = (eventInfo) => {
-    const firstNameInitial = eventInfo.event.extendedProps.residentFirstname.charAt(0);
-    const lastNameInitial = eventInfo.event.extendedProps.residentLastname.charAt(0);
-    const initials = `${firstNameInitial}${lastNameInitial}`;
+    const firstname: string = eventInfo.event.extendedProps.residentFirstname ?? "";
+    const lastname: string = eventInfo.event.extendedProps.residentLastname ?? "";
+    const initials = `${firstname.charAt(0)}${lastname.charAt(0)}`;
 
     const startTime = dayjs.utc(eventInfo.event.start).format("HH:mm");
     const endTime = dayjs.utc(eventInfo.event.end).format("HH:mm");

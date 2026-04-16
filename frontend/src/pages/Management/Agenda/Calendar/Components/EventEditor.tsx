@@ -3,8 +3,7 @@ import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import calendarApi from "../../../../../services/calendarApi";
 import { toast } from "react-toastify";
 import logger from "../../../../../services/logger";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
+import dayjs from "@/lib/dayjs";
 import { useFormik } from "formik";
 import * as yup from "yup";
 
@@ -36,8 +35,6 @@ import useManagersCalendarContext from "../../../../../hooks/useManagersCalendar
 import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
 import CustomDateTimePicker from "../../../../../components/medium/CustomDateTimeHandler";
 import { handleApiError } from "@/services/apiError";
-
-dayjs.extend(utc);
 
 const validationSchema = yup.object({
   title: yup
@@ -223,7 +220,6 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
         toast.success(response?.data?.message, toastSuccess);
       }
     } catch (error) {
-      setIsLoading(false);
       handleApiError(error);
       if (error?.response?.data?.message) {
         toast.error(error?.response?.data?.message, toastError);

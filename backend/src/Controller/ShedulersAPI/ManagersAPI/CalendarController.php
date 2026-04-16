@@ -6,6 +6,7 @@ namespace App\Controller\ShedulersAPI\ManagersAPI;
 
 use App\DTO\AddCalendarEventInputDTO;
 use App\DTO\UpdateCalendarEventInputDTO;
+use App\Entity\Manager;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\ResidentYearCalendarRepository;
 use App\Repository\YearsRepository;
@@ -37,7 +38,13 @@ class CalendarController extends AbstractController
     #[Route('/api/managers/managerCalendar/firstLoad', methods: ['GET'])]
     public function firstCalendarLoad(Security $security): JsonResponse
     {
-        $manager      = $security->getUser();
+        $manager = $security->getUser();
+
+        // role_hierarchy gives HospitalAdmin ROLE_MANAGER — guard against it
+        if (!$manager instanceof Manager) {
+            return $this->json(['years' => []], Response::HTTP_OK);
+        }
+
         $managerYears = $this->managerYearRepository->findBy(['manager' => $manager]);
         $data         = ['years' => []];
         $firstYear    = true;
@@ -83,12 +90,23 @@ class CalendarController extends AbstractController
     }
 
     #[Route('/api/managers/managerCalendar/schedules/{yearId}', methods: ['GET'])]
-    public function calendarLoadByYearId(int $yearId): JsonResponse
+    public function calendarLoadByYearId(int $yearId, Security $security): JsonResponse
     {
         $year = $this->yearsRepository->find($yearId);
 
         if (! $year) {
             return new JsonResponse(['message' => 'Année non trouvée.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $user = $security->getUser();
+        if ($user instanceof Manager) {
+            $managerYear = $this->managerYearRepository->findOneBy(['manager' => $user, 'years' => $year]);
+            if (! $managerYear || ! $managerYear->getHasAgendaAccess()) {
+                return new JsonResponse(['message' => 'Accès non autorisé à cette année.'], Response::HTTP_FORBIDDEN);
+            }
+        } else {
+            // HospitalAdmin or other — no ManagerYears relation
+            return new JsonResponse(['message' => 'Accès non autorisé.'], Response::HTTP_FORBIDDEN);
         }
 
         $yearInfo      = [

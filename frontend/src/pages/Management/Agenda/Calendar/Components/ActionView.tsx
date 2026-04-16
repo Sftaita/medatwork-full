@@ -16,6 +16,51 @@ import Groups2Icon from "@mui/icons-material/Groups2";
 import { Box } from "@mui/system";
 import { handleApiError } from "@/services/apiError";
 
+// ── ResidentCheckboxList ──────────────────────────────────────────────────────
+interface ResidentCheckboxListProps {
+  yearResidents: any[];
+  selectedResidents: number[];
+  schedules: any[];
+  onToggleAll: () => void;
+  onToggle: (residentId: number) => void;
+}
+
+const ResidentCheckboxList = ({
+  yearResidents,
+  selectedResidents,
+  schedules,
+  onToggleAll,
+  onToggle,
+}: ResidentCheckboxListProps) => (
+  <FormControl>
+    <FormLabel>MACCS</FormLabel>
+    <FormControlLabel
+      control={
+        <Checkbox
+          checked={yearResidents.length > 0 && selectedResidents.length === yearResidents.length}
+          onChange={onToggleAll}
+          sx={{ "&.Mui-checked": { color: "grey" } }}
+        />
+      }
+      label="Afficher tous"
+    />
+    {yearResidents.map((resident) => (
+      <FormControlLabel
+        key={resident.residentId}
+        control={
+          <Checkbox
+            checked={selectedResidents.includes(resident.residentId)}
+            onChange={() => onToggle(resident.residentId)}
+            sx={{ "&.Mui-checked": { color: resident.residentColor } }}
+          />
+        }
+        label={`${resident.residentFirstname} ${resident.residentLastname}`}
+      />
+    ))}
+  </FormControl>
+);
+
+// ── ActionView ────────────────────────────────────────────────────────────────
 const ActionView = ({ isMd }) => {
   const axiosPrivate = useAxiosPrivate();
 
@@ -32,61 +77,26 @@ const ActionView = ({ isMd }) => {
     setSchedules,
     setSelectedSchedules,
   } = useManagersCalendarContext();
+
   const [isLoading, setIsLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const handleChangeYear = (event) => {
-    const yearId = event.target.value;
-    const selectedYear = years.find((year) => year.yearId === yearId);
-
-    loadByYearId(selectedYear.yearId);
-    if (selectedYear) {
-      setCurrentYear(selectedYear);
-      setYearResidents(selectedYear.residents);
-      setSelectedResidents(selectedYear.residents.map((resident) => resident.residentId)); // Select all residents of the year
-      setSchedules(selectedYear.schedules);
-      setSelectedSchedules(
-        selectedYear.schedules.filter((schedule) =>
-          selectedYear.residents
-            .map((resident) => resident.residentId)
-            .includes(schedule.classNames)
-        )
-      ); // Only select schedules that have their classNames in the list of residents
-    }
-  };
-
-  const handleToggleResident = (residentId) => {
-    const currentIndex = selectedResidents.indexOf(residentId);
-    const newSelectedResidents = [...selectedResidents];
-
-    if (currentIndex === -1) {
-      newSelectedResidents.push(residentId);
-    } else {
-      newSelectedResidents.splice(currentIndex, 1);
-    }
-
-    setSelectedResidents(newSelectedResidents);
+  // Reactive filter: keep selectedSchedules in sync whenever selectedResidents or schedules changes
+  useEffect(() => {
     setSelectedSchedules(
-      schedules.filter((schedule) => newSelectedResidents.includes(schedule.classNames))
+      schedules.filter((schedule: any) => selectedResidents.includes(schedule.classNames))
     );
-  };
+  }, [selectedResidents, schedules, setSelectedSchedules]);
 
-  const loadByYearId = async (yearId) => {
+  const loadByYearId = async (yearId: number | string) => {
     setIsLoading(true);
     try {
       const { method, url } = calendarApi.loadSchedulesByYearId(yearId);
       const request = await axiosPrivate[method](url);
       setYearResidents(request?.data?.residents);
       setSchedules(request?.data?.schedules);
-
-      // Update selectedResidents and selectedSchedules according to the new data
-      setSelectedResidents(request?.data?.residents.map((resident) => resident.residentId));
-      setSelectedSchedules(
-        request?.data?.schedules.filter((schedule) =>
-          request?.data?.residents
-            .map((resident) => resident.residentId)
-            .includes(schedule.classNames)
-        )
-      );
+      setSelectedResidents(request?.data?.residents.map((r: any) => r.residentId));
+      // selectedSchedules will be updated by the reactive useEffect above
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -94,11 +104,31 @@ const ActionView = ({ isMd }) => {
     }
   };
 
-  useEffect(() => {
-    setSelectedSchedules(
-      schedules.filter((schedule) => selectedResidents.includes(schedule.classNames))
-    );
-  }, [selectedResidents, schedules, setSelectedSchedules]);
+  const handleChangeYear = (event) => {
+    const yearId = event.target.value;
+    const selectedYear = years.find((year) => year.yearId === yearId);
+    if (selectedYear) {
+      setCurrentYear(selectedYear);
+    }
+    loadByYearId(yearId);
+  };
+
+  const handleToggleResident = (residentId: number) => {
+    const newSelected = selectedResidents.includes(residentId)
+      ? selectedResidents.filter((id) => id !== residentId)
+      : [...selectedResidents, residentId];
+    setSelectedResidents(newSelected);
+    // selectedSchedules updated by reactive useEffect
+  };
+
+  const handleToggleAll = () => {
+    if (selectedResidents.length === yearResidents.length) {
+      setSelectedResidents([]);
+    } else {
+      setSelectedResidents(yearResidents.map((r: any) => r.residentId));
+    }
+    // selectedSchedules updated by reactive useEffect
+  };
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -106,15 +136,15 @@ const ActionView = ({ isMd }) => {
       try {
         const { method, url } = calendarApi.fetchFirstLoadSchedules();
         const request = await axiosPrivate[method](url);
-
         const data = request?.data?.years;
 
         if (data?.length > 0) {
           setYears(data);
           setCurrentYear(data[0]);
           setYearResidents(data[0]?.residents);
-          setSelectedResidents(data[0]?.residents.map((resident) => resident.residentId)); // Select all residents initially
+          setSelectedResidents(data[0]?.residents.map((r: any) => r.residentId));
           setSchedules(data[0]?.schedules);
+          // selectedSchedules updated by reactive useEffect
         }
       } catch (error) {
         handleApiError(error);
@@ -124,13 +154,6 @@ const ActionView = ({ isMd }) => {
     };
     loadInitialData();
   }, [axiosPrivate, setCurrentYear, setSchedules, setSelectedResidents, setYearResidents, setYears]);
-
-  // Drawer controller
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const handleDrawerClose = () => {
-    setDrawerOpen(false);
-  };
 
   return (
     <>
@@ -144,11 +167,10 @@ const ActionView = ({ isMd }) => {
         spacing={2}
         marginBottom={2}
       >
-        <Grid item xs={10} md={12} width={"100%"}>
-          {" "}
+        <Grid item xs={10} md={12} width="100%">
           <CustomSelect
             loading={isLoading}
-            value={parseInt(currentYear.yearId)}
+            value={currentYear ? parseInt(currentYear.yearId) : ""}
             onChange={handleChangeYear}
             item={years.map((e) => (
               <MenuItem value={e.yearId} key={e.yearId}>
@@ -157,54 +179,19 @@ const ActionView = ({ isMd }) => {
             ))}
           />
         </Grid>
+
         {isMd && (
           <Grid item md={12} padding={2}>
-            <FormControl>
-              <FormLabel id="demo-radio-buttons-group-label">MACCS</FormLabel>
-
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={selectedResidents.length === yearResidents.length}
-                    onChange={() => {
-                      if (selectedResidents.length === yearResidents.length) {
-                        setSelectedResidents([]);
-                        setSelectedSchedules([]);
-                      } else {
-                        setSelectedResidents(yearResidents.map((r) => r.residentId));
-                        setSelectedSchedules(schedules);
-                      }
-                    }}
-                    sx={{
-                      "&.Mui-checked": {
-                        color: "grey", // spécifiez votre couleur grise ici
-                      },
-                    }}
-                  />
-                }
-                label="Afficher tous"
-              />
-
-              {yearResidents.map((resident) => (
-                <FormControlLabel
-                  key={resident.residentId}
-                  control={
-                    <Checkbox
-                      checked={selectedResidents.includes(resident.residentId)}
-                      onChange={() => handleToggleResident(resident.residentId)}
-                      sx={{
-                        "&.Mui-checked": {
-                          color: resident.residentColor,
-                        },
-                      }}
-                    />
-                  }
-                  label={resident.residentFirstname + " " + resident.residentLastname}
-                />
-              ))}
-            </FormControl>
+            <ResidentCheckboxList
+              yearResidents={yearResidents}
+              selectedResidents={selectedResidents}
+              schedules={schedules}
+              onToggleAll={handleToggleAll}
+              onToggle={handleToggleResident}
+            />
           </Grid>
         )}
+
         {!isMd && (
           <Grid item xs={2}>
             <IconButton onClick={() => setDrawerOpen(true)}>
@@ -213,52 +200,16 @@ const ActionView = ({ isMd }) => {
           </Grid>
         )}
       </Grid>
-      <Drawer anchor="left" open={drawerOpen} onClose={() => handleDrawerClose()}>
+
+      <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box padding={3} sx={{ width: "60vw", height: "100%" }}>
-          <FormControl>
-            <FormLabel id="demo-radio-buttons-group-label">MACCS</FormLabel>
-
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={selectedResidents.length === yearResidents.length}
-                  onChange={() => {
-                    if (selectedResidents.length === yearResidents.length) {
-                      setSelectedResidents([]);
-                      setSelectedSchedules([]);
-                    } else {
-                      setSelectedResidents(yearResidents.map((r) => r.residentId));
-                      setSelectedSchedules(schedules);
-                    }
-                  }}
-                  sx={{
-                    "&.Mui-checked": {
-                      color: "grey", // spécifiez votre couleur grise ici
-                    },
-                  }}
-                />
-              }
-              label="Afficher tous"
-            />
-
-            {yearResidents.map((resident) => (
-              <FormControlLabel
-                key={resident.residentId}
-                control={
-                  <Checkbox
-                    checked={selectedResidents.includes(resident.residentId)}
-                    onChange={() => handleToggleResident(resident.residentId)}
-                    sx={{
-                      "&.Mui-checked": {
-                        color: resident.residentColor,
-                      },
-                    }}
-                  />
-                }
-                label={resident.residentFirstname + " " + resident.residentLastname}
-              />
-            ))}
-          </FormControl>
+          <ResidentCheckboxList
+            yearResidents={yearResidents}
+            selectedResidents={selectedResidents}
+            schedules={schedules}
+            onToggleAll={handleToggleAll}
+            onToggle={handleToggleResident}
+          />
         </Box>
       </Drawer>
     </>
