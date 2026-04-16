@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\StatisticsAPI\ManagersAPI;
 
+use App\Entity\HospitalAdmin;
 use App\Repository\AbsenceRepository;
 use App\Repository\GardeRepository;
 use App\Repository\ManagerYearsRepository;
@@ -14,6 +15,7 @@ use App\Repository\YearsResidentRepository;
 use App\Services\Statistics\ResidentStatisticsBuilder;
 use App\Services\Statistics\StatisticTools;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -102,6 +104,7 @@ class GetRealTimeStatisticsAsManager extends AbstractController
     #[Route('/api/managers/statisticsFirstload/{month}', name: 'firstload', methods: ['GET'])]
     public function firstload(
         int $month,
+        Security $security,
         YearsResidentRepository $yearsResidentRepository,
         TimesheetRepository $timesheetRepository,
         AbsenceRepository $absenceRepository,
@@ -116,19 +119,30 @@ class GetRealTimeStatisticsAsManager extends AbstractController
             return $this->json(['error' => 'Invalid month parameter (expected 1–12)'], Response::HTTP_BAD_REQUEST);
         }
 
-        $dates   = $statisticTools->boudariesDates($month);
-        $manager = $this->getUser();
-        $data    = [];
+        $dates = $statisticTools->boudariesDates($month);
+        $user  = $security->getUser();
+        $data  = [];
 
-        $yearsList = $managerYearsRepository->findBy(['manager' => $manager, 'dataAccess' => true], ['years' => 'DESC']);
-        $yearList  = [];
-        foreach ($yearsList as $my) {
-            $year = $yearsRepository->findOneBy(['id' => $my->getYears()]);
-            if ($year === null) {
-                continue;
+        if ($user instanceof HospitalAdmin) {
+            // HospitalAdmin: load all years belonging to their hospital
+            $years    = $yearsRepository->findByHospitalOrderedByDate($user->getHospital());
+            $yearList = [];
+            foreach ($years as $year) {
+                $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'location' => $year->getLocation()];
             }
-            $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'location' => $year->getLocation()];
+        } else {
+            // Manager: only years with dataAccess=true
+            $yearsList = $managerYearsRepository->findBy(['manager' => $user, 'dataAccess' => true], ['years' => 'DESC']);
+            $yearList  = [];
+            foreach ($yearsList as $my) {
+                $year = $yearsRepository->findOneBy(['id' => $my->getYears()]);
+                if ($year === null) {
+                    continue;
+                }
+                $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'location' => $year->getLocation()];
+            }
         }
+
         $data['years'] = $yearList;
 
         if (empty($data['years'])) {

@@ -66,7 +66,8 @@ services:
 
   App\Controller\TokenActivationController:
     arguments:
-      $apiUrl: '%env(API_URL)%'
+      $apiUrl:      '%env(API_URL)%'
+      $frontendUrl: '%env(FRONTEND_URL)%'
 
   App\Controller\HospitalAdminController:
     arguments:

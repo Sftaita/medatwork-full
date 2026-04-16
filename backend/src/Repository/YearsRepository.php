@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
+use App\Entity\Hospital;
 use App\Entity\Manager;
 use App\Entity\Years;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -91,6 +92,21 @@ class YearsRepository extends ServiceEntityRepository
     }
 
 
+
+    /**
+     * Returns all years belonging to a hospital, ordered by end date descending.
+     *
+     * @return Years[]
+     */
+    public function findByHospitalOrderedByDate(Hospital $hospital): array
+    {
+        return $this->createQueryBuilder('y')
+            ->where('y.hospital = :hospital')
+            ->orderBy('y.dateOfEnd', 'DESC')
+            ->setParameter('hospital', $hospital)
+            ->getQuery()
+            ->getResult();
+    }
 
     /*
     public function findOneBySomeField($value): ?Years

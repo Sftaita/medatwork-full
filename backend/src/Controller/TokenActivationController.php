@@ -28,6 +28,7 @@ class TokenActivationController extends AbstractController
     public function __construct(
         private readonly MailerController $mailer,
         private readonly string $apiUrl,
+        private readonly string $frontendUrl,
     ) {
     }
 
@@ -124,16 +125,20 @@ class TokenActivationController extends AbstractController
         $user->setToken($token)->setTokenExpiration($expiration);
         $em->flush();
 
-        $route = $resident ? 'ResidentActivation' : 'ManagerActivation';
-        $link  = $this->apiUrl . $route . '/' . $token;
+        if ($resident !== null) {
+            $link = $this->apiUrl . 'ResidentActivation/' . $token;
+        } else {
+            // Manager invited via HospitalAdmin: must complete setup (set password) first
+            $link = rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token;
+        }
+
+        $template = ($resident !== null) ? 'email/activationEmail.html.twig' : 'email/managerSetup.html.twig';
+        $params   = ($resident !== null)
+            ? ['firstname' => $user->getFirstname(), 'link' => $link]
+            : ['firstname' => $user->getFirstname(), 'setupLink' => $link];
 
         try {
-            $this->mailer->sendEmail(
-                $email,
-                'Activation de votre compte',
-                'email/activationEmail.html.twig',
-                ['firstname' => $user->getFirstname(), 'link' => $link],
-            );
+            $this->mailer->sendEmail($email, 'Activation de votre compte', $template, $params);
         } catch (\Throwable) {
             // Email failure must not block the resend response
         }

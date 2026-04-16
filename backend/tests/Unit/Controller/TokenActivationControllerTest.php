@@ -45,7 +45,11 @@ final class TokenActivationControllerTest extends TestCase
 
     private function buildController(): TokenActivationController
     {
-        return new TokenActivationController($this->mailer, 'https://api.medatwork.be/api/');
+        return new TokenActivationController(
+            $this->mailer,
+            'https://api.medatwork.be/api/',
+            'https://www.medatwork.be',
+        );
     }
 
     private function makeRequest(array $body): Request
@@ -329,7 +333,7 @@ final class TokenActivationControllerTest extends TestCase
         $this->assertStringContainsString('ResidentActivation/', (string) $capturedLink);
     }
 
-    public function testManagerLinkContainsManagerActivationRoute(): void
+    public function testManagerLinkPointsToFrontendSetupPage(): void
     {
         $manager = $this->createMock(Manager::class);
         $manager->method('getValidatedAt')->willReturn(null);
@@ -343,7 +347,7 @@ final class TokenActivationControllerTest extends TestCase
         $capturedLink = null;
         $this->mailer->method('sendEmail')
             ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
-                $capturedLink = $params['link'] ?? null;
+                $capturedLink = $params['setupLink'] ?? $params['link'] ?? null;
             });
 
         $this->buildController()->resendActivation(
@@ -354,7 +358,94 @@ final class TokenActivationControllerTest extends TestCase
             $this->limiterFactory,
         );
 
-        $this->assertStringContainsString('ManagerActivation/', (string) $capturedLink);
+        // Manager resend must point to the frontend setup page (password creation),
+        // never to the direct-activation API endpoint.
+        $this->assertStringContainsString('manager-setup/', (string) $capturedLink);
+        $this->assertStringNotContainsString('ManagerActivation/', (string) $capturedLink);
+    }
+
+    public function testManagerLinkUsesFrontendUrl(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getValidatedAt')->willReturn(null);
+        $manager->method('getFirstname')->willReturn('Paul');
+        $manager->method('setToken')->willReturn($manager);
+        $manager->method('setTokenExpiration')->willReturn($manager);
+
+        $this->residentRepo->method('findOneBy')->willReturn(null);
+        $this->managerRepo->method('findOneBy')->willReturn($manager);
+
+        $capturedLink = null;
+        $this->mailer->method('sendEmail')
+            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
+                $capturedLink = $params['setupLink'] ?? $params['link'] ?? null;
+            });
+
+        $this->buildController()->resendActivation(
+            $this->makeRequest(['email' => 'paul@example.com']),
+            $this->residentRepo,
+            $this->managerRepo,
+            $this->em,
+            $this->limiterFactory,
+        );
+
+        $this->assertStringStartsWith('https://www.medatwork.be', (string) $capturedLink);
+    }
+
+    public function testManagerEmailUsesSetupTemplate(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getValidatedAt')->willReturn(null);
+        $manager->method('getFirstname')->willReturn('Paul');
+        $manager->method('setToken')->willReturn($manager);
+        $manager->method('setTokenExpiration')->willReturn($manager);
+
+        $this->residentRepo->method('findOneBy')->willReturn(null);
+        $this->managerRepo->method('findOneBy')->willReturn($manager);
+
+        $capturedTemplate = null;
+        $this->mailer->method('sendEmail')
+            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedTemplate): void {
+                $capturedTemplate = $template;
+            });
+
+        $this->buildController()->resendActivation(
+            $this->makeRequest(['email' => 'paul@example.com']),
+            $this->residentRepo,
+            $this->managerRepo,
+            $this->em,
+            $this->limiterFactory,
+        );
+
+        $this->assertStringContainsString('managerSetup', $capturedTemplate);
+    }
+
+    public function testResidentLinkStillUsesApiActivationRoute(): void
+    {
+        $resident = $this->createMock(Resident::class);
+        $resident->method('getValidatedAt')->willReturn(null);
+        $resident->method('getFirstname')->willReturn('Jean');
+        $resident->method('setToken')->willReturn($resident);
+        $resident->method('setTokenExpiration')->willReturn($resident);
+
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
+
+        $capturedLink = null;
+        $this->mailer->method('sendEmail')
+            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
+                $capturedLink = $params['link'] ?? null;
+            });
+
+        $this->buildController()->resendActivation(
+            $this->makeRequest(['email' => 'jean@example.com']),
+            $this->residentRepo,
+            $this->managerRepo,
+            $this->em,
+            $this->limiterFactory,
+        );
+
+        $this->assertStringContainsString('ResidentActivation/', (string) $capturedLink);
+        $this->assertStringNotContainsString('manager-setup/', (string) $capturedLink);
     }
 
     // ─── Mailer failure is non-fatal ──────────────────────────────────────────
