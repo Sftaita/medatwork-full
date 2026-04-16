@@ -409,6 +409,14 @@ function App() {
                         </Suspense>
                       }
                     />
+                    <Route
+                      path="/manager/realtime"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <RealTimePage />
+                        </Suspense>
+                      }
+                    />
                   </Route>
 
                   {/* Manager routes */}
