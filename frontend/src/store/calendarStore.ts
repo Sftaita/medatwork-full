@@ -9,12 +9,10 @@ interface CalendarStore {
   /** IDs des résidents sélectionnés (filtre affiché sur le calendrier) */
   selectedResidents: number[];
   setSelectedResidents: (residentIds: number[]) => void;
-  selectedSchedules: unknown[];
-  setSelectedSchedules: (schedules: unknown[]) => void;
   yearResidents: YearResident[];
   setYearResidents: (yearResidents: YearResident[]) => void;
   schedules: unknown[];
-  setSchedules: (schedules: unknown[]) => void;
+  setSchedules: (schedules: unknown | ((prev: unknown[]) => unknown[])) => void;
 }
 
 export const useCalendarStore = create<CalendarStore>((set) => ({
@@ -24,10 +22,11 @@ export const useCalendarStore = create<CalendarStore>((set) => ({
   setCurrentYear: (currentYear) => set({ currentYear }),
   selectedResidents: [],
   setSelectedResidents: (selectedResidents) => set({ selectedResidents }),
-  selectedSchedules: [],
-  setSelectedSchedules: (selectedSchedules) => set({ selectedSchedules }),
   yearResidents: [],
   setYearResidents: (yearResidents) => set({ yearResidents }),
   schedules: [],
-  setSchedules: (schedules) => set({ schedules }),
+  setSchedules: (schedules) =>
+    set((state) => ({
+      schedules: typeof schedules === "function" ? (schedules as (prev: unknown[]) => unknown[])(state.schedules) : schedules,
+    })),
 }));

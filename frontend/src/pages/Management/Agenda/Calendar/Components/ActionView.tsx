@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import calendarApi from "../../../../../services/calendarApi";
 import useManagersCalendarContext from "../../../../../hooks/useManagersCalendarContext";
@@ -20,7 +20,6 @@ import { handleApiError } from "@/services/apiError";
 interface ResidentCheckboxListProps {
   yearResidents: any[];
   selectedResidents: number[];
-  schedules: any[];
   onToggleAll: () => void;
   onToggle: (residentId: number) => void;
 }
@@ -28,7 +27,6 @@ interface ResidentCheckboxListProps {
 const ResidentCheckboxList = ({
   yearResidents,
   selectedResidents,
-  schedules,
   onToggleAll,
   onToggle,
 }: ResidentCheckboxListProps) => (
@@ -73,42 +71,37 @@ const ActionView = ({ isMd }) => {
     selectedResidents,
     setSelectedResidents,
     setYearResidents,
-    schedules,
     setSchedules,
-    setSelectedSchedules,
   } = useManagersCalendarContext();
 
   const [isLoading, setIsLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Reactive filter: keep selectedSchedules in sync whenever selectedResidents or schedules changes
-  useEffect(() => {
-    setSelectedSchedules(
-      schedules.filter((schedule: any) => selectedResidents.includes(schedule.classNames))
-    );
-  }, [selectedResidents, schedules, setSelectedSchedules]);
-
-  const loadByYearId = async (yearId: number | string) => {
+  const loadByYearId = useCallback(async (yearId: number | string) => {
     setIsLoading(true);
     try {
       const { method, url } = calendarApi.loadSchedulesByYearId(yearId);
       const request = await axiosPrivate[method](url);
-      setYearResidents(request?.data?.residents);
-      setSchedules(request?.data?.schedules);
-      setSelectedResidents(request?.data?.residents.map((r: any) => r.residentId));
-      // selectedSchedules will be updated by the reactive useEffect above
+      const data = request?.data;
+      if (data?.yearId) {
+        setCurrentYear({ yearId: data.yearId, title: data.title });
+      }
+      setYearResidents(data?.residents ?? []);
+      setSchedules(data?.schedules ?? []);
+      setSelectedResidents((data?.residents ?? []).map((r: any) => r.residentId));
     } catch (error) {
       handleApiError(error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [axiosPrivate, setCurrentYear, setYearResidents, setSchedules, setSelectedResidents]);
 
   const handleChangeYear = (event) => {
     const yearId = event.target.value;
     const selectedYear = years.find((year) => year.yearId === yearId);
     if (selectedYear) {
       setCurrentYear(selectedYear);
+      localStorage.setItem("calendar_selectedYearId", String(yearId));
     }
     loadByYearId(yearId);
   };
@@ -118,7 +111,6 @@ const ActionView = ({ isMd }) => {
       ? selectedResidents.filter((id) => id !== residentId)
       : [...selectedResidents, residentId];
     setSelectedResidents(newSelected);
-    // selectedSchedules updated by reactive useEffect
   };
 
   const handleToggleAll = () => {
@@ -127,7 +119,6 @@ const ActionView = ({ isMd }) => {
     } else {
       setSelectedResidents(yearResidents.map((r: any) => r.residentId));
     }
-    // selectedSchedules updated by reactive useEffect
   };
 
   useEffect(() => {
@@ -140,11 +131,18 @@ const ActionView = ({ isMd }) => {
 
         if (data?.length > 0) {
           setYears(data);
-          setCurrentYear(data[0]);
-          setYearResidents(data[0]?.residents);
-          setSelectedResidents(data[0]?.residents.map((r: any) => r.residentId));
-          setSchedules(data[0]?.schedules);
-          // selectedSchedules updated by reactive useEffect
+          const savedYearId = localStorage.getItem("calendar_selectedYearId");
+          const initialYear = data.find((y: any) => String(y.yearId) === savedYearId) ?? data[0];
+          setCurrentYear(initialYear);
+
+          if (savedYearId && initialYear.yearId !== data[0].yearId) {
+            // Saved year differs from the first one — load it from API
+            await loadByYearId(initialYear.yearId);
+          } else {
+            setYearResidents(initialYear.residents);
+            setSelectedResidents(initialYear.residents.map((r: any) => r.residentId));
+            setSchedules(initialYear.schedules);
+          }
         }
       } catch (error) {
         handleApiError(error);
@@ -153,7 +151,7 @@ const ActionView = ({ isMd }) => {
       }
     };
     loadInitialData();
-  }, [axiosPrivate, setCurrentYear, setSchedules, setSelectedResidents, setYearResidents, setYears]);
+  }, [axiosPrivate, loadByYearId, setCurrentYear, setSchedules, setSelectedResidents, setYearResidents, setYears]);
 
   return (
     <>
@@ -185,7 +183,6 @@ const ActionView = ({ isMd }) => {
             <ResidentCheckboxList
               yearResidents={yearResidents}
               selectedResidents={selectedResidents}
-              schedules={schedules}
               onToggleAll={handleToggleAll}
               onToggle={handleToggleResident}
             />
@@ -206,7 +203,6 @@ const ActionView = ({ isMd }) => {
           <ResidentCheckboxList
             yearResidents={yearResidents}
             selectedResidents={selectedResidents}
-            schedules={schedules}
             onToggleAll={handleToggleAll}
             onToggle={handleToggleResident}
           />

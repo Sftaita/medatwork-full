@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -16,7 +16,12 @@ import "../CSS/FullCalendarStyle.css";
 import EventEditor from "./EventEditor";
 
 const ManagerCalendarPage = ({ isMd }) => {
-  const { selectedSchedules } = useManagersCalendarContext();
+  const { schedules, selectedResidents } = useManagersCalendarContext();
+
+  const selectedSchedules = useMemo(
+    () => (schedules as any[]).filter((s) => selectedResidents.includes(s.extendedProps?.residentId)),
+    [schedules, selectedResidents]
+  );
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -98,7 +103,7 @@ const ManagerCalendarPage = ({ isMd }) => {
       <Drawer anchor="right" open={drawerOpen} onClose={() => handleDrawerClose()}>
         <Box
           // Adjust the width here:
-          sx={{ width: isMd ? "22vw" : "100vw", height: "100%" }}
+          sx={{ width: isMd ? "380px" : "100vw", height: "100%" }}
         >
           <EventEditor
             handleDrawerClose={handleDrawerClose}

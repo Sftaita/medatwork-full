@@ -91,7 +91,7 @@ class ManagerCalendar
                 'start' => $eventDateStart !== null ? $eventDateStart->format('Y-m-d H:i') : null,
                 'end' => $eventDateEnd !== null ? $eventDateEnd->format('Y-m-d H:i') : null,
                 'residentName' => $calendarResident !== null ? $calendarResident->getLastname().' '.$calendarResident->getFirstname() : null,
-                'classNames' => $calendarResident !== null ? $calendarResident->getId() : null,
+                'extendedProps' => ['residentId' => $calendarResident !== null ? $calendarResident->getId() : null],
             ];
             return [
                 'status' => 200,

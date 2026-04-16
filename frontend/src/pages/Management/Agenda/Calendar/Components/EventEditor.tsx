@@ -27,6 +27,11 @@ import {
   InputLabel,
   IconButton,
   Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import LoadingButton from "@mui/lab/LoadingButton";
 import useManagersCalendarContext from "../../../../../hooks/useManagersCalendarContext";
@@ -55,15 +60,13 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
   const axiosPrivate = useAxiosPrivate();
 
   const [isLoading, setIsLoading] = useState(false);
-
-  const [isAllDay, setIsAllDay] = useState(false); // Initialiser l'état isAllDay
+  const [isAllDay, setIsAllDay] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const {
     yearResidents,
     setSchedules,
     schedules,
-    selectedSchedules,
-    setSelectedSchedules,
     currentYear,
   } = useManagersCalendarContext();
 
@@ -104,7 +107,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
         const addedEvent = response.data.event;
 
         // Trouvez le résident correspondant dans l'array yearResidents
-        const resident = yearResidents.find((r) => r.residentId === addedEvent.classNames);
+        const resident = yearResidents.find((r) => r.residentId === addedEvent.extendedProps?.residentId);
 
         if (resident) {
           const residentColor = resident ? resident.residentColor : null;
@@ -112,21 +115,17 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
           const formattedEvent = {
             residentYearCalendarId: addedEvent.residentYearCalendarId,
             title: addedEvent.title,
-            start: addedEvent.start, // changed this line
-            end: addedEvent.end, // and this line
-            classNames: addedEvent.classNames,
+            start: addedEvent.start,
+            end: addedEvent.end,
+            extendedProps: { residentId: addedEvent.extendedProps?.residentId },
             residentName: addedEvent.residentName,
-            residentFirstname: addedEvent.residentFirstname, // added this line
-            residentLastname: addedEvent.residentLastname, // and this line
-            residentColor: residentColor, // and this line
-            description: addedEvent.description, // assuming description is also returned in the response
+            residentFirstname: addedEvent.residentFirstname,
+            residentLastname: addedEvent.residentLastname,
+            residentColor: residentColor,
+            description: addedEvent.description,
           };
 
           setSchedules((prevSchedules) => [...prevSchedules, formattedEvent]);
-          setSelectedSchedules((prevSelectedSchedules) => [
-            ...prevSelectedSchedules,
-            formattedEvent,
-          ]);
           toast.success(response?.data?.message, toastSuccess);
         } else {
           logger.warn(`Resident with ID ${addedEvent.classNames} not found`);
@@ -154,10 +153,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
 
       // Si la requête est réussie, supprimez l'événement des listes locales
       if (response.status === 200) {
-        setSelectedSchedules(
-          selectedSchedules.filter((e) => e.residentYearCalendarId !== selectedEventId)
-        );
-        setSchedules(schedules.filter((e) => e.residentYearCalendarId !== selectedEventId));
+        setSchedules(schedules.filter((e: any) => e.residentYearCalendarId !== selectedEventId));
       }
       toast.success(response?.data?.message, toastSuccess);
     } catch (error) {
@@ -202,17 +198,11 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
           residentFirstname: resident.residentFirstname,
           residentLastname: resident.residentLastname,
           description: updatedEvent.description,
-          classNames: updatedEvent.residentId,
+          extendedProps: { residentId: updatedEvent.residentId },
         };
 
         setSchedules((prevSchedules) => {
-          return prevSchedules.map((schedule) =>
-            schedule.residentYearCalendarId === selectedEventId ? formattedUpdatedEvent : schedule
-          );
-        });
-
-        setSelectedSchedules((prevSelectedSchedules) => {
-          return prevSelectedSchedules.map((schedule) =>
+          return prevSchedules.map((schedule: any) =>
             schedule.residentYearCalendarId === selectedEventId ? formattedUpdatedEvent : schedule
           );
         });
@@ -235,12 +225,12 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
   // Thing to do depending if the user is in creation or in update mode
   useEffect(() => {
     if (selectedEventId) {
-      const event = selectedSchedules.find((e) => e.residentYearCalendarId === selectedEventId);
+      const event = (schedules as any[]).find((e) => e.residentYearCalendarId === selectedEventId);
       if (event.start) {
         formik.setValues({
           title: event.title,
           description: event.description,
-          currentResident: event.classNames,
+          currentResident: event.extendedProps?.residentId,
           dateOfStart: dayjs.utc(event.start),
           dateOfEnd: dayjs.utc(event.end),
         });
@@ -255,7 +245,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEventId]); // intentional: formik and selectedSchedules excluded to avoid infinite loop
+  }, [selectedEventId]); // intentional: formik and schedules excluded to avoid infinite loop
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -276,7 +266,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
       formik.setValues({
         ...formik.values,
         dateOfStart: dayjs.utc(formik.values.dateOfStart).hour(8).minute(0),
-        dateOfEnd: dayjs.utc(formik.values.dateOfStart).hour(17).minute(0),
+        dateOfEnd: dayjs.utc(formik.values.dateOfEnd ?? formik.values.dateOfStart).hour(17).minute(0),
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -499,7 +489,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
                 </Grid>
                 {selectedEventId && (
                   <Grid item>
-                    <IconButton onClick={handleDelete} disabled={isLoading ? true : false}>
+                    <IconButton onClick={() => setDeleteDialogOpen(true)} disabled={isLoading}>
                       <DeleteIcon sx={{ color: !isLoading && "red" }} />
                     </IconButton>
                   </Grid>
@@ -509,6 +499,27 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
           </Grid>
         </Grid>
       </form>
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Supprimer l'évènement</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Êtes-vous sûr de vouloir supprimer cet évènement ? Cette action est irréversible.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Annuler</Button>
+          <Button
+            onClick={() => {
+              setDeleteDialogOpen(false);
+              handleDelete();
+            }}
+            color="error"
+            autoFocus
+          >
+            Supprimer
+          </Button>
+        </DialogActions>
+      </Dialog>
     </LocalizationProvider>
   );
 };

@@ -71,7 +71,7 @@ class CalendarEventFormatter
             'residentColor'          => $color,
             'start'                  => $dateOfStart !== null ? $dateOfStart->format('Y-m-d H:i') : null,
             'end'                    => $dateOfEnd !== null ? $dateOfEnd->format('Y-m-d H:i') : null,
-            'classNames'             => $resident->getId(),
+            'extendedProps'          => ['residentId' => $resident->getId()],
         ];
     }
 
@@ -98,7 +98,7 @@ class CalendarEventFormatter
             'start'                  => $dateOfStart !== null ? $dateOfStart->format('Y-m-d H:i') : null,
             'end'                    => $dateOfEnd !== null ? $dateOfEnd->format('Y-m-d H:i') : null,
             'residentName'           => $resident->getLastname().' '.$resident->getFirstname(),
-            'classNames'             => $resident->getId(),
+            'extendedProps'          => ['residentId' => $resident->getId()],
         ];
     }
 }
