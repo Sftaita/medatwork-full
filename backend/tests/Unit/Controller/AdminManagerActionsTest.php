@@ -6,12 +6,11 @@ namespace App\Tests\Unit\Controller;
 
 use App\Controller\AdminController;
 use App\Controller\MailerController;
-use App\Entity\HospitalRequest;
 use App\Entity\Manager;
 use App\Enum\ManagerStatus;
-use App\Repository\HospitalRequestRepository;
 use App\Repository\ManagerRepository;
 use App\Services\EmailReset\PasswordResetServiceInterface;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
@@ -23,9 +22,8 @@ use Symfony\Component\DependencyInjection\Container;
  * - PATCH /api/admin/users/managers/{id}/status → toggle Active ↔ Inactive
  * - PATCH /api/admin/users/managers/{id}/status → PendingHospital → 400
  * - PATCH /api/admin/users/managers/{id}/status → not found → 404
- * - DELETE /api/admin/users/managers/{id} → 204
- * - DELETE /api/admin/users/managers/{id} → removes linked HospitalRequests first
- * - DELETE /api/admin/users/managers/{id} → no hospital requests → no extra remove
+ * - DELETE /api/admin/users/managers/{id} → 204 + calls DBAL executeStatement for all 7 cleanup queries
+ * - DELETE /api/admin/users/managers/{id} → DBAL deletes manager_hospital join table (prevents ManyToMany FK)
  * - DELETE /api/admin/users/managers/{id} → not found → 404
  * - POST /api/admin/users/managers/{id}/reset-password → calls requestReset
  * - POST /api/admin/users/managers/{id}/reset-password → not found → 404
@@ -40,12 +38,15 @@ final class AdminManagerActionsTest extends TestCase
 {
     private MailerController $mailer;
     private EntityManagerInterface $em;
+    private Connection $conn;
     private PasswordResetServiceInterface $passwordResetService;
 
     protected function setUp(): void
     {
         $this->mailer               = $this->createMock(MailerController::class);
+        $this->conn                 = $this->createMock(Connection::class);
         $this->em                   = $this->createMock(EntityManagerInterface::class);
+        $this->em->method('getConnection')->willReturn($this->conn);
         $this->passwordResetService = $this->createMock(PasswordResetServiceInterface::class);
     }
 
@@ -76,13 +77,6 @@ final class AdminManagerActionsTest extends TestCase
         return $m;
     }
 
-    private function makeHospitalRequestRepo(array $requests = []): HospitalRequestRepository
-    {
-        $repo = $this->createMock(HospitalRequestRepository::class);
-        $repo->method('findBy')->willReturn($requests);
-
-        return $repo;
-    }
 
     // ── Toggle status ─────────────────────────────────────────────────────────
 
@@ -153,45 +147,51 @@ final class AdminManagerActionsTest extends TestCase
         $this->em->expects($this->once())->method('remove')->with($manager);
         $this->em->expects($this->once())->method('flush');
 
-        $response = $this->buildController()->deleteManager(1, $repo, $this->makeHospitalRequestRepo(), $this->em);
+        $response = $this->buildController()->deleteManager(1, $repo, $this->em);
 
         $this->assertSame(204, $response->getStatusCode());
     }
 
-    public function testDeleteManagerRemovesLinkedHospitalRequestsFirst(): void
+    public function testDeleteManagerExecutesSevenCleanupStatements(): void
     {
         $manager = $this->makeManager(1, 'm@example.com', ManagerStatus::Active);
-
-        $req1 = $this->createMock(HospitalRequest::class);
-        $req2 = $this->createMock(HospitalRequest::class);
 
         $repo = $this->createMock(ManagerRepository::class);
         $repo->method('find')->with(1)->willReturn($manager);
 
-        // em->remove must be called for each request AND for the manager itself
-        $removeCallArgs = [];
-        $this->em->method('remove')->willReturnCallback(function ($entity) use (&$removeCallArgs) {
-            $removeCallArgs[] = $entity;
-        });
-        $this->em->expects($this->once())->method('flush');
+        // Expect exactly 7 DBAL statements before the Doctrine remove/flush
+        $this->conn->expects($this->exactly(7))->method('executeStatement');
 
-        $this->buildController()->deleteManager(1, $repo, $this->makeHospitalRequestRepo([$req1, $req2]), $this->em);
-
-        $this->assertContains($req1, $removeCallArgs);
-        $this->assertContains($req2, $removeCallArgs);
-        $this->assertContains($manager, $removeCallArgs);
+        $this->buildController()->deleteManager(1, $repo, $this->em);
     }
 
-    public function testDeleteManagerWithNoHospitalRequestsOnlyRemovesManager(): void
+    public function testDeleteManagerCleansManagerHospitalJoinTable(): void
     {
-        $manager = $this->makeManager(1, 'm@example.com', ManagerStatus::Active);
+        $manager = $this->makeManager(42, 'm@example.com', ManagerStatus::Active);
 
         $repo = $this->createMock(ManagerRepository::class);
         $repo->method('find')->willReturn($manager);
 
-        $this->em->expects($this->once())->method('remove')->with($manager);
+        $statements = [];
+        $this->conn
+            ->method('executeStatement')
+            ->willReturnCallback(function (string $sql, array $params) use (&$statements) {
+                $statements[] = ['sql' => $sql, 'params' => $params];
 
-        $this->buildController()->deleteManager(1, $repo, $this->makeHospitalRequestRepo([]), $this->em);
+                return 0;
+            });
+
+        $this->buildController()->deleteManager(42, $repo, $this->em);
+
+        $joinTableDeleted = false;
+        foreach ($statements as $s) {
+            if (str_contains($s['sql'], 'manager_hospital') && str_contains($s['sql'], 'DELETE') && $s['params'] === [42]) {
+                $joinTableDeleted = true;
+                break;
+            }
+        }
+
+        $this->assertTrue($joinTableDeleted, 'manager_hospital join table must be cleaned before manager deletion');
     }
 
     public function testDeleteManagerNotFoundReturns404(): void
@@ -199,7 +199,7 @@ final class AdminManagerActionsTest extends TestCase
         $repo = $this->createMock(ManagerRepository::class);
         $repo->method('find')->willReturn(null);
 
-        $response = $this->buildController()->deleteManager(99, $repo, $this->makeHospitalRequestRepo(), $this->em);
+        $response = $this->buildController()->deleteManager(99, $repo, $this->em);
 
         $this->assertSame(404, $response->getStatusCode());
     }

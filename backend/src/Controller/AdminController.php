@@ -18,7 +18,6 @@ use App\Enum\ManagerStatus;
 use App\Repository\HospitalAdminAuditLogRepository;
 use App\Repository\HospitalAdminRepository;
 use App\Repository\HospitalRepository;
-use App\Repository\HospitalRequestRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
 use App\Repository\YearsRepository;
@@ -623,17 +622,25 @@ class AdminController extends AbstractController
     }
 
     #[Route('/users/managers/{id}', name: 'admin_users_managers_delete', methods: ['DELETE'])]
-    public function deleteManager(int $id, ManagerRepository $managerRepository, HospitalRequestRepository $hospitalRequestRepo, EntityManagerInterface $em): JsonResponse
+    public function deleteManager(int $id, ManagerRepository $managerRepository, EntityManagerInterface $em): JsonResponse
     {
         $manager = $managerRepository->find($id);
         if ($manager === null) {
             return new JsonResponse(['message' => 'Manager not found'], Response::HTTP_NOT_FOUND);
         }
 
-        // HospitalRequest.requestedBy is NOT NULL — must be removed before the manager.
-        foreach ($hospitalRequestRepo->findBy(['requestedBy' => $manager]) as $req) {
-            $em->remove($req);
-        }
+        $conn = $em->getConnection();
+
+        // Delete/nullify all FK references in dependency order before removing the manager.
+        // Using DBAL directly avoids issues with lazy-loaded Doctrine collections
+        // (e.g. manager_hospital ManyToMany join table) not being flushed in time.
+        $conn->executeStatement('DELETE FROM hospital_request WHERE requested_by_id = ?', [$id]);
+        $conn->executeStatement('DELETE FROM notification_manager WHERE manager_id = ?', [$id]);
+        $conn->executeStatement('DELETE FROM manager_week_template WHERE manager_id = ?', [$id]);
+        $conn->executeStatement('UPDATE manager_years SET manager_id = NULL WHERE manager_id = ?', [$id]);
+        $conn->executeStatement('UPDATE resident_validation SET validated_by_id = NULL WHERE validated_by_id = ?', [$id]);
+        $conn->executeStatement('UPDATE period_validation SET validated_by_id = NULL WHERE validated_by_id = ?', [$id]);
+        $conn->executeStatement('DELETE FROM manager_hospital WHERE manager_id = ?', [$id]);
 
         $em->remove($manager);
         $em->flush();
