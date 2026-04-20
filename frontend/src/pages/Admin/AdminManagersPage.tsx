@@ -64,6 +64,7 @@ interface ManagerActionsMenuProps {
   onResetPassword: () => void;
   onDelete: () => void;
   onActivate: () => void;
+  onResendActivation: () => void;
   isPending: boolean;
 }
 
@@ -73,6 +74,7 @@ const ManagerActionsMenu = ({
   onResetPassword,
   onDelete,
   onActivate,
+  onResendActivation,
   isPending,
 }: ManagerActionsMenuProps) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
@@ -93,6 +95,16 @@ const ManagerActionsMenu = ({
             sx={{ color: "success.main", fontWeight: 600 }}
           >
             Activer manuellement
+          </MenuItem>
+        )}
+        {manager.validatedAt === null && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              onResendActivation();
+            }}
+          >
+            Renvoyer l'email d'activation
           </MenuItem>
         )}
         <MenuItem
@@ -183,6 +195,14 @@ const AdminManagersPage = () => {
       toast.error(err?.response?.data?.message ?? "Erreur lors de l'activation"),
   });
 
+  const resendActivationMutation = useMutation({
+    mutationFn: (manager: AdminManager) => adminApi.resendManagerActivation(manager.id),
+    onSuccess: (_data, manager) =>
+      toast.success(`Email d'activation renvoyé à ${manager.email}`),
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? "Erreur lors de l'envoi de l'email"),
+  });
+
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AdminManager | null>(null);
 
@@ -204,7 +224,8 @@ const AdminManagersPage = () => {
     toggleMutation.isPending ||
     resetPasswordMutation.isPending ||
     deleteMutation.isPending ||
-    activateMutation.isPending;
+    activateMutation.isPending ||
+    resendActivationMutation.isPending;
 
   return (
     <Box p={3} maxWidth={1200} mx="auto">
@@ -321,6 +342,7 @@ const AdminManagersPage = () => {
                       onResetPassword={() => resetPasswordMutation.mutate(manager)}
                       onDelete={() => setDeleteTarget(manager)}
                       onActivate={() => activateMutation.mutate(manager.id)}
+                      onResendActivation={() => resendActivationMutation.mutate(manager)}
                       isPending={isPending}
                     />
                   </TableCell>

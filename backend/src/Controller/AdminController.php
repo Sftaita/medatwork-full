@@ -623,17 +623,54 @@ class AdminController extends AbstractController
     }
 
     #[Route('/users/managers/{id}', name: 'admin_users_managers_delete', methods: ['DELETE'])]
-    public function deleteManager(int $id, ManagerRepository $managerRepository, EntityManagerInterface $em): JsonResponse
+    public function deleteManager(int $id, ManagerRepository $managerRepository, HospitalRequestRepository $hospitalRequestRepo, EntityManagerInterface $em): JsonResponse
     {
         $manager = $managerRepository->find($id);
         if ($manager === null) {
             return new JsonResponse(['message' => 'Manager not found'], Response::HTTP_NOT_FOUND);
         }
 
+        // HospitalRequest.requestedBy is NOT NULL — must be removed before the manager.
+        foreach ($hospitalRequestRepo->findBy(['requestedBy' => $manager]) as $req) {
+            $em->remove($req);
+        }
+
         $em->remove($manager);
         $em->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/users/managers/{id}/resend-activation', name: 'admin_users_managers_resend_activation', methods: ['POST'])]
+    public function resendManagerActivation(int $id, ManagerRepository $managerRepository, EntityManagerInterface $em): JsonResponse
+    {
+        $manager = $managerRepository->find($id);
+        if ($manager === null) {
+            return new JsonResponse(['message' => 'Manager introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($manager->getValidatedAt() !== null) {
+            return new JsonResponse(['message' => 'Ce compte est déjà activé'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $token      = bin2hex(random_bytes(32));
+        $expiration = (new \DateTime('now', new \DateTimeZone('Europe/Paris')))->modify('+48 hours');
+        $manager->setToken($token)->setTokenExpiration($expiration);
+        $em->flush();
+
+        $link = rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token;
+
+        try {
+            $this->mailer->sendEmail(
+                $manager->getEmail(),
+                'Activation de votre compte',
+                'email/managerSetup.html.twig',
+                ['firstname' => $manager->getFirstname(), 'setupLink' => $link],
+            );
+        } catch (\Throwable) {
+        }
+
+        return $this->json(['message' => 'ok']);
     }
 
     #[Route('/users/managers/{id}/reset-password', name: 'admin_users_managers_reset_password', methods: ['POST'])]

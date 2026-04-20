@@ -145,6 +145,9 @@ const resetManagerPassword = (id: number): Promise<void> =>
 const activateManager = (id: number): Promise<void> =>
   axiosPrivate.post(`admin/users/managers/${id}/activate`).then(() => undefined);
 
+const resendManagerActivation = (id: number): Promise<void> =>
+  axiosPrivate.post(`admin/users/managers/${id}/resend-activation`).then(() => undefined);
+
 // ── Audit log (super-admin — tous hôpitaux) ────────────────────────────────────
 
 export interface AdminAuditLogEntry {
@@ -217,6 +220,7 @@ const adminApi = {
   deleteManager,
   resetManagerPassword,
   activateManager,
+  resendManagerActivation,
   getAuditLog,
 };
 
