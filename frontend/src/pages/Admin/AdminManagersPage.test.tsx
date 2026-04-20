@@ -8,8 +8,10 @@
  * - Shows "Aucun manager" alert when list is empty
  * - Shows "Aucun résultat" when search yields nothing
  * - Stats cards render with correct values
- * - Actions menu: toggle, reset password, delete
+ * - Actions menu: toggle, reset password, delete, activate, resend activation
  * - Delete confirmation dialog
+ * - "Renvoyer l'email d'activation" only visible for non-activated managers
+ * - Calls resendManagerActivation with correct id
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -223,5 +225,38 @@ describe("AdminManagersPage", () => {
     expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();
     expect(screen.getByText("Martin Bob")).toBeInTheDocument();
     expect(screen.getByText("Rossi Carla")).toBeInTheDocument();
+  });
+
+  // ── Resend activation ────────────────────────────────────────────────────────
+
+  it("shows 'Renvoyer l\\'email d\\'activation' only for non-activated managers", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+
+    // Alice (validatedAt set) — no resend option
+    fireEvent.click(buttons[0].closest("button")!);
+    await waitFor(() => expect(screen.getByText("Activer / Désactiver")).toBeInTheDocument());
+    expect(screen.queryByText("Renvoyer l'email d'activation")).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    // Bob (validatedAt=null) — has resend option
+    fireEvent.click(buttons[1].closest("button")!);
+    await waitFor(() =>
+      expect(screen.getByText("Renvoyer l'email d'activation")).toBeInTheDocument()
+    );
+  });
+
+  it("calls resendManagerActivation with the correct manager id", async () => {
+    vi.mocked(adminApi.resendManagerActivation).mockResolvedValue(undefined);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
+    const buttons = screen.getAllByTestId("MoreVertIcon");
+    // Bob is index 1 (sorted: Dupont, Martin, Rossi)
+    fireEvent.click(buttons[1].closest("button")!);
+    fireEvent.click(await screen.findByText("Renvoyer l'email d'activation"));
+    await waitFor(() =>
+      expect(adminApi.resendManagerActivation).toHaveBeenCalledWith(2)
+    );
   });
 });
