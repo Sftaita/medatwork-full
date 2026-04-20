@@ -65,40 +65,41 @@ const SuccessRegisterPage = () => {
                   .
                 </Typography>
 
-                {email && (
-                  <Box mt={3} textAlign={isMd ? "left" : "center"}>
-                    {resendStatus === "done" && (
-                      <Alert severity="success" sx={{ mb: 2 }}>
-                        Un nouvel email a été envoyé à {email}.
-                      </Alert>
-                    )}
-                    {resendStatus === "error" && (
-                      <Alert severity="error" sx={{ mb: 2 }}>
-                        Une erreur est survenue. Réessayez ou contactez le support.
-                      </Alert>
-                    )}
-                    {resendStatus !== "done" && (
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleResend}
-                        disabled={resendStatus === "loading"}
-                      >
-                        {resendStatus === "loading" ? "Envoi en cours…" : "Renvoyer l'email"}
-                      </Button>
-                    )}
-                  </Box>
-                )}
-
                 <Box
                   marginTop={4}
-                  display={"flex"}
+                  display="flex"
+                  flexWrap="wrap"
+                  gap={2}
                   justifyContent={{ xs: "center", md: "flex-start" }}
+                  alignItems="center"
                 >
                   <Button variant="contained" color="primary" size="large" href={"/"}>
                     Retour à l'accueil
                   </Button>
+
+                  {email && resendStatus !== "done" && (
+                    <Button
+                      variant="text"
+                      color="primary"
+                      size="large"
+                      onClick={handleResend}
+                      disabled={resendStatus === "loading"}
+                    >
+                      {resendStatus === "loading" ? "Envoi en cours…" : "Renvoyer l'email"}
+                    </Button>
+                  )}
                 </Box>
+
+                {email && resendStatus === "done" && (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    Un nouvel email a été envoyé à {email}.
+                  </Alert>
+                )}
+                {email && resendStatus === "error" && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    Une erreur est survenue. Réessayez ou contactez le support.
+                  </Alert>
+                )}
               </Box>
             </Container>
           </Box>

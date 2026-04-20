@@ -133,7 +133,10 @@ describe("Manager signup Form", () => {
     fireEvent.click(screen.getByRole("button", { name: /s'enregistrer/i }));
 
     await waitFor(() => {
-      expect(managersApi.create).toHaveBeenCalledWith(expect.objectContaining({ hospitalId: 1 }));
+      expect(managersApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({ hospitalId: 1 }),
+        null  // avatarBlob — aucun avatar sélectionné
+      );
     });
     const call = vi.mocked(managersApi.create).mock.calls[0][0] as Record<string, unknown>;
     expect(call).not.toHaveProperty("hospitalName");
@@ -158,7 +161,8 @@ describe("Manager signup Form", () => {
 
     await waitFor(() => {
       expect(managersApi.create).toHaveBeenCalledWith(
-        expect.objectContaining({ hospitalName: "Ma Clinique" })
+        expect.objectContaining({ hospitalName: "Ma Clinique" }),
+        null  // avatarBlob — aucun avatar sélectionné
       );
     });
     const call = vi.mocked(managersApi.create).mock.calls[0][0] as Record<string, unknown>;

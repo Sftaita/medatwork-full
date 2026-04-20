@@ -67,7 +67,7 @@ const Footer = () => {
 
         <Box paddingY={{ xs: 1.5, sm: 2 }}>
           <Typography align={"center"} variant={"subtitle2"} color="text.secondary" gutterBottom sx={{ wordBreak: "keep-all" }}>
-            &copy; MED@WORK. 2021, Brussels. All rights reserved — version 3.1
+            &copy; MED@WORK. 2021, Brussels. All rights reserved — version 3.2
           </Typography>
           <Typography align={"center"} variant={"caption"} color="text.secondary" component={"p"} sx={{ wordBreak: "break-word" }}>
             Lorsque vous visitez ou interagissez avec notre site, services ou outils, nous pouvons

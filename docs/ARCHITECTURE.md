@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-15 (session 17)
+**Dernière mise à jour :** 2026-04-20 (session 19)
 
 ## Vue d'Ensemble
 
@@ -74,8 +74,8 @@ backend/
     │   ├── Command/            # Tests des commandes CLI
     │   ├── Controller/         # Tests contrôleurs (signup, hospital, admin…)
     │   ├── DTO/                # 22 fichiers de tests DTO (~310 tests)
-    │   ├── Security/           # Tests UserChecker
-    │   ├── Services/           # Tests services métier
+    │   ├── Security/           # Tests UserChecker + YearAccessVoterTest (9 tests)
+    │   ├── Services/           # Tests services métier (YearSummaryBuilder, etc.)
     │   └── Util/               # Tests utilitaires
     └── Integration/            # Tests d'intégration (ApiAuthTest, etc.)
 ```
@@ -139,6 +139,7 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `WeekTemplatesAPI/` | Templates hebdomadaires |
 | `Excel/` | Export Excel |
 | `GeneralAPI/` | Contact, endpoints publics |
+| `HospitalAdminController` | `GET\|POST\|PATCH /api/hospital-admin/*` — gestion des managers, années et droits (ROLE_HOSPITAL_ADMIN) |
 | `HospitalController` | `GET /api/hospitals` — liste publique des hôpitaux actifs |
 | `HospitalRequestController` | `POST/GET /api/hospital-requests` — demandes d'ajout d'hôpital (managers) |
 | `AdminController` | `GET\|POST /api/admin/*` — gestion hôpitaux, demandes, invitation admins (ROLE_SUPER_ADMIN) |
@@ -182,7 +183,7 @@ php bin/console app:notifications:purge --read-days=60 --unread-days=180
 | `AvatarUploadHelper` | Traitement des uploads d'avatar (validation MIME/taille, suppression ancienne photo, stockage) |
 | `Statistics/` | Calcul des statistiques |
 | `Schedule/` | Gestion des plannings |
-| `YearsManagement/` | Gestion des années académiques |
+| `YearsManagement/YearSummaryBuilder` | Construit le résumé des années pour le WeekDispatcher : `buildForManager()` (via `ManagerYears`), `buildForHospitalAdmin()` (via `YearsRepository::findActiveYearsByHospital()`) |
 | `MonthValidation/` | Logique de validation mensuelle |
 
 ### Pattern DTO (standard depuis 2026-03-22)
@@ -327,7 +328,8 @@ frontend/
     │       ├── useManagerYears.ts
     │       └── useNotifications.ts  # Hook page notifications
     ├── store/                  # État global Zustand
-    │   └── notificationsStore.ts   # count + notifications + commUnreadCount
+    │   ├── notificationsStore.ts       # count + notifications + commUnreadCount
+    │   └── weekDispatcherStore.ts      # années, résidents, intervalles, templates, assignments, pendingChange
     ├── contexts/               # État global auth
     │   └── AuthProvider.tsx
     ├── components/
@@ -577,12 +579,13 @@ Les routes sont organisées en blocs par rôle dans `App.tsx` :
 
 | Guard | Condition | Routes |
 |-------|-----------|--------|
-| `ManagerRoute` | `role === "manager"` | `/manager/*` |
-| `HospitalAdminRoute` | `role === "hospital_admin"` ou `role === "manager" && hospitalName` | `/hospital-admin/*` **+ `/manager/year-detail` + `/manager/calendar` + `/manager/week-dispatcher` + `/manager/week-creator`** |
+| `ManagerRoute` | `role === "manager"` **ou** `role === "hospital_admin"` | `/manager/*` (toutes les pages manager, y compris celles partagées par les hospital-admins) |
+| `HospitalAdminRoute` | `role === "hospital_admin"` ou `role === "manager" && hospitalName` | `/hospital-admin/*` uniquement |
+| `CanCreateYearRoute` | `role === "hospital_admin"` **ou** (`role === "manager"` && `canCreateYear === true`) | `/manager/year` (création d'année) |
 | `ResidentRoute` | `role === "resident"` | `/resident/*` |
 | `SuperAdminRoute` | `role === "super_admin"` | `/admin/*` |
 
-> `/manager/year-detail` est déclaré dans les deux blocs (`ManagerRoute` et `HospitalAdminRoute`) car les hospital-admins naviguent vers cette page depuis leur dashboard.
+> `CanCreateYearRoute` est un Outlet guard imbriqué sous `ManagerRoute`. Si le manager n'a pas `canCreateYear`, il est redirigé vers `/manager/years`. Les hospital-admins passent toujours (ils peuvent créer des années pour n'importe quel hôpital).
 
 **Correspondance rôle → route d'accueil après login :**
 
@@ -647,6 +650,32 @@ php bin/console app:create-app-admin
 
 ---
 
+### Feature — canCreateYear (2026-04-20)
+
+Le hospital-admin peut accorder ou révoquer à chaque manager lié à son hôpital le droit de créer une année académique.
+
+**Endpoint backend :**
+
+| Route | Auth | Description |
+|-------|------|-------------|
+| `PATCH /api/hospital-admin/managers/{id}/can-create-year` | ROLE_HOSPITAL_ADMIN | Body : `{"canCreateYear": true\|false}`. Vérifie que le manager est lié à l'hôpital de l'admin (via `ManagerYears`), valide le booléen, persiste `manager.canCreateYear`, retourne `{"id", "firstname", "lastname", "canCreateYear"}`. |
+
+**Payload JWT :**
+
+`AuthenticationSuccessListener` injecte `canCreateYear: bool` dans le JWT pour le rôle `manager`. Ce champ est disponible côté frontend via `authentication.canCreateYear`.
+
+**Garde de route frontend :**
+
+`CanCreateYearRoute` (Outlet) — imbriqué sous `ManagerRoute` :
+- `hospital_admin` → passe toujours.
+- `manager` → passe si `canCreateYear === true`, sinon redirige vers `/manager/years`.
+
+**Création d'année avec hôpital (`YearPage`) :**
+
+Le champ `location` libre est remplacé par un `<Select>` alimenté par `GET /api/hospitals`. L'identifiant de l'hôpital (`hospitalId`) est envoyé au backend. `CreateYearInputDTO` l'accepte comme entier nullable. `CreateYear` service attache l'hôpital à l'année via `$year->setHospital($hospital)` et utilise `$hospital->getName()` comme location.
+
+---
+
 ### Entités Principales
 
 ```
@@ -660,7 +689,8 @@ Years (année académique)
 Manager
 ├── NotificationManager    (notifications pour le manager)
 ├── [via ManagerYears] Years
-└── [via manager_hospital] Hospital (ManyToMany)
+├── [via manager_hospital] Hospital (ManyToMany)
+└── canCreateYear: bool    (droit de créer une année — accordé/révoqué par le hospital-admin)
 
 Resident
 ├── NotificationResident   (notifications pour le résident)
@@ -773,9 +803,15 @@ providers:
 
 Toutes les vérifications d'accès aux ressources sont gérées par des Voters Symfony (pas d'accès checker custom) :
 
-| Voter | Permissions |
-|-------|-------------|
-| `YearAccessVoter` | `ADMIN`, `DATA_ACCESS`, `DATA_VALIDATION`, `DATA_DOWNLOAD`, `MANAGE_AGENDA`, `HAS_AGENDA_ACCESS` |
+| Voter | Sujet | Acteurs | Permissions |
+|-------|-------|---------|-------------|
+| `YearAccessVoter` | `Years` | `Manager` (via `ManagerYears`), `HospitalAdmin` (full-access si même hôpital) | `year_admin`, `year_data_access`, `year_data_validation`, `year_data_download`, `year_manage_agenda`, `year_agenda_access` |
+
+**`YearAccessVoter` — logique :**
+- `HospitalAdmin` : accès complet à toutes les années appartenant à son hôpital (`year->getHospital()->getId() === admin->getHospital()->getId()`)
+- `Manager` : accès conditionnel selon les flags de la relation `ManagerYears` (`getDataAccess`, `getCanManageAgenda`, etc.)
+- `SUPPORTED_ATTRIBUTES` exposé en `public const` (lisible depuis les tests et les contrôleurs)
+- Absent de la relation `ManagerYears` → deny ; attribut inconnu → abstain
 
 ---
 
@@ -879,14 +915,15 @@ if ($user instanceof HospitalAdmin) return true;
 
 ```
 WeekCreatorPage
-└── WeekCreator (flexbox column, height: 82vh)
+└── Card
     ├── TopBar                     ← chips templates + progression heures
-    └── [flex row]
-        ├── AddBloc (28%)          ← formulaire ajout/édition tâche
-        └── TimelineBloc (72%)     ← sélecteur jour + timeline visuelle
+    └── Grid container (3 colonnes)
+        ├── AddBloc (md=3)         ← formulaire ajout/édition tâche
+        ├── TimelineBloc (md=7)    ← sélecteur jour + timeline visuelle
+        └── TimeSummaryBloc (md=2) ← cercle heures + barres par jour
 ```
 
-La colonne droite `TimeSummaryBloc` (cercle heures + barres par jour) a été **supprimée** — les statistiques sont affichées directement dans la `TopBar`.
+La `TopBar` est positionnée en haut de la `Card`, avant le Grid 3 colonnes.
 
 #### TopBar
 
@@ -920,6 +957,59 @@ Timeline positionnée absolument, 06:00–23:00, `PX_PER_MIN = 1.2` (1 224 px to
 | `WeekTemplatesList.test.tsx` | Titres, variant contained, barres couleur, clic handler |
 | `HoursCircle.test.tsx` | Label présent, cap à 100 % pour 80h |
 | `TimeSummaryBloc.test.tsx` | 7 jours, dayOfWeek string, hors plage ignoré |
+
+### Frontend — WeekDispatcher (`pages/Management/Agenda/WeekDispatcher/`) (2026-04-20)
+
+#### Layout vertical (post-redesign)
+
+```
+WeekDispatcherPage
+└── Card (boxShadow 3, width 100%)
+    ├── ActionView                 ← barre horizontale : sélecteur d'année + bouton Enregistrer
+    ├── Divider
+    ├── "Répartition des semaines" ← titre centré (affiché si au moins 1 année)
+    ├── Divider
+    └── WeekTaskAllocation         ← table pleine largeur
+```
+
+Si aucune année n'est disponible : `ActionView` affiche une `Alert info` pleine largeur, la section titre/table est masquée.
+
+#### Store — `weekDispatcherStore.ts`
+
+State Zustand partagé entre tous les composants enfants :
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `years` | `YearSummary[]` | Résumé des années (residents, weekIntervals, yearWeekTemplates) |
+| `currentYearId` | `number \| null` | Année sélectionnée |
+| `residents` | `ResidentSummary[]` | Résidents de l'année courante |
+| `interval` | `WeekInterval[]` | Intervalles de semaines de l'année courante |
+| `yearWeekTemplates` | `YearWeekTemplate[]` | Templates liés à l'année courante |
+| `assignments` | `Assignments` | Map `[templateId][weekId] → ResidentAssignment` |
+| `pendingChange` | `PendingOp[]` | Opérations non encore enregistrées |
+
+Tous les setters supportent les **functional updaters** (`setState((prev) => ...)`) en plus de la valeur directe.
+
+#### Déduplication des changements (`upsertPendingOp`)
+
+Un changement de slot `(yearWeekTemplateId, weekIntervalId)` remplace toujours l'opération précédente pour ce même slot — évite d'accumuler des ops redondantes.
+
+`pendingChange` est réinitialisé à `[]` lors du changement d'année pour éviter d'envoyer les changements d'une année vers une autre.
+
+#### Endpoints backend utilisés
+
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `GET /api/managers/getYearsWeekIntervals` | GET | Résumé années + intervalles + assignments (Manager & HospitalAdmin) |
+| `POST /api/managers/dispatchWeek/{yearId}` | POST | Sauvegarde batch des assignements |
+
+#### Tests Vitest
+
+| Fichier | Tests |
+|---------|-------|
+| `weekDispatcherStore.test.ts` | 9 tests — setters valeur directe + functional updater |
+| `WeekTemplateImport.test.tsx` | 9 tests — lazy-load, filtre, empty-state, cancel, import |
+| `WeekTaskAllocation.pendingChange.test.ts` | 6 tests — déduplication, create/delete, slots indépendants |
 
 ---
 

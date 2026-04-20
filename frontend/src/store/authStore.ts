@@ -17,6 +17,7 @@ const INITIAL_AUTH: AuthState = {
   gender: "",
   hospitalId: null,
   avatarUrl: null,
+  canCreateYear: false,
 };
 
 export const useAuthStore = create<AuthStore>((set) => ({

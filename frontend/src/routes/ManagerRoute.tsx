@@ -5,7 +5,11 @@ const RedirectRoute = () => {
   const { authentication } = useAuth();
   const location = useLocation();
 
-  return authentication?.AccessToken && authentication.role === "manager" ? (
+  const allowed =
+    authentication?.AccessToken &&
+    (authentication.role === "manager" || authentication.role === "hospital_admin");
+
+  return allowed ? (
     <Outlet />
   ) : (
     <Navigate to="/login" state={{ from: location }} replace />

@@ -61,6 +61,7 @@ export interface ManagerRow {
   yearId: number | null;
   yearTitle: string | null;
   status: ManagerStatus;
+  canCreateYear: boolean;
 }
 
 export interface CsvImportResult {
@@ -185,6 +186,11 @@ const deleteManager = (managerId: number): Promise<void> =>
 const resendManagerInvite = (myId: number): Promise<void> =>
   axiosPrivate.post(`hospital-admin/manager-years/${myId}/resend-invite`).then(() => undefined);
 
+const setManagerCanCreateYear = (managerId: number, canCreateYear: boolean): Promise<{ canCreateYear: boolean }> =>
+  axiosPrivate
+    .patch(`hospital-admin/managers/${managerId}/can-create-year`, { canCreateYear })
+    .then((r) => r.data);
+
 // ── CSV import ────────────────────────────────────────────────────────────────
 
 const previewCsvImport = (file: File): Promise<CsvImportResult> => {
@@ -238,6 +244,7 @@ const hospitalAdminApi = {
   removeManagerYear,
   deleteManager,
   resendManagerInvite,
+  setManagerCanCreateYear,
 };
 
 export default hospitalAdminApi;

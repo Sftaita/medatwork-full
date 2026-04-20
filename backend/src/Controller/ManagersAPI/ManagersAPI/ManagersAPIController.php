@@ -40,6 +40,7 @@ class ManagersAPIController extends AbstractController
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly ValidatorInterface $validator,
         private readonly string $apiUrl,
+        private readonly string $frontendUrl = '',
     ) {
     }
 
@@ -98,7 +99,7 @@ class ManagersAPIController extends AbstractController
 
         $now             = new DateTime('now', new DateTimeZone('Europe/Paris'));
         $token           = bin2hex(random_bytes(32));
-        $link            = $this->apiUrl.'ManagerActivation/'.$token;
+        $link            = rtrim($this->frontendUrl, '/').'/activate/manager/'.$token;
         $tokenExpiration = (new DateTime('now', new DateTimeZone('Europe/Paris')))->modify('+48 hours');
 
         $manager = new Manager();

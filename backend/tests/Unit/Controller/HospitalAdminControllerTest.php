@@ -51,7 +51,7 @@ final class HospitalAdminControllerTest extends TestCase
         $mailer       = $this->createMock(MailerController::class);
         $resetService = $this->createMock(PasswordResetServiceInterface::class);
         $auditService = $this->createMock(HospitalAdminAuditService::class);
-        $controller   = new HospitalAdminController($mailer, $resetService, 'http://localhost:3000', 'http://localhost:8000', $auditService);
+        $controller   = new HospitalAdminController($mailer, $resetService, 'http://localhost:3000', 'http://localhost:8000', 'http://localhost:8000/uploads', $auditService);
         $controller->setContainer(new Container());
         return $controller;
     }

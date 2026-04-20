@@ -73,6 +73,13 @@ class UpdateResidentWeeklySchedule
 
         // Process schedules to be added
         foreach ($schedulesToAdd as $schedule) {
+            $resident = $residents[$schedule['residentId']] ?? null;
+            if ($resident === null) {
+                throw new \InvalidArgumentException(
+                    sprintf('Resident %d does not belong to year %d', $schedule['residentId'], $year->getId())
+                );
+            }
+
             // Check if this combination already exists
             $existingSchedule = $this->residentWeeklyScheduleRepository->findOneBy([
                 'resident' => $schedule['residentId'],

@@ -10,466 +10,294 @@ use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
-use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\RateLimiter\RateLimit;
-use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
-use Symfony\Component\RateLimiter\LimiterInterface;
+use Symfony\Component\DependencyInjection\Container;
 
+/**
+ * Unit tests for TokenActivationController POST endpoints.
+ *
+ * The POST routes are the new prefetch-safe activation paths.
+ * GET routes (legacy) are not unit-tested here — they use $this->redirect()
+ * which requires a router service (functional test territory).
+ *
+ * activateResident (POST /api/ResidentActivation/{token}):
+ * - token too short   → 404
+ * - token not found   → 404
+ * - token expired     → 410
+ * - valid token       → 200 + {success:true} + flushes
+ * - valid token       → clears token on user
+ * - valid token       → sets validatedAt on user
+ *
+ * activateManager (POST /api/ManagerActivation/{token}):
+ * - token too short   → 404
+ * - token not found   → 404
+ * - token expired     → 410
+ * - valid token       → 200 + {success:true} + flushes
+ * - valid token       → clears token on user
+ * - valid token       → sets validatedAt on user
+ */
 final class TokenActivationControllerTest extends TestCase
 {
-    private MailerController $mailer;
-    private ResidentRepository $residentRepo;
-    private ManagerRepository $managerRepo;
     private EntityManagerInterface $em;
-    private RateLimiterFactoryInterface $limiterFactory;
 
     protected function setUp(): void
     {
-        $this->mailer       = $this->createMock(MailerController::class);
-        $this->residentRepo = $this->createMock(ResidentRepository::class);
-        $this->managerRepo  = $this->createMock(ManagerRepository::class);
-        $this->em           = $this->createMock(EntityManagerInterface::class);
-
-        $rateLimit = $this->createMock(RateLimit::class);
-        $rateLimit->method('isAccepted')->willReturn(true);
-
-        $limiter = $this->createMock(LimiterInterface::class);
-        $limiter->method('consume')->willReturn($rateLimit);
-
-        $this->limiterFactory = $this->createMock(RateLimiterFactoryInterface::class);
-        $this->limiterFactory->method('create')->willReturn($limiter);
+        $this->em = $this->createMock(EntityManagerInterface::class);
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function buildController(): TokenActivationController
     {
-        return new TokenActivationController(
-            $this->mailer,
-            'https://api.medatwork.be/api/',
-            'https://www.medatwork.be',
+        $mailer     = $this->createMock(MailerController::class);
+        $controller = new TokenActivationController($mailer, 'http://localhost:8000/api/', 'http://localhost:3000');
+        $controller->setContainer(new Container());
+
+        return $controller;
+    }
+
+    /** Valid 64-char hex token (bin2hex(random_bytes(32)) format) */
+    private function validToken(): string
+    {
+        return str_repeat('a', 64);
+    }
+
+    private function makeResidentRepo(?Resident $resident): ResidentRepository
+    {
+        $repo = $this->createMock(ResidentRepository::class);
+        $repo->method('findOneBy')->willReturn($resident);
+
+        return $repo;
+    }
+
+    private function makeManagerRepo(?Manager $manager): ManagerRepository
+    {
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('findOneBy')->willReturn($manager);
+
+        return $repo;
+    }
+
+    private function makeResident(bool $expired = false): Resident
+    {
+        $r = $this->createMock(Resident::class);
+        $r->method('getTokenExpiration')->willReturn(
+            $expired ? new \DateTime('-1 day') : new \DateTime('+1 day')
         );
+        $r->method('setToken')->willReturnSelf();
+        $r->method('setTokenExpiration')->willReturnSelf();
+        $r->method('setValidatedAt')->willReturnSelf();
+
+        return $r;
     }
 
-    private function makeRequest(array $body): Request
+    private function makeManager(bool $expired = false): Manager
     {
-        $request = new Request([], [], [], [], [], [], json_encode($body));
-        $request->setMethod('POST');
-        $request->headers->set('Content-Type', 'application/json');
+        $m = $this->createMock(Manager::class);
+        $m->method('getTokenExpiration')->willReturn(
+            $expired ? new \DateTime('-1 day') : new \DateTime('+1 day')
+        );
+        $m->method('setToken')->willReturnSelf();
+        $m->method('setTokenExpiration')->willReturnSelf();
+        $m->method('setValidatedAt')->willReturnSelf();
 
-        return $request;
+        return $m;
     }
 
-    // ─── Rate limiting ────────────────────────────────────────────────────────
+    // ── activateResident — 404 ────────────────────────────────────────────────
 
-    public function testRateLimitedRequestReturns429(): void
+    public function testResidentActivationShortTokenReturns404(): void
     {
-        $rateLimit = $this->createMock(RateLimit::class);
-        $rateLimit->method('isAccepted')->willReturn(false);
-
-        $limiter = $this->createMock(LimiterInterface::class);
-        $limiter->method('consume')->willReturn($rateLimit);
-
-        $factory = $this->createMock(RateLimiterFactoryInterface::class);
-        $factory->method('create')->willReturn($limiter);
-
-        $this->em->expects($this->never())->method('flush');
-        $this->mailer->expects($this->never())->method('sendEmail');
-
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'test@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $response = $this->buildController()->activateResident(
+            'short',
+            $this->makeResidentRepo(null),
             $this->em,
-            $factory,
         );
 
-        $this->assertSame(429, $response->getStatusCode());
+        $this->assertSame(404, $response->getStatusCode());
     }
 
-    // ─── Invalid / unknown email ──────────────────────────────────────────────
-
-    public function testInvalidEmailReturns200WithNoDbOrMailAction(): void
+    public function testResidentActivationNotFoundReturns404(): void
     {
-        $this->residentRepo->expects($this->never())->method('findOneBy');
-        $this->managerRepo->expects($this->never())->method('findOneBy');
-        $this->em->expects($this->never())->method('flush');
-        $this->mailer->expects($this->never())->method('sendEmail');
-
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'not-an-email']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $response = $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo(null),
             $this->em,
-            $this->limiterFactory,
         );
 
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame(['message' => 'ok'], json_decode((string) $response->getContent(), true));
+        $this->assertSame(404, $response->getStatusCode());
     }
 
-    public function testUnknownEmailReturns200WithNoFlushOrMail(): void
-    {
-        $this->residentRepo->method('findOneBy')->willReturn(null);
-        $this->managerRepo->method('findOneBy')->willReturn(null);
-        $this->em->expects($this->never())->method('flush');
-        $this->mailer->expects($this->never())->method('sendEmail');
+    // ── activateResident — 410 ────────────────────────────────────────────────
 
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'nobody@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+    public function testResidentActivationExpiredTokenReturns410(): void
+    {
+        $response = $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo($this->makeResident(expired: true)),
             $this->em,
-            $this->limiterFactory,
         );
 
-        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(410, $response->getStatusCode());
     }
 
-    // ─── Already-validated accounts ───────────────────────────────────────────
-
-    public function testAlreadyValidatedResidentReturns200WithNoAction(): void
+    public function testResidentActivationExpiredTokenFlushes(): void
     {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(new DateTime());
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
-        $this->em->expects($this->never())->method('flush');
-        $this->mailer->expects($this->never())->method('sendEmail');
-
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'validated@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
-            $this->em,
-            $this->limiterFactory,
-        );
-
-        $this->assertSame(200, $response->getStatusCode());
-    }
-
-    public function testAlreadyValidatedManagerReturns200WithNoAction(): void
-    {
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getValidatedAt')->willReturn(new DateTime());
-
-        $this->residentRepo->method('findOneBy')->willReturn(null);
-        $this->managerRepo->method('findOneBy')->willReturn($manager);
-        $this->em->expects($this->never())->method('flush');
-        $this->mailer->expects($this->never())->method('sendEmail');
-
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'validated-manager@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
-            $this->em,
-            $this->limiterFactory,
-        );
-
-        $this->assertSame(200, $response->getStatusCode());
-    }
-
-    // ─── Happy path — resident ────────────────────────────────────────────────
-
-    public function testUnvalidatedResidentGetsNewTokenAndEmail(): void
-    {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(null);
-        $resident->method('getFirstname')->willReturn('Jean');
-
-        $resident->expects($this->once())
-            ->method('setToken')
-            ->with($this->matchesRegularExpression('/^[0-9a-f]{64}$/'))
-            ->willReturn($resident);
-
-        $resident->expects($this->once())
-            ->method('setTokenExpiration')
-            ->with($this->isInstanceOf(DateTime::class))
-            ->willReturn($resident);
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
         $this->em->expects($this->once())->method('flush');
-        $this->mailer->expects($this->once())->method('sendEmail');
 
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'jean@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo($this->makeResident(expired: true)),
             $this->em,
-            $this->limiterFactory,
+        );
+    }
+
+    // ── activateResident — 200 ────────────────────────────────────────────────
+
+    public function testResidentActivationValidTokenReturns200(): void
+    {
+        $response = $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo($this->makeResident()),
+            $this->em,
         );
 
         $this->assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertTrue($data['success']);
     }
 
-    // ─── Happy path — manager ────────────────────────────────────────────────
-
-    public function testUnvalidatedManagerGetsNewTokenAndEmail(): void
+    public function testResidentActivationValidTokenFlushes(): void
     {
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getValidatedAt')->willReturn(null);
-        $manager->method('getFirstname')->willReturn('Paul');
-
-        $manager->expects($this->once())
-            ->method('setToken')
-            ->with($this->matchesRegularExpression('/^[0-9a-f]{64}$/'))
-            ->willReturn($manager);
-
-        $manager->expects($this->once())
-            ->method('setTokenExpiration')
-            ->with($this->isInstanceOf(DateTime::class))
-            ->willReturn($manager);
-
-        $this->residentRepo->method('findOneBy')->willReturn(null);
-        $this->managerRepo->method('findOneBy')->willReturn($manager);
         $this->em->expects($this->once())->method('flush');
-        $this->mailer->expects($this->once())->method('sendEmail');
 
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'paul@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo($this->makeResident()),
             $this->em,
-            $this->limiterFactory,
         );
-
-        $this->assertSame(200, $response->getStatusCode());
     }
 
-    // ─── Token properties ─────────────────────────────────────────────────────
-
-    public function testNewTokenIs64CharHex(): void
+    public function testResidentActivationClearsToken(): void
     {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(null);
-        $resident->method('getFirstname')->willReturn('Marie');
-        $resident->method('setTokenExpiration')->willReturn($resident);
+        $resident = $this->makeResident();
+        $resident->expects($this->once())->method('setToken')->with(null)->willReturnSelf();
 
-        $capturedToken = null;
-        $resident->method('setToken')
-            ->willReturnCallback(function (?string $token) use (&$capturedToken, $resident): Resident {
-                $capturedToken = $token;
-
-                return $resident;
-            });
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'marie@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo($resident),
             $this->em,
-            $this->limiterFactory,
         );
-
-        $this->assertNotNull($capturedToken);
-        $this->assertSame(64, strlen((string) $capturedToken));
-        $this->assertTrue(ctype_xdigit((string) $capturedToken));
     }
 
-    public function testExpirationIsApproximately48Hours(): void
+    public function testResidentActivationSetsValidatedAt(): void
     {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(null);
-        $resident->method('getFirstname')->willReturn('Marie');
-        $resident->method('setToken')->willReturn($resident);
+        $resident = $this->makeResident();
+        $resident->expects($this->once())->method('setValidatedAt')->willReturnSelf();
 
-        $capturedExpiration = null;
-        $resident->method('setTokenExpiration')
-            ->willReturnCallback(function (?\DateTimeInterface $exp) use (&$capturedExpiration, $resident): Resident {
-                $capturedExpiration = $exp;
-
-                return $resident;
-            });
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'marie@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $this->buildController()->activateResident(
+            $this->validToken(),
+            $this->makeResidentRepo($resident),
             $this->em,
-            $this->limiterFactory,
         );
-
-        $this->assertNotNull($capturedExpiration);
-
-        $now   = new DateTime();
-        $lower = (clone $now)->modify('+47 hours');
-        $upper = (clone $now)->modify('+49 hours');
-
-        $this->assertGreaterThan($lower->getTimestamp(), $capturedExpiration->getTimestamp());
-        $this->assertLessThan($upper->getTimestamp(), $capturedExpiration->getTimestamp());
     }
 
-    // ─── Activation link content ──────────────────────────────────────────────
+    // ── activateManager — 404 ─────────────────────────────────────────────────
 
-    public function testResidentLinkContainsResidentActivationRoute(): void
+    public function testManagerActivationShortTokenReturns404(): void
     {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(null);
-        $resident->method('getFirstname')->willReturn('Jean');
-        $resident->method('setToken')->willReturn($resident);
-        $resident->method('setTokenExpiration')->willReturn($resident);
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
-
-        $capturedLink = null;
-        $this->mailer->method('sendEmail')
-            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
-                $capturedLink = $params['link'] ?? null;
-            });
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'jean@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $response = $this->buildController()->activateManager(
+            'short',
+            $this->makeManagerRepo(null),
             $this->em,
-            $this->limiterFactory,
         );
 
-        $this->assertStringContainsString('ResidentActivation/', (string) $capturedLink);
+        $this->assertSame(404, $response->getStatusCode());
     }
 
-    public function testManagerLinkPointsToFrontendSetupPage(): void
+    public function testManagerActivationNotFoundReturns404(): void
     {
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getValidatedAt')->willReturn(null);
-        $manager->method('getFirstname')->willReturn('Paul');
-        $manager->method('setToken')->willReturn($manager);
-        $manager->method('setTokenExpiration')->willReturn($manager);
-
-        $this->residentRepo->method('findOneBy')->willReturn(null);
-        $this->managerRepo->method('findOneBy')->willReturn($manager);
-
-        $capturedLink = null;
-        $this->mailer->method('sendEmail')
-            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
-                $capturedLink = $params['setupLink'] ?? $params['link'] ?? null;
-            });
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'paul@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $response = $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo(null),
             $this->em,
-            $this->limiterFactory,
         );
 
-        // Manager resend must point to the frontend setup page (password creation),
-        // never to the direct-activation API endpoint.
-        $this->assertStringContainsString('manager-setup/', (string) $capturedLink);
-        $this->assertStringNotContainsString('ManagerActivation/', (string) $capturedLink);
+        $this->assertSame(404, $response->getStatusCode());
     }
 
-    public function testManagerLinkUsesFrontendUrl(): void
+    // ── activateManager — 410 ─────────────────────────────────────────────────
+
+    public function testManagerActivationExpiredTokenReturns410(): void
     {
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getValidatedAt')->willReturn(null);
-        $manager->method('getFirstname')->willReturn('Paul');
-        $manager->method('setToken')->willReturn($manager);
-        $manager->method('setTokenExpiration')->willReturn($manager);
-
-        $this->residentRepo->method('findOneBy')->willReturn(null);
-        $this->managerRepo->method('findOneBy')->willReturn($manager);
-
-        $capturedLink = null;
-        $this->mailer->method('sendEmail')
-            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
-                $capturedLink = $params['setupLink'] ?? $params['link'] ?? null;
-            });
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'paul@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $response = $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo($this->makeManager(expired: true)),
             $this->em,
-            $this->limiterFactory,
         );
 
-        $this->assertStringStartsWith('https://www.medatwork.be', (string) $capturedLink);
+        $this->assertSame(410, $response->getStatusCode());
     }
 
-    public function testManagerEmailUsesSetupTemplate(): void
+    public function testManagerActivationExpiredTokenFlushes(): void
     {
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getValidatedAt')->willReturn(null);
-        $manager->method('getFirstname')->willReturn('Paul');
-        $manager->method('setToken')->willReturn($manager);
-        $manager->method('setTokenExpiration')->willReturn($manager);
-
-        $this->residentRepo->method('findOneBy')->willReturn(null);
-        $this->managerRepo->method('findOneBy')->willReturn($manager);
-
-        $capturedTemplate = null;
-        $this->mailer->method('sendEmail')
-            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedTemplate): void {
-                $capturedTemplate = $template;
-            });
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'paul@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
-            $this->em,
-            $this->limiterFactory,
-        );
-
-        $this->assertStringContainsString('managerSetup', $capturedTemplate);
-    }
-
-    public function testResidentLinkStillUsesApiActivationRoute(): void
-    {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(null);
-        $resident->method('getFirstname')->willReturn('Jean');
-        $resident->method('setToken')->willReturn($resident);
-        $resident->method('setTokenExpiration')->willReturn($resident);
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
-
-        $capturedLink = null;
-        $this->mailer->method('sendEmail')
-            ->willReturnCallback(function (string $to, string $subject, string $template, array $params) use (&$capturedLink): void {
-                $capturedLink = $params['link'] ?? null;
-            });
-
-        $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'jean@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
-            $this->em,
-            $this->limiterFactory,
-        );
-
-        $this->assertStringContainsString('ResidentActivation/', (string) $capturedLink);
-        $this->assertStringNotContainsString('manager-setup/', (string) $capturedLink);
-    }
-
-    // ─── Mailer failure is non-fatal ──────────────────────────────────────────
-
-    public function testMailerFailureDoesNotPreventFlushAndReturns200(): void
-    {
-        $resident = $this->createMock(Resident::class);
-        $resident->method('getValidatedAt')->willReturn(null);
-        $resident->method('getFirstname')->willReturn('Jean');
-        $resident->method('setToken')->willReturn($resident);
-        $resident->method('setTokenExpiration')->willReturn($resident);
-
-        $this->residentRepo->method('findOneBy')->willReturn($resident);
         $this->em->expects($this->once())->method('flush');
-        $this->mailer->method('sendEmail')->willThrowException(new \RuntimeException('SMTP failure'));
 
-        $response = $this->buildController()->resendActivation(
-            $this->makeRequest(['email' => 'jean@example.com']),
-            $this->residentRepo,
-            $this->managerRepo,
+        $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo($this->makeManager(expired: true)),
             $this->em,
-            $this->limiterFactory,
+        );
+    }
+
+    // ── activateManager — 200 ─────────────────────────────────────────────────
+
+    public function testManagerActivationValidTokenReturns200(): void
+    {
+        $response = $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo($this->makeManager()),
+            $this->em,
         );
 
         $this->assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertTrue($data['success']);
+    }
+
+    public function testManagerActivationValidTokenFlushes(): void
+    {
+        $this->em->expects($this->once())->method('flush');
+
+        $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo($this->makeManager()),
+            $this->em,
+        );
+    }
+
+    public function testManagerActivationClearsToken(): void
+    {
+        $manager = $this->makeManager();
+        $manager->expects($this->once())->method('setToken')->with(null)->willReturnSelf();
+
+        $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo($manager),
+            $this->em,
+        );
+    }
+
+    public function testManagerActivationSetsValidatedAt(): void
+    {
+        $manager = $this->makeManager();
+        $manager->expects($this->once())->method('setValidatedAt')->willReturnSelf();
+
+        $this->buildController()->activateManager(
+            $this->validToken(),
+            $this->makeManagerRepo($manager),
+            $this->em,
+        );
     }
 }

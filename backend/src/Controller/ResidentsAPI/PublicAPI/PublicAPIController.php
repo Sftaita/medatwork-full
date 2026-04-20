@@ -29,6 +29,7 @@ class PublicAPIController extends AbstractController
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly ValidatorInterface $validator,
         private readonly string $apiUrl,
+        private readonly string $frontendUrl = '',
     ) {
     }
 
@@ -65,7 +66,7 @@ class PublicAPIController extends AbstractController
 
         $now = new DateTime('now', new DateTimeZone('Europe/Paris'));
         $token = bin2hex(random_bytes(32));
-        $link = $this->apiUrl.'ResidentActivation/'.$token;
+        $link = rtrim($this->frontendUrl, '/').'/activate/resident/'.$token;
         $tokenExpiration = (new DateTime('now', new DateTimeZone('Europe/Paris')))->modify('+48 hours');
 
         $resident = new Resident();

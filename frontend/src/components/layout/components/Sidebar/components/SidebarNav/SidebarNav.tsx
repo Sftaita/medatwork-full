@@ -124,15 +124,23 @@ const SidebarNav = ({ onClose, selected, handleSelected }: SidebarNavProps) => {
 
   useEffect(() => {
     if (authentication?.role === "manager") {
+      // Filter out the "AJOUTER" (year creation) link if the manager doesn't have the right
+      const managerMenu = authentication.canCreateYear
+        ? manager
+        : manager.map((group) => ({
+            ...group,
+            pages: group.pages.filter((p) => p.href !== "/manager/year"),
+          }));
+
       if (authentication.hospitalName) {
-        setMenu([...manager, ...hospitalAdmin]);
+        setMenu([...managerMenu, ...hospitalAdmin]);
       } else {
-        setMenu(manager);
+        setMenu(managerMenu);
       }
     } else if (authentication?.role === "hospital_admin") setMenu(hospitalAdmin);
     else if (authentication?.role === "resident") setMenu(resident);
     else if (authentication?.role === "super_admin") setMenu(superAdmin);
-  }, [authentication?.role, authentication?.hospitalName]);
+  }, [authentication?.role, authentication?.hospitalName, authentication?.canCreateYear]);
 
   return (
     <Box display="flex" flexDirection="column" justifyContent="space-between" height="100%">

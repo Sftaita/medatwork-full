@@ -32,6 +32,8 @@ import FormControl from "@mui/material/FormControl";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import SearchIcon from "@mui/icons-material/Search";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
@@ -134,7 +136,14 @@ const ActionsMenu = ({
 
 // ── View drawer ──────────────────────────────────────────────────────────────
 
-const ViewDrawer = ({ row, onClose }: { row: ManagerRow | null; onClose: () => void }) => (
+interface ViewDrawerProps {
+  row: ManagerRow | null;
+  onClose: () => void;
+  onToggleCreateYear: (managerId: number, value: boolean) => void;
+  isTogglePending: boolean;
+}
+
+const ViewDrawer = ({ row, onClose, onToggleCreateYear, isTogglePending }: ViewDrawerProps) => (
   <Drawer
     anchor="right"
     open={row !== null}
@@ -200,6 +209,29 @@ const ViewDrawer = ({ row, onClose }: { row: ManagerRow | null; onClose: () => v
                 />
               </Tooltip>
             </Box>
+          </Box>
+          <Divider />
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+              Permissions
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={row.canCreateYear}
+                  disabled={isTogglePending || row.managerId === null}
+                  onChange={(e) =>
+                    row.managerId !== null && onToggleCreateYear(row.managerId, e.target.checked)
+                  }
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  Peut créer une année
+                </Typography>
+              }
+            />
           </Box>
         </Stack>
       </>
@@ -374,6 +406,21 @@ const HospitalAdminManagersPage = () => {
     meta: { suppressErrorToast: true },
   });
 
+  const toggleCreateYearMutation = useMutation({
+    mutationFn: ({ managerId, value }: { managerId: number; value: boolean }) =>
+      hospitalAdminApi.setManagerCanCreateYear(managerId, value),
+    onSuccess: (data, { managerId }) => {
+      toast.success(data.canCreateYear ? "Droit accordé." : "Droit révoqué.");
+      // Optimistically update the viewRow so the switch reflects immediately
+      setViewRow((prev) =>
+        prev?.managerId === managerId ? { ...prev, canCreateYear: data.canCreateYear } : prev
+      );
+      invalidate();
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour du droit."),
+    meta: { suppressErrorToast: true },
+  });
+
   const q = search.toLowerCase();
   const filtered = rows.filter(
     (r) =>
@@ -529,7 +576,14 @@ const HospitalAdminManagersPage = () => {
         </TableContainer>
       )}
 
-      <ViewDrawer row={viewRow} onClose={() => setViewRow(null)} />
+      <ViewDrawer
+        row={viewRow}
+        onClose={() => setViewRow(null)}
+        onToggleCreateYear={(managerId, value) =>
+          toggleCreateYearMutation.mutate({ managerId, value })
+        }
+        isTogglePending={toggleCreateYearMutation.isPending}
+      />
 
       {/* Add dialog */}
       <AddDialog

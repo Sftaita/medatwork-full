@@ -1,20 +1,39 @@
 import { create } from "zustand";
 import type { Year, Resident } from "@/types/entities";
 
-interface WeekInterval {
-  id: number;
-  startDate: string;
-  endDate: string;
+/** Shape returned by YearSummaryBuilder::buildWeekIntervals */
+export interface WeekInterval {
+  weekIntervalId: number;
+  dateOfStart: string;
+  dateOfEnd: string;
+  weekNumber: number;
+  monthNumber: number;
+  yearNumber: number;
 }
 
-interface WeekTemplate {
-  id: number;
+/** Shape returned by YearSummaryBuilder::buildWeekTemplates */
+export interface YearWeekTemplate {
+  yearWeekTemplateId: number;
+  yearId: number;
+  weekTemplateId: number;
   title: string;
+  description: string | null;
+  color: string;
 }
 
-interface Assignments {
-  [key: string]: unknown;
+/** A resident assigned to a (template × interval) slot */
+export interface ResidentAssignment {
+  id: number;
+  residentId: number;
+  firstname: string;
+  lastname: string;
+  allowed: boolean;
 }
+
+/** assignments[yearWeekTemplateId][weekIntervalId] = ResidentAssignment | null */
+export type Assignments = Record<number, Record<number, ResidentAssignment | null>>;
+
+type Updater<T> = T | ((prev: T) => T);
 
 interface WeekDispatcherStore {
   currentYearId: number | null;
@@ -25,12 +44,12 @@ interface WeekDispatcherStore {
   setResidents: (residents: Resident[]) => void;
   intervals: WeekInterval[];
   setInterval: (intervals: WeekInterval[]) => void;
-  yearWeekTemplates: WeekTemplate[];
-  setYearWeekTemplates: (templates: WeekTemplate[]) => void;
+  yearWeekTemplates: YearWeekTemplate[];
+  setYearWeekTemplates: (templates: Updater<YearWeekTemplate[]>) => void;
   assignments: Assignments;
-  setAssignments: (assignments: Assignments) => void;
+  setAssignments: (assignments: Updater<Assignments>) => void;
   pendingChange: unknown[];
-  setPendingChange: (changes: unknown[]) => void;
+  setPendingChange: (changes: Updater<unknown[]>) => void;
 }
 
 export const useWeekDispatcherStore = create<WeekDispatcherStore>((set) => ({
@@ -43,9 +62,27 @@ export const useWeekDispatcherStore = create<WeekDispatcherStore>((set) => ({
   intervals: [],
   setInterval: (intervals) => set({ intervals }),
   yearWeekTemplates: [],
-  setYearWeekTemplates: (yearWeekTemplates) => set({ yearWeekTemplates }),
+  setYearWeekTemplates: (templatesOrFn) =>
+    set((state) => ({
+      yearWeekTemplates:
+        typeof templatesOrFn === "function"
+          ? templatesOrFn(state.yearWeekTemplates)
+          : templatesOrFn,
+    })),
   assignments: {},
-  setAssignments: (assignments) => set({ assignments }),
+  setAssignments: (assignmentsOrFn) =>
+    set((state) => ({
+      assignments:
+        typeof assignmentsOrFn === "function"
+          ? assignmentsOrFn(state.assignments)
+          : assignmentsOrFn,
+    })),
   pendingChange: [],
-  setPendingChange: (pendingChange) => set({ pendingChange }),
+  setPendingChange: (changesOrFn) =>
+    set((state) => ({
+      pendingChange:
+        typeof changesOrFn === "function"
+          ? changesOrFn(state.pendingChange)
+          : changesOrFn,
+    })),
 }));

@@ -64,7 +64,7 @@ const MOCK_MANAGERS = [
     job: "human resources",
     yearId: 1,
     yearTitle: "Stage cardiologie 2025",
-    status: "incomplete",
+    status: "not_registered",
   },
 ];
 
@@ -113,7 +113,7 @@ describe("HospitalAdminManagersPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Actif")).toBeInTheDocument());
     expect(screen.getByText("En attente")).toBeInTheDocument();
-    expect(screen.getByText("Incomplet")).toBeInTheDocument();
+    expect(screen.getByText("Sans compte")).toBeInTheDocument();
   });
 
   // ── Empty & no results ─────────────────────────────────────────────────────

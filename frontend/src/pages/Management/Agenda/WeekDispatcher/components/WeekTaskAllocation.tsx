@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import dayjs from "dayjs";
 
 // Material UI
@@ -14,14 +14,21 @@ import {
   Typography,
 } from "@mui/material";
 import { alpha, styled } from "@mui/system";
-
 import AddIcon from "@mui/icons-material/Add";
 import Stack from "@mui/material/Stack";
 
 // Local components
 import useWeekDispatcherContext from "../../../../../hooks/useWeekDispatcherContext";
+import type { WeekInterval, YearWeekTemplate, ResidentAssignment } from "@/store/weekDispatcherStore";
 import WeekTemplateImport from "./WeekTemplateImport";
 import TableLoader from "./TableLoader";
+
+interface PendingOp {
+  method: "create" | "delete";
+  residentId: number;
+  yearWeekTemplateId: number;
+  weekIntervalId: number;
+}
 
 const StyledTableContainer = styled(Paper)(({ theme }) => ({
   width: "100%",
@@ -31,16 +38,14 @@ const StyledTableContainer = styled(Paper)(({ theme }) => ({
   },
 }));
 
-const CustomTableCell = styled(TableCell)(({ theme, isAssigned, cellColor }) => ({
+const CustomTableCell = styled(TableCell, {
+  shouldForwardProp: (prop) => prop !== "isAssigned" && prop !== "cellColor",
+})<{ isAssigned?: boolean; cellColor?: string }>(({ theme, isAssigned, cellColor = "#ccc" }) => ({
   cursor: "pointer",
-  backgroundColor: isAssigned
-    ? alpha(cellColor, 0.8) // Utilisez la couleur de la semaine type avec une certaine transparence pour le cas où c'est assigné
-    : alpha(cellColor, 0.1), // Utilisez une version plus légère de la couleur de la semaine type pour le cas où ce n'est pas assigné
+  backgroundColor: isAssigned ? alpha(cellColor, 0.8) : alpha(cellColor, 0.1),
   color: theme.palette.text.primary,
   "&:hover": {
-    backgroundColor: isAssigned
-      ? alpha(cellColor, 1) // Couleur de fond lors du survol si un résident est attribué
-      : alpha(cellColor, 0.8), // Couleur de fond lors du survol par défaut
+    backgroundColor: isAssigned ? alpha(cellColor, 1) : alpha(cellColor, 0.8),
     color: theme.palette.common.white,
   },
   border: `6px solid ${theme.palette.common.white}`,
@@ -53,7 +58,6 @@ const FixedHeaderTableCell = styled(TableCell)(({ theme }) => ({
   position: "sticky",
   left: 0,
   paddingRight: 2,
-
   backgroundColor: theme.palette.background.paper,
   zIndex: 3,
   whiteSpace: "nowrap",
@@ -62,12 +66,14 @@ const FixedHeaderTableCell = styled(TableCell)(({ theme }) => ({
   boxShadow: `4px 0px 8px rgba(0, 0, 0, 0.1)`,
 }));
 
-const FixedHeaderBorder = styled("div")(({ theme, borderColor }) => ({
+const FixedHeaderBorder = styled("div", {
+  shouldForwardProp: (prop) => prop !== "borderColor",
+})<{ borderColor?: string }>(({ theme, borderColor }) => ({
   height: "100%",
   width: "4px",
   position: "absolute",
   top: 0,
-  left: 0, // Changez 'right' en 'left'
+  left: 0,
   backgroundColor: borderColor || theme.palette.common.white,
   zIndex: 4,
 }));
@@ -76,123 +82,123 @@ const TableWrapper = styled("div")({
   overflowX: "auto",
 });
 
-const WeekTaskAllocation = ({ isLoading }) => {
-  const { residents, intervals, yearWeekTemplates, assignments, setAssignments, setPendingChange } =
-    useWeekDispatcherContext();
+/** Replace any existing pending op for the same (template × interval) slot */
+function upsertPendingOp(prev: unknown[], newOp: PendingOp): unknown[] {
+  const key = `${newOp.yearWeekTemplateId}-${newOp.weekIntervalId}`;
+  const filtered = (prev as PendingOp[]).filter(
+    (op) => `${op.yearWeekTemplateId}-${op.weekIntervalId}` !== key
+  );
+  return [...filtered, newOp];
+}
 
-  const residentsMemo = useMemo(() => residents, [residents]);
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
-  const [currentWeek, setCurrentWeek] = useState(null);
-  const [currentType, setCurrentType] = useState(null);
+const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
+  const {
+    residents,
+    intervals,
+    yearWeekTemplates,
+    assignments,
+    setAssignments,
+    setPendingChange,
+    currentYearId,
+  } = useWeekDispatcherContext();
+
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [currentWeek, setCurrentWeek] = useState<number | null>(null);
+  const [currentType, setCurrentType] = useState<number | null>(null);
+
+  // Close context menu when the user switches to a different year
+  useEffect(() => {
+    setMenuAnchorEl(null);
+  }, [currentYearId]);
 
   const dateRange = useMemo(() => {
-    return intervals.map((interval) => {
-      return {
-        id: interval.weekIntervalId,
-        date: `${dayjs(interval.dateOfStart).format("DD MMM")} - ${dayjs(interval.dateOfEnd).format(
-          "DD MMM YY"
-        )}`.toLowerCase(),
-      };
-    });
+    return (intervals as WeekInterval[]).map((interval) => ({
+      id: interval.weekIntervalId,
+      date: `${dayjs(interval.dateOfStart).format("DD MMM")} - ${dayjs(interval.dateOfEnd).format("DD MMM YY")}`.toLowerCase(),
+    }));
   }, [intervals]);
 
-  const yearWeekTemplatesMemo = useMemo(() => yearWeekTemplates, [yearWeekTemplates]);
+  const handleCloseMenu = () => setMenuAnchorEl(null);
 
   const handleRemoveAssignment = () => {
-    setAssignments((prevAssignments) => {
-      const removedResidentId = prevAssignments[currentType][currentWeek]?.residentId;
+    if (currentType === null || currentWeek === null) return;
 
-      // Ajouter une opération 'delete' à pendingChange si un résident était assigné
-      if (removedResidentId) {
-        setPendingChange((prevPendingChanges) => [
-          ...prevPendingChanges,
-          {
-            method: "delete",
-            residentId: removedResidentId,
-            yearWeekTemplateId: currentType,
-            weekIntervalId: currentWeek,
-          },
-        ]);
-      }
+    const removedResidentId = assignments[currentType]?.[currentWeek]?.residentId;
 
-      return {
-        ...prevAssignments,
-        [currentType]: {
-          ...prevAssignments[currentType],
-          [currentWeek]: null,
-        },
-      };
-    });
+    setAssignments((prev) => ({
+      ...prev,
+      [currentType]: {
+        ...prev[currentType],
+        [currentWeek]: null,
+      },
+    }));
+
+    if (removedResidentId !== undefined) {
+      setPendingChange((prev) =>
+        upsertPendingOp(prev, {
+          method: "delete",
+          residentId: removedResidentId,
+          yearWeekTemplateId: currentType,
+          weekIntervalId: currentWeek,
+        })
+      );
+    }
+
     handleCloseMenu();
   };
 
-  const handleCloseMenu = () => {
-    setMenuAnchorEl(null);
-  };
+  const handleResidentAssignment = (residentId: number) => {
+    if (currentType === null || currentWeek === null) return;
 
-  const handleResidentAssignment = (residentId) => {
-    const assignedResident = residentsMemo.find((resident) => resident.residentId === residentId);
+    const assignedResident = (residents as unknown as ResidentAssignment[]).find(
+      (r) => r.residentId === residentId
+    );
 
-    setAssignments((prevAssignments) => {
-      // Parcourir toutes les affectations pour la semaine actuelle
-      for (const type in prevAssignments) {
-        // Si le résident est déjà affecté à un autre type de poste pour la semaine actuelle
-        if (
-          prevAssignments[type][currentWeek] &&
-          prevAssignments[type][currentWeek].residentId === residentId
-        ) {
-          // Supprimer l'affectation existante
-          delete prevAssignments[type][currentWeek];
+    setAssignments((prev) => {
+      let updated = { ...prev };
 
-          // Ajouter une opération 'delete' à pendingChanges
-          setPendingChange((prevPendingChanges) => [
-            ...prevPendingChanges,
-            {
+      // If this resident is already assigned somewhere else on the same week, remove that slot
+      for (const type in updated) {
+        const typeNum = parseInt(type, 10);
+        const slot = updated[typeNum]?.[currentWeek];
+        if (slot?.residentId === residentId && typeNum !== currentType) {
+          updated = {
+            ...updated,
+            [typeNum]: { ...updated[typeNum], [currentWeek]: null },
+          };
+          setPendingChange((prev) =>
+            upsertPendingOp(prev, {
               method: "delete",
               residentId,
-              yearWeekTemplateId: parseInt(type, 10),
+              yearWeekTemplateId: typeNum,
               weekIntervalId: currentWeek,
-            },
-          ]);
+            })
+          );
         }
       }
 
-      // Procéder à la nouvelle affectation
-      const updatedAssignments = {
-        ...prevAssignments,
+      return {
+        ...updated,
         [currentType]: {
-          ...prevAssignments[currentType],
-          [currentWeek]: assignedResident,
+          ...updated[currentType],
+          [currentWeek]: assignedResident ?? null,
         },
       };
-
-      // Ajouter une opération 'create' à pendingChanges
-      setPendingChange((prevPendingChanges) => [
-        ...prevPendingChanges,
-        {
-          method: "create",
-          residentId,
-          yearWeekTemplateId: currentType,
-          weekIntervalId: currentWeek,
-        },
-      ]);
-
-      return updatedAssignments;
     });
+
+    setPendingChange((prev) =>
+      upsertPendingOp(prev, {
+        method: "create",
+        residentId,
+        yearWeekTemplateId: currentType,
+        weekIntervalId: currentWeek,
+      })
+    );
 
     handleCloseMenu();
   };
 
-  // Dialog controller
   const [dialogOpen, setDialogOpen] = useState(false);
-
-  const handleDialogOpen = () => {
-    setDialogOpen(true);
-  };
-
-  const handleDialogClose = () => {
-    setDialogOpen(false);
-  };
 
   return (
     <StyledTableContainer>
@@ -201,63 +207,66 @@ const WeekTaskAllocation = ({ isLoading }) => {
           <TableHead>
             <TableRow>
               <FixedHeaderTableCell>
-                {" "}
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Typography variant="h6" color="primary">
                     Semaine Type
                   </Typography>
-                  <Typography variant="h6" color="primary">
-                    |
-                  </Typography>
+                  <Typography variant="h6" color="primary">|</Typography>
                 </Stack>
               </FixedHeaderTableCell>
-              {dateRange?.map((week) => (
+              {dateRange.map((week) => (
                 <TableCell key={week.id}>
                   <Typography>{week.date}</Typography>
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
+
           {!isLoading && (
             <TableBody>
-              {yearWeekTemplatesMemo?.map((type) => (
-                <TableRow key={type.id}>
+              {(yearWeekTemplates as YearWeekTemplate[]).map((type) => (
+                <TableRow key={type.yearWeekTemplateId}>
                   <FixedHeaderTableCell component="th" scope="row">
-                    <Typography noWrap style={{ wordWrap: "break-word" }}>
-                      {type.title}
-                    </Typography>
+                    <Typography noWrap>{type.title}</Typography>
                     <FixedHeaderBorder borderColor={type.color} />
                   </FixedHeaderTableCell>
 
-                  {dateRange?.map((week) => (
+                  {dateRange.map((week) => (
                     <CustomTableCell
                       key={week.id}
-                      isAssigned={Boolean(assignments?.[type.yearWeekTemplateId]?.[week.id])}
-                      cellColor={type.color} // Transmettez la couleur ici
+                      isAssigned={Boolean(assignments[type.yearWeekTemplateId]?.[week.id])}
+                      cellColor={type.color}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          setCurrentWeek(week.id);
+                          setCurrentType(type.yearWeekTemplateId);
+                          setMenuAnchorEl(e.currentTarget as HTMLElement);
+                        }
+                      }}
                       onClick={(event) => {
                         setCurrentWeek(week.id);
                         setCurrentType(type.yearWeekTemplateId);
                         setMenuAnchorEl(event.currentTarget);
                       }}
                     >
-                      {/* Display assigned resident's last name here */}
                       <Typography variant="button">
-                        {" "}
-                        {assignments?.[type.yearWeekTemplateId]?.[week.id]?.firstname}
+                        {assignments[type.yearWeekTemplateId]?.[week.id]?.firstname}
                       </Typography>
                     </CustomTableCell>
                   ))}
                 </TableRow>
               ))}
+
               <TableRow>
-                {" "}
-                <FixedHeaderTableCell component="th" scope="row" onClick={handleDialogOpen}>
-                  <Stack
-                    direction="row"
-                    justifyContent="flex-start"
-                    alignItems="center"
-                    spacing={1}
-                  >
+                <FixedHeaderTableCell
+                  component="th"
+                  scope="row"
+                  onClick={() => setDialogOpen(true)}
+                  sx={{ cursor: "pointer" }}
+                >
+                  <Stack direction="row" justifyContent="flex-start" alignItems="center" spacing={1}>
                     <AddIcon />
                     <Typography>Importer un poste</Typography>
                   </Stack>
@@ -265,27 +274,28 @@ const WeekTaskAllocation = ({ isLoading }) => {
               </TableRow>
             </TableBody>
           )}
+
           {isLoading && <TableLoader />}
         </Table>
       </TableWrapper>
 
       <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={handleCloseMenu}>
-        {residentsMemo?.map((resident) => (
+        {(residents as unknown as ResidentAssignment[]).map((resident) => (
           <MenuItem
-            key={resident?.residentId}
-            onClick={() => handleResidentAssignment(resident?.residentId)}
+            key={resident.residentId}
+            onClick={() => handleResidentAssignment(resident.residentId)}
           >
-            {resident?.firstname} {resident?.lastname}
+            {resident.firstname} {resident.lastname}
           </MenuItem>
         ))}
-        {assignments?.[currentType]?.[currentWeek] && (
+        {currentType !== null && currentWeek !== null && assignments[currentType]?.[currentWeek] && (
           <MenuItem sx={{ color: "red" }} onClick={handleRemoveAssignment}>
             Supprimer
           </MenuItem>
         )}
       </Menu>
 
-      <WeekTemplateImport open={dialogOpen} handleClose={handleDialogClose} />
+      <WeekTemplateImport open={dialogOpen} handleClose={() => setDialogOpen(false)} />
     </StyledTableContainer>
   );
 };

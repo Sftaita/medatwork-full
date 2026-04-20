@@ -108,6 +108,25 @@ class YearsRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Returns active years (dateOfEnd >= today) for a hospital, ordered by id descending.
+     *
+     * @return Years[]
+     */
+    public function findActiveYearsByHospital(Hospital $hospital): array
+    {
+        $today = new \DateTime();
+
+        return $this->createQueryBuilder('y')
+            ->where('y.hospital = :hospital')
+            ->andWhere('y.dateOfEnd >= :today')
+            ->orderBy('y.id', 'DESC')
+            ->setParameter('hospital', $hospital)
+            ->setParameter('today', $today)
+            ->getQuery()
+            ->getResult();
+    }
+
     /*
     public function findOneBySomeField($value): ?Years
     {

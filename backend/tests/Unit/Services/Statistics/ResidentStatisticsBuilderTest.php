@@ -124,7 +124,7 @@ class ResidentStatisticsBuilderTest extends TestCase
         $monthStats       = ['totalHours' => 100, 'week' => []];
         $processedAbsence = ['total' => 5];
 
-        $result = $this->builder->buildSummary('Jean', 'Dupont', 'Promo 2026', 42, $monthStats, $processedAbsence);
+        $result = $this->builder->buildSummary('Jean', 'Dupont', 'Promo 2026', 42, 99, $monthStats, $processedAbsence);
 
         $this->assertSame('Jean', $result['firstname']);
         $this->assertSame('Dupont', $result['lastname']);
@@ -137,7 +137,7 @@ class ResidentStatisticsBuilderTest extends TestCase
         $monthStats       = ['totalHours' => 120, 'hardHours' => 30, 'week' => [1 => 30]];
         $processedAbsence = [];
 
-        $result = $this->builder->buildSummary('A', 'B', 'Y', 1, $monthStats, $processedAbsence);
+        $result = $this->builder->buildSummary('A', 'B', 'Y', 1, 99, $monthStats, $processedAbsence);
 
         $this->assertSame(120, $result['totalHours']);
         $this->assertSame(30, $result['hardHours']);
@@ -147,7 +147,7 @@ class ResidentStatisticsBuilderTest extends TestCase
     {
         $processedAbsence = ['annualLeave' => 3, 'yearScheduledAbsences' => ['totalScheduledLeaves' => 10]];
 
-        $result = $this->builder->buildSummary('A', 'B', 'Y', 1, [], $processedAbsence);
+        $result = $this->builder->buildSummary('A', 'B', 'Y', 1, 99, [], $processedAbsence);
 
         $this->assertSame($processedAbsence, $result['absences']);
     }

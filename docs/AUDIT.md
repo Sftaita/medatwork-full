@@ -1,28 +1,28 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-14 (session 15)
+**Dernière mise à jour :** 2026-04-20 (session 19)
 **Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 18
-**Statut :** Professionnalisation en cours — Système photos de profil + audit/fix CRUD années + footer + spécialité Autocomplete
+**Statut :** Professionnalisation en cours — Droit canCreateYear (hospital-admin → manager) + correctif route /manager/realtime
 
 ---
 
 ## Résumé Exécutif
 
-| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) | Valeur (2026-04-14 s14) |
-|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 | **~171** |
-| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 | ~265 |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 | 26 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 | 7 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ | 35+ |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ | 19+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 | 58 |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 | **1 027 (+6)** |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | **19 (+9)** |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 | **243 (+8)** |
-| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 | 92/100 |
+| Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) | Valeur (2026-04-14 s14) | Valeur (2026-04-15 s17) | Valeur (2026-04-20 s18) | Valeur (2026-04-20 s19) |
+|----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 | **~171** | **~173** | **~174** |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 | ~265 | **~268** | **~269** |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 | 26 | 26 | 26 |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 | 7 | 7 | 7 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ | 35+ | 35+ | 35+ |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ | 19+ | 19+ | 19+ |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 | 58 | 58 | **59** |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 | **1 027 (+6)** | **1 043 (+16)** | **1 235 (+11)** |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | **19 (+9)** | 19 | **58** |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 | **243 (+8)** | **267 (+24)** | 267 |
+| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 | 92/100 | 92/100 | 92/100 |
 
 ### Tableau des Risques (mis à jour)
 
@@ -265,6 +265,125 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 ---
 
 ## Journal des Modifications
+
+### 2026-04-20 (session 19) — Droit canCreateYear + correctif routes + tests
+
+**Bug — boucle infinie sur `/manager/realtime` (manager connecté) :**
+- Cause : la route était déclarée à la fois sous `HospitalAdminRoute` et `ManagerRoute` ; React Router v6 prenait la première correspondance (`HospitalAdminRoute`) → manager échoue la vérification → redirect login → redirect retour → boucle infinie.
+- Correction : suppression des 5 routes `/manager/*` dupliquées dans `HospitalAdminRoute` (`/manager/year-detail`, `/manager/calendar`, `/manager/week-dispatcher`, `/manager/week-creator`, `/manager/realtime`).
+- `ManagerRoute.tsx` : accepte désormais `role === "manager"` **ou** `role === "hospital_admin"` (les hospital-admins ont accès aux pages manager).
+
+**Feature — `canCreateYear` : droit de création d'année par manager**
+
+*Backend :*
+- `Manager` : champ `canCreateYear TINYINT(1) NOT NULL DEFAULT 0` + getter `isCanCreateYear()` + setter `setCanCreateYear(bool)`.
+- Migration `Version20260420000000` (manuelle — `doctrine:migrations:diff` échoue à cause des enums) : `ALTER TABLE manager ADD can_create_year TINYINT(1) NOT NULL DEFAULT 0`.
+- `AuthenticationSuccessListener` : payload JWT enrichi avec `canCreateYear` pour le rôle manager.
+- `HospitalAdminController` :
+  - `serializeManagerYears()` inclut `canCreateYear` dans la réponse.
+  - Nouvel endpoint `PATCH /api/hospital-admin/managers/{id}/can-create-year` : vérifie que le manager est lié à l'hôpital de l'admin, valide un booléen JSON, appelle `$manager->setCanCreateYear()` + flush, retourne `{canCreateYear: bool}`.
+- `YearsManagerAPIController::createYear` : garde `if (!$manager->isCanCreateYear()) → 403` ; accepte `hospitalId` (nullable int) pour lier l'année à un hôpital existant.
+- `CreateYearInputDTO` : `location`, `period`, `comment` rendus optionnels ; `hospitalId` (nullable int) ajouté ; champs requis réduits à `title`, `dateOfStart`, `dateOfEnd`, `speciality`, `isMaster`.
+- `CreateYear` service : accepte `?Hospital $hospital = null` ; quand fourni, utilise `$hospital->getName()` comme location et appelle `$year->setHospital($hospital)`.
+
+*Frontend :*
+- `auth.ts` + `authStore.ts` + `useRefreshToken.ts` : `canCreateYear` ajouté au payload JWT et à l'état Zustand.
+- `hospitalAdminApi.ts` : `ManagerRow` inclut `canCreateYear` ; `setManagerCanCreateYear(id, bool)` ajouté.
+- `HospitalAdminManagersPage.tsx` : section "Permissions" dans le drawer avec un `Switch` MUI pour accorder/révoquer le droit.
+- `CanCreateYearRoute.tsx` (nouveau) : guard Outlet — `hospital_admin` passe toujours, `manager` passe seulement si `canCreateYear === true`.
+- `App.tsx` : route `/manager/year` enveloppée dans `<CanCreateYearRoute>`.
+- `SidebarNav.tsx` : filtre le lien "AJOUTER" (`/manager/year`) si `!authentication.canCreateYear`.
+- `YearPage.tsx` : champ `location` libre remplacé par un `<Select>` de la liste des hôpitaux (fetched `GET /api/hospitals`) ; envoi de `hospitalId` au lieu de `location`.
+
+**Tests :**
+- `backend/tests/Unit/Controller/HospitalAdminCanCreateYearTest.php` (nouveau, 8 tests, 12 ass.) : 404 manager introuvable, 403 non lié à l'hôpital, 400 champ manquant, 400 non-booléen, 200 + flush (grant), 200 + flush (revoke), setter appelé avec `true`, setter appelé avec `false`.
+- `backend/tests/Unit/Controller/YearsManagerAPIControllerTest.php` : 3 nouveaux tests — `testCreateYearWithoutPermissionReturns403`, `testCreateYearWithPermissionReturns200`, `testCreateYearWithHospitalIdResolvesHospital`.
+- `backend/tests/Unit/DTO/CreateYearInputDTOTest.php` : mis à jour — `location`/`period` retirés des providers "champ obligatoire" ; ajout de `testMinimalBodyWithoutOptionalFields`, `testEmptyLocationIsAccepted`, `testHospitalIdNullWhenAbsent`.
+
+**Suite backend complète : 1 293 tests (1 235 unit + 58 integration) — 100% verts.**
+
+---
+
+### 2026-04-20 (session 18) — Audit + refactoring WeekDispatcher (sécurité, bugs, tests, UI)
+
+**WeekCreator — retour au layout d'origine :**
+- Restauration de la mise en page Grid/Card 3 colonnes (`AddBloc` | `TimelineBloc` | `TimeSummaryBloc`) avec `TopBar` en haut de la Card
+- `WeekCreatorPage.tsx` : titre `Typography h4` "Postes de travail" recentré, padding responsive via `isMd`
+
+**Backend — Sécurité et correctifs :**
+
+*`YearAccessVoter` :*
+- Ajout du support `HospitalAdmin` : accès complet à toutes les années de son hôpital (early-return avant la vérification Manager)
+- `SUPPORTED_ATTRIBUTES` exposé en `public const` pour être lisible depuis les tests
+- `Hospital` et `HospitalAdmin` importés
+
+*`YearSummaryBuilder` :*
+- Nouvelle méthode `buildForHospitalAdmin(HospitalAdmin $admin): array` — récupère toutes les années actives de l'hôpital via `yearsRepo->findActiveYearsByHospital()`
+- Méthode privée partagée `buildYearEntry()` extraite pour éviter la duplication entre `buildForManager` et `buildForHospitalAdmin`
+- Injection de `YearsRepository` ajoutée
+
+*`YearsRepository` :*
+- Nouvelle méthode `findActiveYearsByHospital(Hospital $hospital): array` — retourne les années dont `dateOfEnd >= today`, triées par id DESC
+
+*`YearsManagerAPIController` :*
+- `getYearsIntervalsAndWeekTemplatesSummary` : branche `HospitalAdmin` ajoutée, catch séparé pour `AccessDeniedException` → 403 JSON
+
+*`ResidentWeeklyScheduleController` :*
+- Code retour auth : 400 → 403 (`Response::HTTP_FORBIDDEN`)
+- Typos corrigées : "recquis" → "requis", "modifé" → "modifier"
+- `try/catch` `InvalidArgumentException` ajouté → 400 avec message lisible
+
+*`UpdateResidentWeeklySchedule` :*
+- Vérification d'appartenance résident/année avant traitement de `schedulesToAdd` : `throw new \InvalidArgumentException` si le résident n'appartient pas à l'année
+
+*`GetRealTimeStatisticsAsManager` :*
+- Bug sémantique : `$year = $yearsRepository->findOneBy(['id' => $my->getYears()])` → `$year = $my->getYears()` (`getYears()` renvoie déjà l'entité)
+
+**Frontend — Correctifs WeekDispatcher :**
+
+*`weekDispatcherStore.ts` :*
+- Types exportés ajoutés : `WeekInterval`, `YearWeekTemplate`, `ResidentAssignment`, `Assignments`
+- Tous les setters supportent les functional updaters (`typeof fn === 'function'`)
+
+*`WeekTaskAllocation.tsx` :*
+- `upsertPendingOp` : déduplique les ops par slot `(yearWeekTemplateId, weekIntervalId)` — remplace l'op existante au lieu d'accumuler
+- `useEffect` ferme le menu contextuel quand `currentYearId` change
+- Typage strict (`WeekInterval`, `YearWeekTemplate`, `ResidentAssignment`) — plus de `any`
+- Mise à jour d'état immuable (plus de `delete prevAssignments[...]`)
+
+*`WeekTemplateImport.tsx` :*
+- `useEffect` : garde `if (!open) return` — pas d'appel API quand le dialog est fermé
+- Deps : `[open, axiosPrivate]` uniquement — plus de re-fetch à chaque import
+- Après import réussi : filtre `weekTemplates` en local au lieu de re-fetcher
+- Bouton "Importer" désactivé quand aucun template sélectionné
+
+*`ActionView.tsx` :*
+- `setPendingChange([])` au changement d'année — évite l'envoi de changements de l'année A vers l'année B
+- Label année : `title — location` au lieu du seul titre
+- Suppression de l'appel `useWeekShedulerContext()` mort
+
+*`CreateWeekForm.tsx` :*
+- `onCancel()` déplacé dans le bloc `try` (chemin succès uniquement) — plus de fermeture sur erreur
+
+*`calendarApi.ts` :*
+- Typo : `dispacthWeek` → `dispatchWeek`
+
+**Frontend — Redesign UI WeekDispatcher (layout vertical) :**
+
+Avant : panneau gauche vertical (~30%) + panneau droit (~70%) avec table compressée.
+Après : barre horizontale en haut → divider → titre centré → table pleine largeur.
+
+- `WeekDispatcher.tsx` : structure Card : `ActionView` (barre top) → `Divider` → titre "Répartition des semaines" → `Divider` → `WeekTaskAllocation` pleine largeur ; section masquée si aucune année
+- `ActionView.tsx` : barre horizontale (flex-row) — sélecteur d'année à gauche (`flexGrow: 1`), bouton "Enregistrer" à droite (`flexShrink: 0`) ; Alert info si aucune année et non-loading
+
+**Tests :**
+- `backend/tests/Unit/Security/YearAccessVoterTest.php` (nouveau, 9 tests, 19 ass.) : HospitalAdmin granted/denied/no-hospital, Manager avec/sans accès/sans relation, unknown user, attribut non supporté → abstain
+- `backend/tests/Unit/Services/YearsManagement/YearSummaryBuilderHospitalAdminTest.php` (nouveau, 7 tests, 27 ass.) : structure retour, années actives/expirées, master name, weekIntervals, yearWeekTemplates, assignements filtrés par hôpital
+- `frontend/src/store/weekDispatcherStore.test.ts` (nouveau, 9 tests) : setters valeur directe + functional updater pour tous les champs
+- `frontend/src/pages/Management/Agenda/WeekDispatcher/components/WeekTemplateImport.test.tsx` (nouveau, 9 tests) : pas d'API sans open, rechargement sur open, filtre templates liés, empty-state, cancel, bouton disabled, import réussi, pas de double-fetch
+- `frontend/src/pages/Management/Agenda/WeekDispatcher/components/WeekTaskAllocation.pendingChange.test.ts` (nouveau, 6 tests) : ajout, remplacement slot, create→delete, delete→create, slots indépendants, déplacement résident
+
+---
 
 ### 2026-04-14 (session 15) — Système photo de profil + audit CRUD années + corrections UX
 

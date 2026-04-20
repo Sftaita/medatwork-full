@@ -70,6 +70,8 @@ const Form = ({ status }) => {
       const gender = user?.gender;
       const hospitalId = user?.hospitalId ?? null;
       const hospitalName = user?.hospitalName ?? null;
+      const avatarUrl = user?.avatarUrl ?? null;
+      const canCreateYear = user?.canCreateYear ?? false;
       setAuthentication({
         isAuthenticated: true,
         AccessToken,
@@ -79,6 +81,8 @@ const Form = ({ status }) => {
         gender,
         hospitalId,
         hospitalName,
+        avatarUrl,
+        canCreateYear,
       });
       logger.setUser({ id: user?.id ?? "unknown", role });
 
@@ -95,9 +99,9 @@ const Form = ({ status }) => {
       }
     } catch (error) {
       let message;
-      if (error?.response.data.code === 400) {
+      if (error?.response?.data?.code === 400) {
         message = "Oups, le serveur ne répond pas";
-      } else if (error?.response.data.code === 401) {
+      } else if (error?.response?.data?.code === 401) {
         message =
           "Les informations ne correspondent pas ou vous n'avez pas encore validé votre email";
       } else {

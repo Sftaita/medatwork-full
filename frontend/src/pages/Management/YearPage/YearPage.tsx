@@ -2,12 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useFormik } from "formik";
 import { useNavigate, useLocation } from "react-router";
 import * as yup from "yup";
+import axios from "axios";
 import { specialityLinks } from "../../../doc/lists";
 import yearsApi from "../../../services/yearsApi";
 import useAxiosPrivate from "../../../hooks/useAxiosPrivate";
 import { toast } from "react-toastify";
 import { toastSuccess } from "../../../doc/ToastParams";
 import dayjs from "dayjs";
+import { API_URL } from "../../../config";
 
 // Material UI
 import Switch from "@mui/material/Switch";
@@ -36,11 +38,17 @@ import CustomDiaglog from "../../../components/medium/CustomDialog";
 import { Stack } from "@mui/material";
 import { handleApiError } from "@/services/apiError";
 
+interface Hospital {
+  id: number;
+  name: string;
+  city: string | null;
+}
+
 const validationSchema = yup.object({
-  location: yup
-    .string()
-    .required("Veuillez renseigner l'hôpital de formation")
-    .min(2, "Trop court"),
+  hospitalId: yup
+    .number()
+    .required("Veuillez sélectionner l'hôpital de formation")
+    .positive("Hôpital invalide"),
   speciality: yup
     .string()
     .required("Veuillez renseigner la spécialité de formation")
@@ -71,6 +79,7 @@ const YearPage = () => {
   const axiosPrivate = useAxiosPrivate();
   const { state } = useLocation();
   const [loading, setLoading] = useState(false);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
 
   const [editing, setEditing] = useState(false);
 
@@ -87,7 +96,7 @@ const YearPage = () => {
   });
 
   const initialValues = {
-    location: "",
+    hospitalId: "" as number | "",
     speciality: "",
     title: "",
     period: "",
@@ -96,7 +105,7 @@ const YearPage = () => {
   };
 
   const [LoadedValues, setLaodedValue] = useState({
-    location: "",
+    hospitalId: "" as number | "",
     speciality: "",
     title: "",
     period: "",
@@ -133,6 +142,7 @@ const YearPage = () => {
   };
 
   useEffect(() => {
+    axios.get<Hospital[]>(`${API_URL}hospitals`).then((r) => setHospitals(r.data)).catch(() => {});
     if (state?.yearId) {
       setEditing(true);
       fetchYear(state?.yearId);
@@ -140,7 +150,7 @@ const YearPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentional: initialize from route state once on mount
 
-  const onSubmit = async ({ location, speciality, title, period, dateOfStart, dateOfEnd }) => {
+  const onSubmit = async ({ hospitalId, speciality, title, period, dateOfStart, dateOfEnd }) => {
     setLoading(true);
 
     const data = {
@@ -148,10 +158,11 @@ const YearPage = () => {
       dateOfStart: dayjs(dateOfStart).format("YYYY-MM-DD"),
       dateOfEnd: dayjs(dateOfEnd).format("YYYY-MM-DD"),
       period,
-      location,
+      location: "",  // resolved server-side from hospitalId
       comment: "",
       speciality,
       isMaster: isMaster,
+      hospitalId: hospitalId !== "" ? hospitalId : null,
     };
 
     try {
@@ -318,19 +329,29 @@ const YearPage = () => {
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Typography variant={"subtitle2"} sx={{ marginBottom: 2 }} fontWeight={700}>
-                    Lieu de stage
-                  </Typography>
-                  <TextField
-                    variant="outlined"
-                    name={"location"}
-                    type={"text"}
+                  <FormControl
                     fullWidth
-                    value={formik.values.location}
-                    onChange={formik.handleChange}
-                    error={formik.touched.location && Boolean(formik.errors.location)}
-                    helperText={formik.touched.location && formik.errors.location}
-                  />
+                    error={formik.touched.hospitalId && Boolean(formik.errors.hospitalId)}
+                  >
+                    <Typography variant={"subtitle2"} sx={{ marginBottom: 2 }} fontWeight={700}>
+                      Hôpital de formation
+                    </Typography>
+                    <Select
+                      variant="outlined"
+                      name={"hospitalId"}
+                      value={formik.values.hospitalId}
+                      onChange={formik.handleChange}
+                    >
+                      {hospitals.map((h) => (
+                        <MenuItem key={h.id} value={h.id}>
+                          {h.name}{h.city ? ` — ${h.city}` : ""}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    <FormHelperText>
+                      {formik.touched.hospitalId && formik.errors.hospitalId}
+                    </FormHelperText>
+                  </FormControl>
                 </Grid>
 
                 <Grid item xs={12}>

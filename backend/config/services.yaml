@@ -59,10 +59,12 @@ services:
   App\Controller\ResidentsAPI\PublicAPI\PublicAPIController:
     arguments:
       $apiUrl: '%env(API_URL)%'
+      $frontendUrl: '%env(FRONTEND_URL)%'
 
   App\Controller\ManagersAPI\ManagersAPI\ManagersAPIController:
     arguments:
       $apiUrl: '%env(API_URL)%'
+      $frontendUrl: '%env(FRONTEND_URL)%'
 
   App\Controller\TokenActivationController:
     arguments:

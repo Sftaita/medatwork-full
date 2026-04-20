@@ -10,6 +10,9 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Unit tests for CreateYearInputDTO::fromRequest().
+ *
+ * As of 2026-04-20: location, period, comment are optional (can be absent or empty).
+ * hospitalId is optional (nullable int).
  */
 class CreateYearInputDTOTest extends TestCase
 {
@@ -24,11 +27,8 @@ class CreateYearInputDTOTest extends TestCase
     {
         return [
             'title'       => 'Stage 2025-2026',
-            'comment'     => 'Commentaire',
-            'location'    => 'Liège',
             'dateOfStart' => '2025-09-01',
             'dateOfEnd'   => '2026-08-31',
-            'period'      => '6',
             'speciality'  => 'Chirurgie',
             'isMaster'    => false,
         ];
@@ -38,7 +38,13 @@ class CreateYearInputDTOTest extends TestCase
 
     public function testValidBodyCreatesDTO(): void
     {
-        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($this->validBody()));
+        $body = array_merge($this->validBody(), [
+            'comment'    => 'Commentaire',
+            'location'   => 'Liège',
+            'period'     => '6',
+            'hospitalId' => 3,
+        ]);
+        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($body));
 
         $this->assertSame('Stage 2025-2026', $dto->title);
         $this->assertSame('Commentaire', $dto->comment);
@@ -48,32 +54,51 @@ class CreateYearInputDTOTest extends TestCase
         $this->assertSame('6', $dto->period);
         $this->assertSame('Chirurgie', $dto->speciality);
         $this->assertFalse($dto->isMaster);
+        $this->assertSame(3, $dto->hospitalId);
+    }
+
+    public function testMinimalBodyWithoutOptionalFields(): void
+    {
+        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($this->validBody()));
+
+        $this->assertSame('Stage 2025-2026', $dto->title);
+        $this->assertSame('', $dto->location);
+        $this->assertSame('', $dto->comment);
+        $this->assertSame('', $dto->period);
+        $this->assertNull($dto->hospitalId);
     }
 
     public function testEmptyCommentIsAccepted(): void
     {
-        $body = $this->validBody();
-        $body['comment'] = '';
-        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($body));
-
+        $body = array_merge($this->validBody(), ['comment' => '']);
+        $dto  = CreateYearInputDTO::fromRequest($this->makeRequest($body));
         $this->assertSame('', $dto->comment);
     }
 
     public function testEmptyPeriodIsAccepted(): void
     {
-        $body = $this->validBody();
-        $body['period'] = '';
-        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($body));
-
+        $body = array_merge($this->validBody(), ['period' => '']);
+        $dto  = CreateYearInputDTO::fromRequest($this->makeRequest($body));
         $this->assertSame('', $dto->period);
+    }
+
+    public function testEmptyLocationIsAccepted(): void
+    {
+        $body = array_merge($this->validBody(), ['location' => '']);
+        $dto  = CreateYearInputDTO::fromRequest($this->makeRequest($body));
+        $this->assertSame('', $dto->location);
+    }
+
+    public function testHospitalIdNullWhenAbsent(): void
+    {
+        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($this->validBody()));
+        $this->assertNull($dto->hospitalId);
     }
 
     public function testIsMasterTrueIsAccepted(): void
     {
-        $body = $this->validBody();
-        $body['isMaster'] = true;
-        $dto = CreateYearInputDTO::fromRequest($this->makeRequest($body));
-
+        $body = array_merge($this->validBody(), ['isMaster' => true]);
+        $dto  = CreateYearInputDTO::fromRequest($this->makeRequest($body));
         $this->assertTrue($dto->isMaster);
     }
 
@@ -87,7 +112,7 @@ class CreateYearInputDTOTest extends TestCase
         CreateYearInputDTO::fromRequest($request);
     }
 
-    // ── missing fields ────────────────────────────────────────────────────────
+    // ── missing required fields ───────────────────────────────────────────────
 
     /** @dataProvider missingFieldProvider */
     public function testMissingFieldThrows(string $field): void
@@ -102,13 +127,11 @@ class CreateYearInputDTOTest extends TestCase
     /** @return array<string, array<mixed>> */
     public static function missingFieldProvider(): array
     {
+        // location, period, comment are optional — not listed here
         return [
             'title'       => ['title'],
-            'comment'     => ['comment'],
-            'location'    => ['location'],
             'dateOfStart' => ['dateOfStart'],
             'dateOfEnd'   => ['dateOfEnd'],
-            'period'      => ['period'],
             'speciality'  => ['speciality'],
             'isMaster'    => ['isMaster'],
         ];
@@ -119,8 +142,7 @@ class CreateYearInputDTOTest extends TestCase
     /** @dataProvider requiredNonEmptyFieldProvider */
     public function testEmptyRequiredFieldThrows(string $field): void
     {
-        $body = $this->validBody();
-        $body[$field] = '';
+        $body = array_merge($this->validBody(), [$field => '']);
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage("$field must be a non-empty string");
         CreateYearInputDTO::fromRequest($this->makeRequest($body));
@@ -129,9 +151,9 @@ class CreateYearInputDTOTest extends TestCase
     /** @return array<string, array<mixed>> */
     public static function requiredNonEmptyFieldProvider(): array
     {
+        // location is now optional — omitted from this list
         return [
             'title'       => ['title'],
-            'location'    => ['location'],
             'dateOfStart' => ['dateOfStart'],
             'dateOfEnd'   => ['dateOfEnd'],
             'speciality'  => ['speciality'],
@@ -142,8 +164,7 @@ class CreateYearInputDTOTest extends TestCase
 
     public function testIsMasterAsIntThrows(): void
     {
-        $body = $this->validBody();
-        $body['isMaster'] = 1;
+        $body = array_merge($this->validBody(), ['isMaster' => 1]);
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('isMaster must be a boolean');
         CreateYearInputDTO::fromRequest($this->makeRequest($body));

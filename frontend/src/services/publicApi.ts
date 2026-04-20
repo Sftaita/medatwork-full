@@ -51,11 +51,23 @@ const resendActivation = (email: string) => {
     .then((response) => response.data);
 };
 
+/** POST — consumes the activation token (not subject to email pre-fetching) */
+const activateAccount = (type: "manager" | "resident", token: string) => {
+  return axios
+    .post(
+      API_URL + (type === "manager" ? "ManagerActivation" : "ResidentActivation") + "/" + token,
+      null,
+      { withCredentials: true }
+    )
+    .then((response) => response.data);
+};
+
 const publicApi = {
   resetPassword,
   sendEmailForResetPassword,
   contactUs,
   resendActivation,
+  activateAccount,
 };
 
 export default publicApi;

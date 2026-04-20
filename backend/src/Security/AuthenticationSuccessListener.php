@@ -39,7 +39,8 @@ class AuthenticationSuccessListener
                 $data['hospitalId']   = $user->getAdminHospital()->getId();
                 $data['hospitalName'] = $user->getAdminHospital()->getName();
             } else {
-                $data['role'] = $user->getRole();
+                $data['role']          = $user->getRole();
+                $data['canCreateYear'] = $user instanceof Manager && $user->isCanCreateYear();
             }
         } elseif ($user instanceof AppAdmin) {
             $data['firstname'] = $user->getFirstname();

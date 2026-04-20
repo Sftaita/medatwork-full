@@ -10,6 +10,7 @@ export interface AuthState {
   hospitalId?: number | null;
   hospitalName?: string | null;
   avatarUrl?: string | null;
+  canCreateYear?: boolean;
 }
 
 export const AUTH_INITIAL_STATE: AuthState = {
@@ -34,4 +35,5 @@ export interface RefreshTokenResponse {
   hospitalId?: number | null;
   hospitalName?: string | null;
   avatarUrl?: string | null;
+  canCreateYear?: boolean;
 }

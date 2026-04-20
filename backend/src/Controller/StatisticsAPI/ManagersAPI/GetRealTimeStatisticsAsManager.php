@@ -135,7 +135,7 @@ class GetRealTimeStatisticsAsManager extends AbstractController
             $yearsList = $managerYearsRepository->findBy(['manager' => $user, 'dataAccess' => true], ['years' => 'DESC']);
             $yearList  = [];
             foreach ($yearsList as $my) {
-                $year = $yearsRepository->findOneBy(['id' => $my->getYears()]);
+                $year = $my->getYears(); // getYears() already returns the Years entity
                 if ($year === null) {
                     continue;
                 }

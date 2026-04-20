@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Security\Voter;
 
+use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\Years;
 use App\Repository\ManagerYearsRepository;
@@ -22,7 +23,8 @@ class YearAccessVoter extends Voter
     public const AGENDA_ACCESS    = 'year_agenda_access';
     public const ADMIN            = 'year_admin';
 
-    private const SUPPORTED = [
+    /** @var list<string> */
+    public const SUPPORTED_ATTRIBUTES = [
         self::DATA_ACCESS,
         self::DATA_VALIDATION,
         self::DATA_DOWNLOAD,
@@ -30,6 +32,8 @@ class YearAccessVoter extends Voter
         self::AGENDA_ACCESS,
         self::ADMIN,
     ];
+
+    private const SUPPORTED = self::SUPPORTED_ATTRIBUTES;
 
     public function __construct(private readonly ManagerYearsRepository $managerYearsRepository)
     {
@@ -45,12 +49,20 @@ class YearAccessVoter extends Voter
     {
         $user = $token->getUser();
 
+        /** @var Years $year */
+        $year = $subject;
+
+        // HospitalAdmin has full access to every year that belongs to their hospital
+        if ($user instanceof HospitalAdmin) {
+            $yearHospital = $year->getHospital();
+
+            return $yearHospital !== null
+                && $yearHospital->getId() === $user->getHospital()->getId();
+        }
+
         if (! $user instanceof Manager) {
             return false;
         }
-
-        /** @var Years $year */
-        $year = $subject;
 
         $relation = $this->managerYearsRepository->findOneBy([
             'manager' => $user,

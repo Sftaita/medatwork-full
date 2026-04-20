@@ -60,7 +60,7 @@ final class HospitalAdminMaccsTest extends TestCase
     private function buildController(?Manager $user = null): HospitalAdminController
     {
         $auditService = $this->createMock(HospitalAdminAuditService::class);
-        $controller = new HospitalAdminController($this->mailer, $this->resetService, 'http://localhost:3000', 'http://localhost:8000', $auditService);
+        $controller = new HospitalAdminController($this->mailer, $this->resetService, 'http://localhost:3000', 'http://localhost:8000', 'http://localhost:8000/uploads', $auditService);
 
         // Wire a container with a token storage that returns the given user
         $container = new Container();
@@ -161,10 +161,10 @@ final class HospitalAdminMaccsTest extends TestCase
     public static function computeStatusProvider(): array
     {
         return [
-            'retired when allowed=false'                  => [false, null, new \DateTime(), 'retired'],
-            'pending when token present'                  => [true, 'sometoken', new \DateTime(), 'pending'],
-            'incomplete when validatedAt is null'         => [true, null, null, 'incomplete'],
-            'active when allowed, no token, validatedAt'  => [true, null, new \DateTime(), 'active'],
+            'retired when allowed=false'                           => [false, null, new \DateTime(), 'retired'],
+            'pending when token present'                           => [true, 'sometoken', new \DateTime(), 'pending'],
+            'active when no token and no validatedAt'              => [true, null, null, 'active'],
+            'active when allowed, no token, validatedAt set'       => [true, null, new \DateTime(), 'active'],
         ];
     }
 

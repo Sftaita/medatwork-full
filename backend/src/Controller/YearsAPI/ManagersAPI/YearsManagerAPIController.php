@@ -7,8 +7,10 @@ namespace App\Controller\YearsAPI\ManagersAPI;
 use App\DTO\AddManagerInputDTO;
 use App\DTO\CreateYearInputDTO;
 use App\DTO\UpdateYearInputDTO;
+use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
+use App\Repository\HospitalRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
@@ -56,10 +58,14 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/years/create', name: 'createNewYear', methods: ['POST'])]
-    public function createYear(Request $request, Security $security, CreateYear $createYear): JsonResponse
+    public function createYear(Request $request, Security $security, CreateYear $createYear, HospitalRepository $hospitalRepository): JsonResponse
     {
         /** @var Manager $manager */
         $manager = $security->getUser();
+
+        if (!$manager->isCanCreateYear()) {
+            return new JsonResponse(['message' => 'Vous n\'avez pas la permission de créer une année.'], 403);
+        }
 
         try {
             $dto = CreateYearInputDTO::fromRequest($request);
@@ -67,7 +73,9 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => $e->getMessage()], 400);
         }
 
-        $createYear->createYear($manager, $dto->title, $dto->speciality, $dto->comment, $dto->location, $dto->dateOfStart, $dto->dateOfEnd, $dto->period, $dto->isMaster);
+        $hospital = $dto->hospitalId !== null ? $hospitalRepository->find($dto->hospitalId) : null;
+
+        $createYear->createYear($manager, $dto->title, $dto->speciality, $dto->comment, $dto->location, $dto->dateOfStart, $dto->dateOfEnd, $dto->period, $dto->isMaster, $hospital);
 
         return new JsonResponse(['message' => 'ok'], 200);
     }
@@ -241,10 +249,18 @@ class YearsManagerAPIController extends AbstractController
     {
         try {
             $user = $security->getUser();
-            if (! $user instanceof Manager) {
-                throw new AccessDeniedException();
+
+            if ($user instanceof HospitalAdmin) {
+                return $this->json($yearSummaryBuilder->buildForHospitalAdmin($user), 200);
             }
-            return $this->json($yearSummaryBuilder->buildForManager($user), 200);
+
+            if ($user instanceof Manager) {
+                return $this->json($yearSummaryBuilder->buildForManager($user), 200);
+            }
+
+            throw new AccessDeniedException();
+        } catch (AccessDeniedException $e) {
+            return $this->json(['error' => 'Accès refusé.'], 403);
         } catch (\Exception $e) {
             $logger->error('YearSummaryBuilder failed', ['exception' => $e]);
 

@@ -151,6 +151,10 @@ class Manager implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $avatarPath = null;
 
+    /** Whether the manager is allowed to create new internship years */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $canCreateYear = false;
+
     public function __construct()
     {
         $this->hospitals            = new ArrayCollection();
@@ -604,5 +608,8 @@ class Manager implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getAvatarPath(): ?string { return $this->avatarPath; }
     public function setAvatarPath(?string $avatarPath): self { $this->avatarPath = $avatarPath; return $this; }
+
+    public function isCanCreateYear(): bool { return $this->canCreateYear; }
+    public function setCanCreateYear(bool $canCreateYear): self { $this->canCreateYear = $canCreateYear; return $this; }
 
 }

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\YearsManagement;
 
+use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
+use App\Repository\YearsRepository;
 use App\Repository\YearsResidentRepository;
 use App\Repository\YearsWeekIntervalsRepository;
 use App\Repository\YearsWeekTemplatesRepository;
@@ -19,6 +21,7 @@ class YearSummaryBuilder
         private YearsResidentRepository $yearResidentRepo,
         private YearsWeekIntervalsRepository $weekIntervalsRepo,
         private YearsWeekTemplatesRepository $weekTemplateRepo,
+        private YearsRepository $yearsRepo,
     ) {
     }
 
@@ -33,18 +36,13 @@ class YearSummaryBuilder
         $results = ['yearsSummary' => [], 'assignements' => []];
 
         foreach ($years as $year) {
-            $residentsForYear    = $this->yearResidentRepo->findYearAllowedResidents($year['id']);
-            $weekIntervalsForYear = $this->buildWeekIntervals($year['id']);
-            $yearWeekTemplates   = $this->buildWeekTemplates($year['id'], $results['assignements']);
-
-            $yearManager     = $this->managerRepo->findOneBy(['id' => $year['masterId']]);
-            $managerFirstname = $yearManager?->getFirstname();
-            $managerLastname  = $yearManager?->getLastname();
+            $masterId = $year['masterId'] ?? null;
+            $yearManager = $masterId !== null ? $this->managerRepo->findOneBy(['id' => $masterId]) : null;
 
             $yearInfo = [
                 'title'           => $year['title'],
-                'masterFirstname' => $managerFirstname,
-                'masterLastname'  => $managerLastname,
+                'masterFirstname' => $yearManager?->getFirstname(),
+                'masterLastname'  => $yearManager?->getLastname(),
                 'dateOfStart'     => $year['dateOfStart']->format('Y-m-d'),
                 'dateOfEnd'       => $year['dateOfEnd']->format('Y-m-d'),
                 'createdAt'       => $year['createdAt']->format('Y-m-d'),
@@ -52,27 +50,101 @@ class YearSummaryBuilder
                 'owner'           => $year['owner'],
             ];
 
-            $authorizationForYear = [
-                'dataAccess'      => $year['dataAccess'],
-                'dataValidation'  => $year['dataValidation'],
-                'dataDownload'    => $year['dataDownload'],
-                'admin'           => $year['admin'],
+            $authorization = [
+                'dataAccess'     => $year['dataAccess'],
+                'dataValidation' => $year['dataValidation'],
+                'dataDownload'   => $year['dataDownload'],
+                'admin'          => $year['admin'],
             ];
 
-            $results['yearsSummary'][] = [
-                'yearId'           => $year['id'],
-                'yearInfo'         => $yearInfo,
-                'yearWeekTemplates' => $yearWeekTemplates,
-                'authorization'    => $authorizationForYear,
-                'residents'        => $residentsForYear,
-                'weekIntervals'    => $weekIntervalsForYear,
+            $results['yearsSummary'][] = $this->buildYearEntry(
+                $year['id'],
+                $yearInfo,
+                $authorization,
+                $results['assignements'],
+            );
+        }
+
+        return $results;
+    }
+
+    /**
+     * Builds the full years/intervals/week-templates summary for a HospitalAdmin.
+     * Returns ALL active years for their hospital with full authorization.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildForHospitalAdmin(HospitalAdmin $admin): array
+    {
+        $years   = $this->yearsRepo->findActiveYearsByHospital($admin->getHospital());
+        $results = ['yearsSummary' => [], 'assignements' => []];
+
+        foreach ($years as $year) {
+            $masterId    = $year->getMaster();
+            $yearManager = $masterId !== null ? $this->managerRepo->findOneBy(['id' => $masterId]) : null;
+
+            $dateOfStart = $year->getDateOfStart();
+            $dateOfEnd   = $year->getDateOfEnd();
+            $createdAt   = $year->getCreatedAt();
+
+            $yearInfo = [
+                'title'           => $year->getTitle(),
+                'masterFirstname' => $yearManager?->getFirstname(),
+                'masterLastname'  => $yearManager?->getLastname(),
+                'dateOfStart'     => $dateOfStart?->format('Y-m-d'),
+                'dateOfEnd'       => $dateOfEnd?->format('Y-m-d'),
+                'createdAt'       => $createdAt?->format('Y-m-d'),
+                'location'        => $year->getLocation(),
+                'owner'           => true,
             ];
+
+            $authorization = [
+                'dataAccess'     => true,
+                'dataValidation' => true,
+                'dataDownload'   => true,
+                'admin'          => true,
+            ];
+
+            $results['yearsSummary'][] = $this->buildYearEntry(
+                $year->getId(),
+                $yearInfo,
+                $authorization,
+                $results['assignements'],
+            );
         }
 
         return $results;
     }
 
     // ─── private helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Builds a single year summary entry and appends its assignment data to $assignements.
+     *
+     * @param array<string, mixed>             $yearInfo
+     * @param array<string, mixed>             $authorization
+     * @param array<int, array<string, mixed>> $assignements
+     * @return array<string, mixed>
+     */
+    private function buildYearEntry(
+        int $yearId,
+        array $yearInfo,
+        array $authorization,
+        array &$assignements,
+    ): array {
+        $residentsForYear    = $this->yearResidentRepo->findYearAllowedResidents($yearId);
+        $weekIntervalsForYear = $this->buildWeekIntervals($yearId);
+        $yearWeekTemplates   = $this->buildWeekTemplates($yearId, $assignements);
+
+        return [
+            'yearId'            => $yearId,
+            'yearInfo'          => $yearInfo,
+            'yearWeekTemplates' => $yearWeekTemplates,
+            'authorization'     => $authorization,
+            'residents'         => $residentsForYear,
+            'weekIntervals'     => $weekIntervalsForYear,
+        ];
+    }
 
     /** @return list<array<string, mixed>> */
     private function buildWeekIntervals(int $yearId): array
@@ -99,8 +171,7 @@ class YearSummaryBuilder
 
     /**
      * Builds week template list and appends resident schedule assignements to $assignements by reference.
-     */
-    /**
+     *
      * @param array<int, array<string, mixed>> $assignements
      * @return list<array<string, mixed>>
      */

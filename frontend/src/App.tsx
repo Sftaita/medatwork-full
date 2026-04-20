@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ManagerRoute from "./routes/ManagerRoute";
+import CanCreateYearRoute from "./routes/CanCreateYearRoute";
 import ResidentRoute from "./routes/ResidentRoute";
 import SuperAdminRoute from "./routes/SuperAdminRoute";
 import HospitalAdminRoute from "./routes/HospitalAdminRoute";
@@ -40,6 +41,7 @@ const PasswordUpdatePage = lazy(() => import("./pages/PassordUpdatePage/Password
 const TermsPage = lazy(() => import("./pages/TermsPage/TermsPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage/ContactPage"));
 const TokenExpiredPage = lazy(() => import("./pages/TokenExpiredPage/TokenExpiredPage"));
+const ActivatePage = lazy(() => import("./pages/ActivatePage/ActivatePage"));
 
 // ── Admin / HospitalAdmin pages ───────────────────────────────────────────────
 const AdminDashboardPage = lazy(() => import("./pages/Admin/AdminDashboardPage"));
@@ -227,6 +229,14 @@ function App() {
                 />
                 <Route path="/404" element={<ErrorPage />} />
                 <Route
+                  path="/activate/:type/:token"
+                  element={
+                    <Suspense fallback={<PageSkeleton />}>
+                      <ActivatePage />
+                    </Suspense>
+                  }
+                />
+                <Route
                   path="/hospital-admin/setup/:token"
                   element={
                     <Suspense fallback={<PageSkeleton />}>
@@ -377,49 +387,9 @@ function App() {
                         </Suspense>
                       }
                     />
-                    <Route
-                      path="/manager/year-detail"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <YearDetailPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
-                      path="/manager/calendar"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <ManagerCalendar />
-                        </Suspense>
-                      }
-                    />
-                    <Route
-                      path="/manager/week-dispatcher"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <WeekDispatcherPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
-                      path="/manager/week-creator"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <WeekCreatorPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
-                      path="/manager/realtime"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <RealTimePage />
-                        </Suspense>
-                      }
-                    />
                   </Route>
 
-                  {/* Manager routes */}
+                  {/* Manager routes — accessible to managers and hospital admins */}
                   <Route element={<ManagerRoute />}>
                     <Route
                       path="/manager/years"
@@ -437,14 +407,16 @@ function App() {
                         </Suspense>
                       }
                     />
-                    <Route
-                      path="/manager/year"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <YearPage />
-                        </Suspense>
-                      }
-                    />
+                    <Route element={<CanCreateYearRoute />}>
+                      <Route
+                        path="/manager/year"
+                        element={
+                          <Suspense fallback={<PageSkeleton />}>
+                            <YearPage />
+                          </Suspense>
+                        }
+                      />
+                    </Route>
                     <Route
                       path="/manager/year-parameters"
                       element={

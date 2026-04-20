@@ -32,6 +32,10 @@ class TokenActivationController extends AbstractController
     ) {
     }
 
+    /**
+     * Legacy GET — kept for emails already in the wild.
+     * New emails use the frontend link + POST endpoint below.
+     */
     #[Route('/api/ResidentActivation/{token}', name: 'ResidentActivation', methods: ['GET'])]
     public function verifyResidentToken(string $token, ResidentRepository $userRepo, EntityManagerInterface $entityManager): Response
     {
@@ -61,6 +65,43 @@ class TokenActivationController extends AbstractController
         return $this->redirect(self::URL_LOGIN);
     }
 
+    /**
+     * POST endpoint — called by the frontend ActivatePage.
+     * POST is never pre-fetched by email security scanners.
+     */
+    #[Route('/api/ResidentActivation/{token}', name: 'ResidentActivationPost', methods: ['POST'])]
+    public function activateResident(string $token, ResidentRepository $userRepo, EntityManagerInterface $entityManager): JsonResponse
+    {
+        if (strlen($token) !== self::TOKEN_LENGTH) {
+            return new JsonResponse(['error' => 'invalid_token'], Response::HTTP_NOT_FOUND);
+        }
+
+        $user = $userRepo->findOneBy(['token' => $token]);
+
+        if (! $user) {
+            return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($user->getTokenExpiration() !== null && $user->getTokenExpiration() < new DateTime()) {
+            $user->setToken(null)->setTokenExpiration(null);
+            $entityManager->flush();
+
+            return new JsonResponse(['error' => 'expired'], Response::HTTP_GONE);
+        }
+
+        $user->setToken(null)
+             ->setTokenExpiration(null)
+             ->setValidatedAt(new DateTime());
+
+        $entityManager->flush();
+
+        return new JsonResponse(['success' => true]);
+    }
+
+    /**
+     * Legacy GET — kept for emails already in the wild.
+     * New emails use the frontend link + POST endpoint below.
+     */
     #[Route('/api/ManagerActivation/{token}', name: 'ManagerActivation', methods: ['GET'])]
     public function verifyManagerToken(string $token, ManagerRepository $userRepo, EntityManagerInterface $entityManager): Response
     {
@@ -88,6 +129,39 @@ class TokenActivationController extends AbstractController
         $entityManager->flush();
 
         return $this->redirect(self::URL_LOGIN);
+    }
+
+    /**
+     * POST endpoint — called by the frontend ActivatePage.
+     * POST is never pre-fetched by email security scanners.
+     */
+    #[Route('/api/ManagerActivation/{token}', name: 'ManagerActivationPost', methods: ['POST'])]
+    public function activateManager(string $token, ManagerRepository $userRepo, EntityManagerInterface $entityManager): JsonResponse
+    {
+        if (strlen($token) !== self::TOKEN_LENGTH) {
+            return new JsonResponse(['error' => 'invalid_token'], Response::HTTP_NOT_FOUND);
+        }
+
+        $user = $userRepo->findOneBy(['token' => $token]);
+
+        if (! $user) {
+            return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($user->getTokenExpiration() !== null && $user->getTokenExpiration() < new DateTime()) {
+            $user->setToken(null)->setTokenExpiration(null);
+            $entityManager->flush();
+
+            return new JsonResponse(['error' => 'expired'], Response::HTTP_GONE);
+        }
+
+        $user->setToken(null)
+             ->setTokenExpiration(null)
+             ->setValidatedAt(new DateTime());
+
+        $entityManager->flush();
+
+        return new JsonResponse(['success' => true]);
     }
 
     #[Route('/api/resend-activation', name: 'resend_activation', methods: ['POST'])]
@@ -126,7 +200,7 @@ class TokenActivationController extends AbstractController
         $em->flush();
 
         if ($resident !== null) {
-            $link = $this->apiUrl . 'ResidentActivation/' . $token;
+            $link = rtrim($this->frontendUrl, '/') . '/activate/resident/' . $token;
         } else {
             // Manager invited via HospitalAdmin: must complete setup (set password) first
             $link = rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token;

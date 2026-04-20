@@ -92,16 +92,8 @@ security:
     - { path: ^/api/passwordResetWithToken, roles: PUBLIC_ACCESS }
     - { path: ^/api/contactUs, roles: PUBLIC_ACCESS }
     - { path: ^/api/resend-activation, roles: PUBLIC_ACCESS, methods: [POST] }
-    - {
-        path: ^/api/ManagerActivation,
-        roles: PUBLIC_ACCESS,
-        methods: [GET],
-      }
-    - {
-        path: ^/api/ResidentActivation,
-        roles: PUBLIC_ACCESS,
-        methods: [GET],
-      }
+    - { path: ^/api/ManagerActivation,  roles: PUBLIC_ACCESS, methods: [GET, POST] }
+    - { path: ^/api/ResidentActivation, roles: PUBLIC_ACCESS, methods: [GET, POST] }
     # users
     - { path: ^/api/fetchManagers, roles: ROLE_MANAGER }
     - { path: ^/api/managers, roles: ROLE_MANAGER }

@@ -1,7 +1,7 @@
 import type { ApiCall } from "./api.types";
 
 const calendarApi = {
-  dispacthWeek(yearId: string | number): ApiCall {
+  dispatchWeek(yearId: string | number): ApiCall {
     return {
       method: "put",
       url: `managers/residentWeeklySchedule/update/${yearId}`,

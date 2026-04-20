@@ -156,11 +156,15 @@ describe("ManagerSetupPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Activer/i }));
 
     await waitFor(() =>
-      expect(managerSetupApi.completeProfile).toHaveBeenCalledWith("validtoken", {
-        password: "Secure123",
-        sexe: "male",
-        job: "doctor",
-      })
+      expect(managerSetupApi.completeProfile).toHaveBeenCalledWith(
+        "validtoken",
+        {
+          password: "Secure123",
+          sexe: "male",
+          job: "doctor",
+        },
+        null  // avatarBlob — aucun avatar sélectionné
+      )
     );
   });
 

@@ -1007,6 +1007,57 @@ class HospitalAdminController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
+    /**
+     * Toggle can-create-year right for a manager linked to this hospital.
+     * PATCH /api/hospital-admin/managers/{managerId}/can-create-year
+     * Body: {"canCreateYear": true|false}
+     */
+    #[Route('/managers/{managerId}/can-create-year', name: 'hospital_admin_managers_can_create_year', methods: ['PATCH'])]
+    public function setCanCreateYear(
+        int $managerId,
+        Request $request,
+        ManagerRepository $managerRepository,
+        ManagerYearsRepository $managerYearsRepository,
+        EntityManagerInterface $em,
+    ): JsonResponse {
+        $hospital = $this->resolveHospital();
+        $manager  = $managerRepository->find($managerId);
+
+        if ($manager === null) {
+            return new JsonResponse(['message' => 'Manager introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Verify the manager is linked to this hospital
+        $linked = false;
+        foreach ($managerYearsRepository->findBy(['manager' => $manager]) as $my) {
+            if ($my->getYears()?->getHospital()?->getId() === $hospital->getId()) {
+                $linked = true;
+                break;
+            }
+        }
+
+        if (!$linked) {
+            return new JsonResponse(['message' => 'Ce manager n\'appartient pas à cet hôpital'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!is_array($data) || !isset($data['canCreateYear']) || !is_bool($data['canCreateYear'])) {
+            return new JsonResponse(['message' => 'canCreateYear (boolean) requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $manager->setCanCreateYear($data['canCreateYear']);
+
+        $actor = $this->getUser();
+        if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
+            $action = $data['canCreateYear'] ? 'grant_create_year' : 'revoke_create_year';
+            $this->auditService->log($actor, $hospital, $action, 'manager', $manager->getId(), sprintf('Droit "créer une année" %s pour %s %s', $data['canCreateYear'] ? 'accordé' : 'révoqué', $manager->getFirstname(), $manager->getLastname()));
+        }
+
+        $em->flush();
+
+        return new JsonResponse(['canCreateYear' => $manager->isCanCreateYear()]);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function resolveHospital(): Hospital
@@ -1167,16 +1218,17 @@ class HospitalAdminController extends AbstractController
     private function serializeManagerYears(ManagerYears $my, ?Years $year, ?Manager $manager): array
     {
         return [
-            'myId'      => $my->getId(),
-            'managerId' => $manager?->getId(),
-            'firstname' => $manager?->getFirstname(),
-            'lastname'  => $manager?->getLastname(),
-            'email'     => $manager?->getEmail(),
-            'avatarUrl' => $this->buildAvatarUrl($manager?->getAvatarPath()),
-            'job'       => $manager?->getJob(),
-            'yearId'    => $year?->getId(),
-            'yearTitle' => $year?->getTitle(),
-            'status'    => $this->computeManagerStatus($my),
+            'myId'          => $my->getId(),
+            'managerId'     => $manager?->getId(),
+            'firstname'     => $manager?->getFirstname(),
+            'lastname'      => $manager?->getLastname(),
+            'email'         => $manager?->getEmail(),
+            'avatarUrl'     => $this->buildAvatarUrl($manager?->getAvatarPath()),
+            'job'           => $manager?->getJob(),
+            'yearId'        => $year?->getId(),
+            'yearTitle'     => $year?->getTitle(),
+            'status'        => $this->computeManagerStatus($my),
+            'canCreateYear' => $manager?->isCanCreateYear() ?? false,
         ];
     }
 

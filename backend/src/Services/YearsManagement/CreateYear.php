@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\YearsManagement;
 
+use App\Entity\Hospital;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
 use App\Entity\Years;
@@ -42,7 +43,7 @@ class CreateYear
      * @param bool $isMaster Indicates whether the manager is the master of the year.
      *
      */
-    public function createYear(Manager $manager, string $title, string $speciality, string $comment, string $location, string $dateOfStart, string $dateOfEnd, string $period, bool $isMaster): void
+    public function createYear(Manager $manager, string $title, string $speciality, string $comment, string $location, string $dateOfStart, string $dateOfEnd, string $period, bool $isMaster, ?Hospital $hospital = null): void
     {
 
         // 1. Generate year token an check if uniq
@@ -76,15 +77,22 @@ class CreateYear
             $this->entityManager->persist($yearWeekInterval);
         }
 
+        // If a hospital is provided, use its name as location (overrides the passed $location)
+        $resolvedLocation = $hospital !== null ? $hospital->getName() : $location;
+
         $year->setCreatedAt($date)
             ->setToken($token)
             ->setTitle($title)
             ->setSpeciality($speciality)
             ->setComment($comment)
-            ->setLocation($location)
+            ->setLocation($resolvedLocation)
             ->setDateOfStart(new DateTime($dateOfStart, new DateTimeZone('Europe/Paris')))
             ->setDateOfEnd(new DateTime($dateOfEnd, new DateTimeZone('Europe/Paris')))
             ->setPeriod($period);
+
+        if ($hospital !== null) {
+            $year->setHospital($hospital);
+        }
 
         // 3. If the current user is the master of the year, take it's id as Year Master, else let it empty
         if ($isMaster) {

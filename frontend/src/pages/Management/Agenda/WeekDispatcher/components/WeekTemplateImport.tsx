@@ -24,18 +24,30 @@ import {
 import useWeekDispatcherContext from "../../../../../hooks/useWeekDispatcherContext";
 import { handleApiError } from "@/services/apiError";
 
-const WeekTemplateImport = ({ open, handleClose }) => {
+interface WeekTemplateItem {
+  id: number;
+  title: string;
+  weekTemplateId?: number;
+}
+
+const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose: () => void }) => {
   const axiosPrivate = useAxiosPrivate();
-  const [weekTemplates, setWeekTemplates] = useState([]);
+  const [weekTemplates, setWeekTemplates] = useState<WeekTemplateItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [haveNoWeekTemplates, setHaveNoWeekTemplates] = useState(false);
   const { setYears, years, currentYearId, yearWeekTemplates, setYearWeekTemplates } =
     useWeekDispatcherContext();
 
+  // Load available templates only when the dialog opens.
+  // yearWeekTemplates is intentionally not in deps — we snapshot it at open time.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (!open) return;
+
     const getManagerWeekTemplates = async () => {
       setIsLoading(true);
+      setSelectedItems([]);
       try {
         const { method, url } = weekTemplatesApi.getWeekTemplatesList();
         const request = await axiosPrivate[method](url);
@@ -43,31 +55,21 @@ const WeekTemplateImport = ({ open, handleClose }) => {
         if (request?.data?.length === 0) {
           setHaveNoWeekTemplates(true);
         }
-        // Firstly, we map the existing yearWeekTemplates to their weekTemplateIds.
-        // The weekTemplateId field in the yearWeekTemplates data corresponds to the id field in the request.data
-        const existingTemplateIds = yearWeekTemplates.map((template) => template.weekTemplateId);
 
-        // Next, we filter the received templates from request.data.
-        // For each template in the request.data, we check if its id is included in the existingTemplateIds array.
-        // If the id exists in the array, it means the template is already present in the yearWeekTemplates,
-        // so we exclude it from the final list by returning false in the filter function.
-        const filteredWeekTemplates = request?.data.filter(
-          (template) => !existingTemplateIds.includes(template.id)
+        const existingTemplateIds = yearWeekTemplates.map((t) => (t as any).weekTemplateId);
+        const filtered = request?.data.filter(
+          (template: WeekTemplateItem) => !existingTemplateIds.includes(template.id)
         );
-
-        // We then set the weekTemplates state with the filtered list.
-        // This state now only includes weekTemplates that are not already included in the current year's templates.
-        setWeekTemplates(filteredWeekTemplates);
+        setWeekTemplates(filtered ?? []);
       } catch (error) {
         handleApiError(error);
       } finally {
         setIsLoading(false);
-        handleClose();
       }
     };
+
     getManagerWeekTemplates();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearWeekTemplates, axiosPrivate]); // intentional: handleClose excluded — it's a prop callback, stable in practice
+  }, [open, axiosPrivate]); // yearWeekTemplates excluded intentionally — snapshot at open
 
   const handleSubmmit = async () => {
     setIsLoading(true);
@@ -81,13 +83,12 @@ const WeekTemplateImport = ({ open, handleClose }) => {
       const { method, url } = weekTemplatesApi.linkWeekTemplateToYear();
       const response = await axiosPrivate[method](url, data);
 
-      // If the request is successful, add the new entities to the yearWeekTemplates state.
-      setYearWeekTemplates((prevWeekTemplates) => [
-        ...prevWeekTemplates,
-        ...response.data, // response.data should contain the new entities
-      ]);
+      setYearWeekTemplates((prev) => [...prev, ...response.data]);
 
-      // Update yearWeekTemplates of years
+      // Remove imported templates from local list without re-fetching
+      setWeekTemplates((prev) => prev.filter((t) => !selectedItems.includes(t.id)));
+      setSelectedItems([]);
+
       updateYearWeekTemplates(response.data);
 
       toast.success("Importation réussie!", {
@@ -97,45 +98,42 @@ const WeekTemplateImport = ({ open, handleClose }) => {
         closeOnClick: true,
         pauseOnHover: false,
         draggable: true,
-        progress: undefined,
       });
     } catch (error) {
       handleApiError(error);
-      toast.error("Oupsune erreur c'est produite", {
+      toast.error("Oups, une erreur s'est produite.", {
         position: "bottom-center",
         autoClose: 4000,
         hideProgressBar: true,
         closeOnClick: true,
         pauseOnHover: false,
         draggable: true,
-        progress: undefined,
       });
-
-      // If the request fails, do nothing or handle the error accordingly.
     } finally {
       setIsLoading(false);
-      setSelectedItems([]); // Set selectedItems to an empty array here
     }
     handleClose();
   };
 
-  const updateYearWeekTemplates = (newTemplates) => {
-    const yearIndex = years.findIndex((year) => year.yearId === currentYearId);
+  const updateYearWeekTemplates = (newTemplates: unknown[]) => {
+    const yearIndex = years.findIndex((year) => (year as any).yearId === currentYearId);
+    if (yearIndex === -1) return;
+
     const newYearsState = [...years];
     newYearsState[yearIndex] = {
       ...newYearsState[yearIndex],
-      yearWeekTemplates: [...newYearsState[yearIndex].yearWeekTemplates, ...newTemplates],
-    };
+      yearWeekTemplates: [
+        ...((newYearsState[yearIndex] as any).yearWeekTemplates ?? []),
+        ...newTemplates,
+      ],
+    } as any;
     setYears(newYearsState);
   };
 
-  // Checkbox controller
-  const handleCheckboxChange = (itemId) => {
-    if (selectedItems.includes(itemId)) {
-      setSelectedItems(selectedItems.filter((id) => id !== itemId));
-    } else {
-      setSelectedItems([...selectedItems, itemId]);
-    }
+  const handleCheckboxChange = (itemId: number) => {
+    setSelectedItems((prev) =>
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
   };
 
   return (
@@ -144,9 +142,9 @@ const WeekTemplateImport = ({ open, handleClose }) => {
       <DialogContent sx={{ paddingLeft: 0, paddingRight: 0 }} dividers>
         {!isLoading && (
           <>
-            {weekTemplates?.length !== 0 && (
+            {weekTemplates.length !== 0 && (
               <List sx={{ width: "100%", marginLeft: 0 }}>
-                {weekTemplates?.map((item) => (
+                {weekTemplates.map((item) => (
                   <ListItem sx={{ paddingLeft: 0, paddingRight: 0 }} key={item.id}>
                     <ListItemButton onClick={() => handleCheckboxChange(item.id)}>
                       <ListItemIcon>
@@ -158,7 +156,7 @@ const WeekTemplateImport = ({ open, handleClose }) => {
                 ))}
               </List>
             )}
-            {weekTemplates?.length === 0 && (
+            {weekTemplates.length === 0 && (
               <Box padding={2} minHeight={"20vh"}>
                 <Alert severity="info">
                   {haveNoWeekTemplates ? (
@@ -185,10 +183,10 @@ const WeekTemplateImport = ({ open, handleClose }) => {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isLoading ? true : false}>
+        <Button onClick={handleClose} disabled={isLoading}>
           Annuler
         </Button>
-        <Button onClick={handleSubmmit} disabled={isLoading ? true : false}>
+        <Button onClick={handleSubmmit} disabled={isLoading || selectedItems.length === 0}>
           Importer
         </Button>
       </DialogActions>

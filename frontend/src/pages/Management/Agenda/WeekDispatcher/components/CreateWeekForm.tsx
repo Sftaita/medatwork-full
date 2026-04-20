@@ -47,18 +47,14 @@ const CreateWeekForm = ({ onCancel, _onSubmit }) => {
 
       const request = await axiosPrivate[method](url, newWeekType);
       setWeekTemplates([...weekTemplates, request.data]);
-
-      // If its the first weekTemplate, select it directly
-
       setSelectedWeekId(request.data.id);
+      onCancel();
     } catch (error) {
       handleApiError(error);
       toast.error("Oups! Une erreur c'est produite.", toastError);
     } finally {
       setIsLoading(false);
     }
-
-    onCancel();
   };
 
   return (

@@ -3,15 +3,28 @@ import weekTemplatesApi from "../../../../../services/weekTemplatesApi";
 import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 
-import Box from "@mui/material/Box";
+// Material UI
+import Grid from "@mui/material/Grid";
+import Card from "@mui/material/Card";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
+// Local compenents
 import TopBar from "./TopBar";
 import AddBloc from "./AddBloc";
 import TimelineBloc from "./TimelineBloc";
+import TimeSummaryBloc from "./TimeSummaryBloc";
+
+// General component
 import Loading from "../../../../../components/big/Loading";
 import { handleApiError } from "@/services/apiError";
 
 const WeekCreator = () => {
+  const theme = useTheme();
+  const isMd = useMediaQuery(theme.breakpoints.up("md"), {
+    defaultMatches: true,
+  });
+
   const axiosPrivate = useAxiosPrivate();
   const { setWeekTemplates, setSelectedWeekId } = useWeekShedulerContext();
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +36,9 @@ const WeekCreator = () => {
         const { method, url } = weekTemplatesApi.getWeekTemplatesList();
         const request = await axiosPrivate[method](url);
         setWeekTemplates(request?.data);
-        if (request?.data?.length > 0) {
+
+        // Select the first template if the array is not empty
+        if (request?.data && request?.data.length > 0) {
           setSelectedWeekId(request.data[0].id);
         }
       } catch (error) {
@@ -35,50 +50,36 @@ const WeekCreator = () => {
     getWeekTemplatesList();
   }, [axiosPrivate, setSelectedWeekId, setWeekTemplates]);
 
-  if (isLoading) return <Loading />;
-
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "82vh",
-        borderRadius: 2,
-        overflow: "hidden",
-        border: "1px solid",
-        borderColor: "divider",
-        backgroundColor: "background.paper",
-        boxShadow: 3,
-      }}
-    >
-      <TopBar />
-
-      <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Left: task form */}
-        <Box
-          sx={{
-            width: { xs: "100%", md: "28%" },
-            borderRight: "1px solid",
-            borderColor: "divider",
-            overflowY: "auto",
-            flexShrink: 0,
-          }}
-        >
-          <AddBloc />
-        </Box>
-
-        {/* Right: timeline */}
-        <Box
-          sx={{
-            flex: 1,
-            backgroundColor: "#F6F4FC",
-            overflowY: "auto",
-          }}
-        >
-          <TimelineBloc />
-        </Box>
-      </Box>
-    </Box>
+    <Grid container spacing={4}>
+      <Grid item xs={12} md={12}>
+        {isLoading && <Loading />}
+        {!isLoading && (
+          <Card sx={{ boxShadow: 3, height: "100%" }}>
+            <TopBar />
+            <Grid container direction={isMd ? "row" : "column"} sx={{ height: "100%" }}>
+              <Grid item md={3}>
+                <AddBloc />
+              </Grid>
+              <Grid
+                item
+                md={7}
+                sx={{
+                  backgroundColor: "#F6F4FC",
+                  height: !isMd ? "70vh" : "80vh",
+                  width: "100%",
+                }}
+              >
+                <TimelineBloc />
+              </Grid>
+              <Grid item md={2} padding={4} sx={{ height: !isMd && "100vh" }}>
+                <TimeSummaryBloc />
+              </Grid>
+            </Grid>
+          </Card>
+        )}
+      </Grid>
+    </Grid>
   );
 };
 

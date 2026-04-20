@@ -40,13 +40,17 @@ class ResidentWeeklyScheduleController extends AbstractController
         // Check the manager's rights
         if (! $this->authorizationChecker->isGranted(YearAccessVoter::MANAGE_AGENDA, $year)) {
             return new JsonResponse([
-                'message' => "Vous n'avez pas les droit recquis pour modifé l'agenda de cette année.",
-            ], 400);
+                'message' => "Vous n'avez pas les droits requis pour modifier l'agenda de cette année.",
+            ], Response::HTTP_FORBIDDEN);
         }
 
-        $this->updateResidentWeeklySchedule->performBulkUpdate($year, $dto->schedules);
+        try {
+            $this->updateResidentWeeklySchedule->performBulkUpdate($year, $dto->schedules);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
 
-        return new Response('Mise à jour réussi', Response::HTTP_OK);
+        return new Response('Mise à jour réussie', Response::HTTP_OK);
     }
 
 }
