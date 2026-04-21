@@ -4,18 +4,111 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import Drawer from "@mui/material/Drawer";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
 import CloseIcon from "@mui/icons-material/Close";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
+import Divider from "@mui/material/Divider";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext";
 import CreateWeekForm from "../../WeekDispatcher/components/CreateWeekForm";
 import UpdateWeekTemplates from "./UpdateWeekTemplate";
+
+// ── Tutorial steps ────────────────────────────────────────────────────────────
+const STEPS = [
+  {
+    emoji: "📋",
+    title: "Modèles de semaine",
+    text: "Chaque onglet en haut représente un modèle réutilisable (ex : « Semaine normale », « Semaine de garde »). Vous pouvez en créer autant que nécessaire et basculer entre eux en un clic.",
+  },
+  {
+    emoji: "➕",
+    title: "Créer un modèle",
+    text: "Cliquez sur le bouton + (en pointillés) pour créer un nouveau modèle. Donnez-lui un nom et une couleur, puis validez.",
+  },
+  {
+    emoji: "✏️",
+    title: "Renommer / modifier un modèle",
+    text: "Sélectionnez un modèle puis cliquez sur l'icône crayon qui apparaît à sa droite pour le renommer ou changer sa couleur.",
+  },
+  {
+    emoji: "📅",
+    title: "Naviguer par jour",
+    text: "Les boutons Lundi → Dimanche au centre permettent de changer de jour. Les tâches affichées dans la timeline correspondent au jour sélectionné.",
+  },
+  {
+    emoji: "⏱️",
+    title: "Ajouter une tâche",
+    text: "Dans le formulaire à gauche, saisissez un titre, une heure de début et une heure de fin, puis cliquez « Ajouter ». La tâche s'ajoute automatiquement au jour affiché.",
+  },
+  {
+    emoji: "🖊️",
+    title: "Modifier ou supprimer une tâche",
+    text: "Cliquez sur une tâche dans la timeline pour la charger dans le formulaire. Modifiez-la puis validez, ou cliquez sur l'icône 🗑️ pour la supprimer.",
+  },
+  {
+    emoji: "↔️",
+    title: "Glisser-déposer entre les jours",
+    text: "Faites glisser une tâche depuis la timeline et déposez-la sur un autre jour dans la barre de navigation pour la déplacer sans passer par le formulaire.",
+  },
+  {
+    emoji: "📊",
+    title: "Récapitulatif des heures",
+    text: "La colonne de droite affiche le total d'heures de chaque jour ainsi que le total hebdomadaire. La barre de progression en haut indique la charge par rapport à 72 h.",
+  },
+];
+
+const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <HelpOutlineIcon color="primary" />
+        <Typography variant="h6" component="span">
+          Comment utiliser le Créateur de semaine
+        </Typography>
+      </Box>
+      <IconButton size="small" onClick={onClose}>
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </DialogTitle>
+    <Divider />
+    <DialogContent sx={{ pt: 2 }}>
+      <Stack spacing={2.5}>
+        {STEPS.map((step, i) => (
+          <Box key={i} sx={{ display: "flex", gap: 1.5 }}>
+            <Typography sx={{ fontSize: "1.4rem", lineHeight: 1, mt: 0.25, flexShrink: 0 }}>
+              {step.emoji}
+            </Typography>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                {step.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {step.text}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Stack>
+    </DialogContent>
+    <Divider />
+    <DialogActions sx={{ px: 3, py: 1.5 }}>
+      <Button onClick={onClose} variant="contained" size="small">
+        Compris !
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
 
 const TOTAL_HOURS = 72;
 
@@ -25,7 +118,8 @@ const TopBar = () => {
   const { weekTemplates, selectedWeekId, setSelectedWeekId } = useWeekShedulerContext();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen]   = useState(false);
+  const [helpOpen, setHelpOpen]   = useState(false);
 
   const selectedWeek = weekTemplates.find((wt) => wt.id === selectedWeekId);
 
@@ -113,6 +207,13 @@ const TopBar = () => {
         </Tooltip>
       </Stack>
 
+      {/* Help button */}
+      <Tooltip title="Guide d'utilisation">
+        <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ flexShrink: 0 }}>
+          <HelpOutlineIcon fontSize="small" color="action" />
+        </IconButton>
+      </Tooltip>
+
       {/* Total hours — always pinned to the right */}
       {selectedWeek && (
         <Box sx={{ minWidth: 160, flexShrink: 0, pl: 1 }}>
@@ -139,6 +240,9 @@ const TopBar = () => {
           />
         </Box>
       )}
+
+      {/* Tutorial modal */}
+      <TutorialModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Drawers */}
       <Drawer
