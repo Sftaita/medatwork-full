@@ -41,7 +41,9 @@ use Symfony\Component\HttpFoundation\Request;
  * - POST /api/admin/hospitals/{id}/admins → invite → 201
  * - POST /api/admin/hospitals/{id}/admins → hospital not found → 404
  * - POST /api/admin/hospitals/{id}/admins → duplicate email → 200 silently
- * - GET /api/admin/users/managers → returns manager list
+ * - GET /api/admin/users/managers → returns manager list with validatedAt non-null
+ * - GET /api/admin/users/managers → validatedAt null renders as null
+ * - GET /api/admin/users/managers → list sorted by lastname
  */
 final class AdminControllerTest extends TestCase
 {
@@ -570,18 +572,43 @@ final class AdminControllerTest extends TestCase
 
     // ── Users list ────────────────────────────────────────────────────────────
 
+    /** Build a complete Manager mock — every field read by listManagers is explicitly stubbed. */
+    private function makeManagerForList(
+        int $id,
+        string $email,
+        string $firstname,
+        string $lastname,
+        \App\Enum\ManagerStatus $status,
+        ?\DateTimeInterface $validatedAt,
+        array $hospitals = [],
+    ): Manager {
+        $m = $this->createMock(Manager::class);
+        $m->method('getId')->willReturn($id);
+        $m->method('getEmail')->willReturn($email);
+        $m->method('getFirstname')->willReturn($firstname);
+        $m->method('getLastname')->willReturn($lastname);
+        $m->method('getStatus')->willReturn($status);
+        $m->method('getValidatedAt')->willReturn($validatedAt);
+        $m->method('getHospitals')->willReturn(
+            new \Doctrine\Common\Collections\ArrayCollection($hospitals)
+        );
+
+        return $m;
+    }
+
     public function testListManagersReturnsExpectedShape(): void
     {
         $hospital = $this->makeHospital(1, 'CHU Liège');
-        $hospitals = new \Doctrine\Common\Collections\ArrayCollection([$hospital]);
 
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getId')->willReturn(7);
-        $manager->method('getEmail')->willReturn('m@example.com');
-        $manager->method('getFirstname')->willReturn('Jean');
-        $manager->method('getLastname')->willReturn('Dupont');
-        $manager->method('getStatus')->willReturn(\App\Enum\ManagerStatus::Active);
-        $manager->method('getHospitals')->willReturn($hospitals);
+        $manager = $this->makeManagerForList(
+            id: 7,
+            email: 'm@example.com',
+            firstname: 'Jean',
+            lastname: 'Dupont',
+            status: \App\Enum\ManagerStatus::Active,
+            validatedAt: new \DateTime('2025-01-15 10:00:00'),
+            hospitals: [$hospital],
+        );
 
         $repo = $this->createMock(ManagerRepository::class);
         $repo->method('findAll')->willReturn([$manager]);
@@ -594,5 +621,48 @@ final class AdminControllerTest extends TestCase
         $this->assertSame(7, $data[0]['id']);
         $this->assertSame('active', $data[0]['status']);
         $this->assertCount(1, $data[0]['hospitals']);
+        $this->assertSame(1, $data[0]['hospitals'][0]['id']);
+        $this->assertSame('CHU Liège', $data[0]['hospitals'][0]['name']);
+        $this->assertStringStartsWith('2025-01-15', $data[0]['validatedAt']);
+    }
+
+    public function testListManagersNullValidatedAtRendersNull(): void
+    {
+        $manager = $this->makeManagerForList(
+            id: 8,
+            email: 'pending@example.com',
+            firstname: 'Alice',
+            lastname: 'Martin',
+            status: \App\Enum\ManagerStatus::PendingHospital,
+            validatedAt: null,
+        );
+
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('findAll')->willReturn([$manager]);
+
+        $response = $this->buildController()->listManagers($repo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertNull($data[0]['validatedAt']);
+        $this->assertSame('pending_hospital', $data[0]['status']);
+        $this->assertSame([], $data[0]['hospitals']);
+    }
+
+    public function testListManagersSortedByLastname(): void
+    {
+        $zeta  = $this->makeManagerForList(1, 'z@x.com', 'A', 'Zeta',  \App\Enum\ManagerStatus::Active, null);
+        $alpha = $this->makeManagerForList(2, 'a@x.com', 'B', 'Alpha', \App\Enum\ManagerStatus::Active, null);
+        $mu    = $this->makeManagerForList(3, 'm@x.com', 'C', 'Mu',    \App\Enum\ManagerStatus::Active, null);
+
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('findAll')->willReturn([$zeta, $alpha, $mu]); // deliberately unsorted
+
+        $response = $this->buildController()->listManagers($repo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame('Alpha', $data[0]['lastname']);
+        $this->assertSame('Mu',    $data[1]['lastname']);
+        $this->assertSame('Zeta',  $data[2]['lastname']);
     }
 }

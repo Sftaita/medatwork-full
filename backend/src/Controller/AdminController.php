@@ -18,6 +18,7 @@ use App\Enum\ManagerStatus;
 use App\Repository\HospitalAdminAuditLogRepository;
 use App\Repository\HospitalAdminRepository;
 use App\Repository\HospitalRepository;
+use App\Repository\HospitalRequestRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
 use App\Repository\YearsRepository;
