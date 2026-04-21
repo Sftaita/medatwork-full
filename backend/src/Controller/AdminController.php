@@ -629,6 +629,10 @@ class AdminController extends AbstractController
             return new JsonResponse(['message' => 'Manager not found'], Response::HTTP_NOT_FOUND);
         }
 
+        // Capture identity before deletion
+        $email     = $manager->getEmail();
+        $firstname = $manager->getFirstname();
+
         $conn = $em->getConnection();
 
         // Delete/nullify all FK references in dependency order before removing the manager.
@@ -644,6 +648,17 @@ class AdminController extends AbstractController
 
         $em->remove($manager);
         $em->flush();
+
+        try {
+            $this->mailer->sendEmail(
+                $email,
+                'Votre compte MED@WORK a été supprimé',
+                'email/managerAccountDeleted.html.twig',
+                ['firstname' => $firstname],
+            );
+        } catch (\Throwable) {
+            // Email failure must not block the deletion response
+        }
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

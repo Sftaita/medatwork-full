@@ -24,6 +24,8 @@ use Symfony\Component\DependencyInjection\Container;
  * - PATCH /api/admin/users/managers/{id}/status → not found → 404
  * - DELETE /api/admin/users/managers/{id} → 204 + calls DBAL executeStatement for all 7 cleanup queries
  * - DELETE /api/admin/users/managers/{id} → DBAL deletes manager_hospital join table (prevents ManyToMany FK)
+ * - DELETE /api/admin/users/managers/{id} → sends notification email to deleted manager
+ * - DELETE /api/admin/users/managers/{id} → email failure does not block deletion (204 returned)
  * - DELETE /api/admin/users/managers/{id} → not found → 404
  * - POST /api/admin/users/managers/{id}/reset-password → calls requestReset
  * - POST /api/admin/users/managers/{id}/reset-password → not found → 404
@@ -192,6 +194,42 @@ final class AdminManagerActionsTest extends TestCase
         }
 
         $this->assertTrue($joinTableDeleted, 'manager_hospital join table must be cleaned before manager deletion');
+    }
+
+    public function testDeleteManagerSendsNotificationEmail(): void
+    {
+        $manager = $this->makeManager(1, 'manager@chu.be', ManagerStatus::Active);
+
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('find')->willReturn($manager);
+
+        $this->mailer
+            ->expects($this->once())
+            ->method('sendEmail')
+            ->with(
+                'manager@chu.be',
+                $this->stringContains('supprimé'),
+                'email/managerAccountDeleted.html.twig',
+                $this->arrayHasKey('firstname'),
+            );
+
+        $this->buildController()->deleteManager(1, $repo, $this->em);
+    }
+
+    public function testDeleteManagerEmailFailureStillReturns204(): void
+    {
+        $manager = $this->makeManager(1, 'manager@chu.be', ManagerStatus::Active);
+
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('find')->willReturn($manager);
+
+        $this->mailer
+            ->method('sendEmail')
+            ->willThrowException(new \RuntimeException('SMTP down'));
+
+        $response = $this->buildController()->deleteManager(1, $repo, $this->em);
+
+        $this->assertSame(204, $response->getStatusCode());
     }
 
     public function testDeleteManagerNotFoundReturns404(): void
