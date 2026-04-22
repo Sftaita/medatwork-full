@@ -150,7 +150,7 @@ const TopBar = () => {
         borderColor: "divider",
         backgroundColor: "background.paper",
         flexShrink: 0,
-        overflow: "hidden",
+        minWidth: 0,
       }}
     >
       {/* Add button — always visible, pinned to the left */}
@@ -217,7 +217,7 @@ const TopBar = () => {
 
       {/* Total hours — always pinned to the right */}
       {selectedWeek && (
-        <Box sx={{ minWidth: 160, flexShrink: 0, pl: 1 }}>
+        <Box sx={{ width: 160, flexShrink: 0, pl: 1 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
             <Typography variant="caption" color="text.secondary">
               Semaine
