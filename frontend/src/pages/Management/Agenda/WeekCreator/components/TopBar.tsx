@@ -150,9 +150,21 @@ const TopBar = () => {
         borderColor: "divider",
         backgroundColor: "background.paper",
         flexShrink: 0,
-        minWidth: 0,
+        overflow: "hidden",
       }}
     >
+      {/* Add button — always visible, pinned to the left */}
+      <Tooltip title="Nouveau modèle de semaine">
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={() => setCreateOpen(true)}
+          sx={{ flexShrink: 0, border: "1px dashed", borderColor: "primary.main", borderRadius: 1, p: 0.25 }}
+        >
+          <AddIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+
       {/* Template chips — scrollable, takes all available space */}
       <Stack
         direction="row"
@@ -194,20 +206,9 @@ const TopBar = () => {
             </Box>
           );
         })}
-
-        <Tooltip title="Nouveau modèle de semaine">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => setCreateOpen(true)}
-            sx={{ border: "1px dashed", borderColor: "primary.main", borderRadius: 1, p: 0.25 }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
       </Stack>
 
-      {/* Help button */}
+      {/* Help button — always visible, pinned to the right of chips */}
       <Tooltip title="Guide d'utilisation">
         <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ flexShrink: 0 }}>
           <HelpOutlineIcon fontSize="small" color="action" />
