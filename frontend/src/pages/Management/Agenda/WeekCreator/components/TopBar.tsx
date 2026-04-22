@@ -153,7 +153,7 @@ const TopBar = () => {
         minWidth: 0,
       }}
     >
-      {/* Add button — always visible, pinned to the left */}
+      {/* Add button — always visible, pinned far left */}
       <Tooltip title="Nouveau modèle de semaine">
         <IconButton
           size="small"
@@ -165,50 +165,56 @@ const TopBar = () => {
         </IconButton>
       </Tooltip>
 
-      {/* Template chips — scrollable, takes all available space */}
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          alignItems: "center",
-          overflowX: "auto",
-          // hide scrollbar visually but keep scroll behaviour
-          scrollbarWidth: "none",
-          "&::-webkit-scrollbar": { display: "none" },
-        }}
-      >
-        {weekTemplates.map((wt) => {
-          const isSelected = wt.id === selectedWeekId;
-          const chipColor = wt.color || "#16b1ff";
-          return (
-            <Box key={wt.id} sx={{ display: "flex", alignItems: "center" }}>
-              <Chip
-                label={wt.title}
-                onClick={() => setSelectedWeekId(wt.id)}
-                size="small"
-                sx={{
-                  border: `1px solid ${chipColor}`,
-                  color: isSelected ? "#fff" : chipColor,
-                  backgroundColor: isSelected ? chipColor : "transparent",
-                  fontWeight: isSelected ? 700 : 400,
-                  "&:hover": { backgroundColor: isSelected ? chipColor : `${chipColor}22` },
-                }}
-              />
-              {isSelected && (
-                <Tooltip title="Modifier ce modèle">
-                  <IconButton size="small" onClick={() => setEditOpen(true)} sx={{ ml: 0.25 }}>
-                    <EditIcon sx={{ fontSize: 14, color: "text.secondary" }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          );
-        })}
-      </Stack>
+      {/*
+       * Scrollable chip zone.
+       * The wrapping Box is the flex item that takes remaining space (flex:1, minWidth:0).
+       * The inner Box is the actual scroll container (overflowX:auto).
+       * Each chip wrapper has flexShrink:0 so chips keep their natural width
+       * and force the inner box to overflow → triggering the scroll.
+       */}
+      <Box sx={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 0.5,
+            overflowX: "auto",
+            scrollbarWidth: "none",
+            "&::-webkit-scrollbar": { display: "none" },
+          }}
+        >
+          {weekTemplates.map((wt) => {
+            const isSelected = wt.id === selectedWeekId;
+            const chipColor = wt.color || "#16b1ff";
+            return (
+              <Box key={wt.id} sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                <Chip
+                  label={wt.title}
+                  onClick={() => setSelectedWeekId(wt.id)}
+                  size="small"
+                  sx={{
+                    border: `1px solid ${chipColor}`,
+                    color: isSelected ? "#fff" : chipColor,
+                    backgroundColor: isSelected ? chipColor : "transparent",
+                    fontWeight: isSelected ? 700 : 400,
+                    "&:hover": { backgroundColor: isSelected ? chipColor : `${chipColor}22` },
+                  }}
+                />
+                {isSelected && (
+                  <Tooltip title="Modifier ce modèle">
+                    <IconButton size="small" onClick={() => setEditOpen(true)} sx={{ ml: 0.25 }}>
+                      <EditIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
 
-      {/* Help button — always visible, pinned to the right of chips */}
+      {/* Help button — pinned right of chips */}
       <Tooltip title="Guide d'utilisation">
         <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ flexShrink: 0 }}>
           <HelpOutlineIcon fontSize="small" color="action" />
