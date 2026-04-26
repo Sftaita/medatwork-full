@@ -19,11 +19,106 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { TimeField } from "@mui/x-date-pickers/TimeField";
 import { Stack } from "@mui/system";
 import { Delete } from "@mui/icons-material";
+import Tooltip from "@mui/material/Tooltip";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Divider from "@mui/material/Divider";
+import CloseIcon from "@mui/icons-material/Close";
 
 // General components
 import { toastError } from "../../../../../doc/ToastParams";
 import { handleApiError } from "@/services/apiError";
 
+// ── Tutorial ──────────────────────────────────────────────────────────────────
+const STEPS = [
+  {
+    emoji: "📋",
+    title: "Modèles de semaine",
+    text: "Chaque onglet en haut représente un modèle réutilisable (ex : « Semaine normale », « Semaine de garde »). Vous pouvez en créer autant que nécessaire et basculer entre eux en un clic.",
+  },
+  {
+    emoji: "➕",
+    title: "Créer un modèle",
+    text: "Cliquez sur le bouton + (en pointillés) pour créer un nouveau modèle. Donnez-lui un nom et une couleur, puis validez.",
+  },
+  {
+    emoji: "✏️",
+    title: "Renommer / modifier un modèle",
+    text: "Sélectionnez un modèle puis cliquez sur l'icône crayon qui apparaît à sa droite pour le renommer ou changer sa couleur.",
+  },
+  {
+    emoji: "📅",
+    title: "Sélectionner un jour",
+    text: "Cliquez sur le nom d'un jour dans la timeline (colonne gauche) pour le cibler. La tâche ajoutée sera rattachée à ce jour.",
+  },
+  {
+    emoji: "⏱️",
+    title: "Ajouter une tâche",
+    text: "Saisissez un titre, une heure de début et une heure de fin, puis cliquez « Ajouter ». La tâche apparaît instantanément dans la timeline.",
+  },
+  {
+    emoji: "🖊️",
+    title: "Modifier ou supprimer une tâche",
+    text: "Cliquez sur une tâche dans la timeline pour la charger dans ce formulaire. Modifiez-la puis validez, ou cliquez sur l'icône 🗑️ pour la supprimer.",
+  },
+  {
+    emoji: "↔️",
+    title: "Glisser-déposer entre les jours",
+    text: "Faites glisser une tâche horizontalement et déposez-la sur la ligne d'un autre jour pour la déplacer sans passer par le formulaire.",
+  },
+  {
+    emoji: "📊",
+    title: "Récapitulatif des heures",
+    text: "La colonne de droite affiche le total d'heures de chaque jour ainsi que le total hebdomadaire. La barre de progression en haut indique la charge par rapport à 72 h.",
+  },
+];
+
+const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <HelpOutlineIcon color="primary" />
+        <Typography variant="h6" component="span">
+          Comment utiliser le Créateur de semaine
+        </Typography>
+      </Box>
+      <IconButton size="small" onClick={onClose}>
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </DialogTitle>
+    <Divider />
+    <DialogContent sx={{ pt: 2 }}>
+      <Stack spacing={2.5}>
+        {STEPS.map((step, i) => (
+          <Box key={i} sx={{ display: "flex", gap: 1.5 }}>
+            <Typography sx={{ fontSize: "1.4rem", lineHeight: 1, mt: 0.25, flexShrink: 0 }}>
+              {step.emoji}
+            </Typography>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                {step.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {step.text}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Stack>
+    </DialogContent>
+    <Divider />
+    <DialogActions sx={{ px: 3, py: 1.5 }}>
+      <Button onClick={onClose} variant="contained" size="small">
+        Compris !
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
+// ── Form ──────────────────────────────────────────────────────────────────────
 const INITIAL_FORM = {
   title: "",
   description: "",
@@ -50,6 +145,7 @@ const WeekTaskForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({ ...INITIAL_FORM });
   const [serverError, setServerError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setServerError(null);
@@ -334,7 +430,7 @@ const WeekTaskForm = () => {
                   direction="row"
                   justifyContent="flex-start"
                   alignItems="center"
-                  spacing={2}
+                  spacing={1}
                 >
                   <LoadingButton
                     type="submit"
@@ -356,12 +452,19 @@ const WeekTaskForm = () => {
                       </IconButton>
                     </>
                   )}
+
+                  <Tooltip title="Guide d'utilisation">
+                    <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ ml: "auto !important" }}>
+                      <HelpOutlineIcon fontSize="small" color="action" />
+                    </IconButton>
+                  </Tooltip>
                 </Stack>
               </Grid>
             </Grid>
           </form>
         </Box>
       </Grid>
+      <TutorialModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </LocalizationProvider>
   );
 };

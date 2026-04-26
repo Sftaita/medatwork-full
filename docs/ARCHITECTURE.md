@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-20 (session 19)
+**Dernière mise à jour :** 2026-04-26 (session 20)
 
 ## Vue d'Ensemble
 
@@ -918,41 +918,66 @@ WeekCreatorPage
 └── Card
     ├── TopBar                     ← chips templates + progression heures
     └── Grid container (3 colonnes)
-        ├── AddBloc (md=3)         ← formulaire ajout/édition tâche
-        ├── TimelineBloc (md=7)    ← sélecteur jour + timeline visuelle
-        └── TimeSummaryBloc (md=2) ← cercle heures + barres par jour
+        ├── AddBloc (xs=12, md=3)  ← formulaire ajout/édition tâche + bouton ?
+        ├── TimelineBloc (xs=12, md=6) ← VisualTimeline horizontale (tous les jours)
+        └── TimeSummaryBloc (xs=12, md=3) ← cercle heures + barres par jour
 ```
 
 La `TopBar` est positionnée en haut de la `Card`, avant le Grid 3 colonnes.
 
 #### TopBar
 
-- **Chips** : un chip par template, couleur personnalisée, scroll horizontal invisible si trop nombreux — le compteur d'heures reste toujours visible à droite (`flexShrink: 0`)
+- Layout **CSS Grid** (4 colonnes : `auto 1fr auto 160px`) — plus stable que flexbox pour aligner les éléments de longueurs variables
+- **Bouton `+`** (col 1) : toujours visible, ouvre le drawer `CreateWeekForm`
+- **Zone chips scrollable** (col 2, `1fr`) : un chip par template, couleur personnalisée, scroll horizontal masqué
 - **Icône ✏️** : s'affiche sur le chip sélectionné → ouvre le drawer `UpdateWeekTemplate`
-- **Bouton `+`** : ouvre le drawer `CreateWeekForm`
-- **Barre de progression** : `{X}h / 72h` avec `LinearProgress`, rouge si ≥ 100 %
+- **Barre de progression** (col 4, 160 px) : `{X}h / 72h` avec `LinearProgress`, rouge si ≥ 100 % — masquée si aucun template sélectionné (colonne à `0px`)
+- **Bouton `?`** supprimé de la TopBar → déplacé dans `WeekTaskForm`
 
 #### TimelineBloc
 
-- Day selector **sticky** (reste visible au scroll de la timeline)
-- Drag & drop natif HTML5 (`draggable` / `onDragStart` / `onDrop`) — `DRAG_TASK_KEY = "application/week-task-id"` partagé avec `VisualTimeline`
-- Optimistic update + revert sur erreur pour les déplacements de tâche entre jours
+- Délègue entièrement le sélecteur de jour et le drag & drop à `VisualTimeline`
+- Reçoit `selectedWeek.weekTaskList` (toutes les tâches, non filtrées par jour) et passe `selectedWeekDay` / `setSelectedWeekDay` / `handleDropToDay` via props
+- Affiche un message vide si aucun template n'est sélectionné (`selectedWeek === undefined`)
+- Optimistic update + revert sur erreur pour les déplacements de tâche entre jours (`handleDropToDay`)
 
 #### VisualTimeline
 
-Timeline positionnée absolument, 06:00–23:00, `PX_PER_MIN = 1.2` (1 224 px total). Les `TaskBlock` sont `draggable`, cliquables pour ouvrir le formulaire d'édition.
+Timeline **horizontale** : le temps est l'axe X (06:00 → 23:00), les 7 jours sont des lignes.
+
+```
+┌──────────┬─────────────────────────────────────────────┬────────┐
+│          │  06h  07h  08h ···  18h ···  23h            │ Total  │
+│  Lundi   │       [Tâche A────────]                     │  8h    │
+│  Mardi   │             [Tâche B──]  [Tâche C─]         │  6h30  │
+│  ...     │                                             │  ...   │
+│ Dimanche │                                             │   —    │
+└──────────┴─────────────────────────────────────────────┴────────┘
+```
+
+**Trois zones :**
+- **Colonne gauche** (`LABEL_WIDTH = 76px`, sticky) : noms des jours, cliquables (`onDaySelect`). Le jour sélectionné est mis en évidence avec la couleur du template.
+- **Zone scrollable** : canvas de largeur fixe (`totalWidth`). La fenêtre 8h–18h occupe exactement la largeur visible à l'ouverture (`pxPerMin` mesuré via `useLayoutEffect`). La valeur de repli `FALLBACK_PPM = 1.5` est utilisée en tests (jsdom `clientWidth = 0`).
+- **Colonne droite** (`HOURS_WIDTH = 52px`, sticky) : total d'heures par jour + total semaine.
+
+**Indicateur "maintenant"** : ligne rouge verticale + label heure, mise à jour toutes les minutes (`setInterval 60 s`).
+
+**Drag & drop** : `DRAG_TASK_KEY = "application/week-task-id"` partagé entre `HTaskBlock` et les rows. Déposer sur n'importe quelle ligne déclenche `onDropToDay(taskId, newDay)`. Le highlight de survol est géré par `dragOverDay` state avec garde `contains(relatedTarget)` pour éviter les faux `onDragLeave`.
+
+**Clamping des tâches hors-plage** : `clampedStart = max(startMin, START_MINUTES)`, `clampedEnd = min(endMin, END_HOUR * 60)` — la position et la largeur sont calculées sur la durée clampée pour éviter tout débordement.
 
 #### WeekTaskForm
 
-- `AdapterDayjs` (plus `AdapterMoment`) — compatible avec l'environnement Docker
+- `AdapterDayjs` — compatible avec l'environnement Docker
 - `serverError` state : affiche un `<Alert severity="error">` sur erreur 400 backend
 - Submit désactivé si `title.trim() === ""`
+- **Bouton `?`** (icône `HelpOutlineIcon`) en bas du formulaire → ouvre `TutorialModal` (déplacé ici depuis `TopBar`)
 
-#### Tests (16/16 passing — Vitest)
+#### Tests (Vitest)
 
 | Fichier | Tests |
 |---------|-------|
-| `VisualTimeline.test.tsx` | État vide, affichage titres, positionnement px |
+| `VisualTimeline.test.tsx` | 7 labels de jour, titres tâches, positionnement `left` (FALLBACK_PPM), tâche jour 3, état vide |
 | `WeekTaskForm.test.tsx` | Submit disabled/enabled, alert erreur serveur, annuler reset |
 | `WeekTemplatesList.test.tsx` | Titres, variant contained, barres couleur, clic handler |
 | `HoursCircle.test.tsx` | Label présent, cap à 100 % pour 80h |

@@ -58,7 +58,7 @@ const HoursCircle = ({ hours, minutes }) => {
   const label60Y = 50 - radius * Math.cos((angle60 + 90) * (Math.PI / 180));
 
   return (
-    <Box padding={isMd ? 4 : 10}>
+    <Box padding={isMd ? 2 : 4}>
       <Container>
         <CircleWrapper>
           <PositionedCircle

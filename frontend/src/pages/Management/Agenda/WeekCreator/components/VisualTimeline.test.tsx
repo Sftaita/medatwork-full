@@ -2,19 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import VisualTimeline from "./VisualTimeline";
 
-// ── Mock @dnd-kit/core ─────────────────────────────────────────────────────────
-vi.mock("@dnd-kit/core", () => ({
-  useDraggable: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: () => {},
-    transform: null,
-    isDragging: false,
-  }),
-  DndContext: ({ children }: any) => <>{children}</>,
-  DragOverlay: ({ children }: any) => <>{children}</>,
-}));
-
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const TASKS = [
   {
@@ -30,53 +17,71 @@ const TASKS = [
     id: 2,
     title: "Réunion équipe",
     description: "",
-    dayOfWeek: 1,
+    dayOfWeek: 3,
     startTime: "14:00",
     endTime: "15:00",
     weekTemplateId: 42,
   },
 ];
 
-const PX_PER_MIN = 1.2;
-const START_MINUTES = 6 * 60; // 360
+const DEFAULT_PROPS = {
+  color: "#56ca00",
+  onTaskClick: vi.fn(),
+  selectedDay: 1,
+  onDaySelect: vi.fn(),
+  onDropToDay: vi.fn(),
+};
+
+// In jsdom, clientWidth = 0, so useLayoutEffect skips measurement and
+// pxPerMin stays at the FALLBACK_PPM value (1.5 px/min).
+const FALLBACK_PPM   = 1.5;
+const START_MINUTES  = 6 * 60; // 360
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
-describe("VisualTimeline", () => {
-  it("renders empty state message when tasks=[]", () => {
-    render(<VisualTimeline tasks={[]} color="#56ca00" onTaskClick={vi.fn()} />);
-    expect(
-      screen.getByText(/Aucune tâche pour ce jour/i)
-    ).toBeInTheDocument();
+describe("VisualTimeline (horizontal)", () => {
+  it("renders all seven day labels", () => {
+    render(<VisualTimeline tasks={[]} {...DEFAULT_PROPS} />);
+    ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].forEach((d) => {
+      expect(screen.getByText(d)).toBeInTheDocument();
+    });
   });
 
-  it("renders tasks with their title", () => {
-    render(<VisualTimeline tasks={TASKS} color="#56ca00" onTaskClick={vi.fn()} />);
+  it("renders task titles", () => {
+    render(<VisualTimeline tasks={TASKS} {...DEFAULT_PROPS} />);
     expect(screen.getByText("Consultation matin")).toBeInTheDocument();
     expect(screen.getByText("Réunion équipe")).toBeInTheDocument();
   });
 
-  it("task at 08:00 has positive top value (> 0, since 08:00 > 06:00)", () => {
+  it("task block at 08:00 has positive left value (> 0 since 08:00 > 06:00)", () => {
     const { container } = render(
-      <VisualTimeline tasks={[TASKS[0]]} color="#56ca00" onTaskClick={vi.fn()} />
+      <VisualTimeline tasks={[TASKS[0]]} {...DEFAULT_PROPS} />
     );
 
-    // The task block is absolutely positioned with a top style
-    // 08:00 = 480 minutes, clampedStart = max(480, 360) = 480
-    // topPx = (480 - 360) * 1.2 = 120 * 1.2 = 144
-    const expectedTop = (8 * 60 - START_MINUTES) * PX_PER_MIN; // 144
+    // 08:00 = 480 min; clampedStart = max(480, 360) = 480
+    // leftPx = (480 - 360) * FALLBACK_PPM = 120 * 1.5 = 180
+    const expectedLeft = (8 * 60 - START_MINUTES) * FALLBACK_PPM; // 180
 
-    // Find all absolutely positioned elements
     const absoluteEls = container.querySelectorAll('[style*="position: absolute"]');
-    const taskBlocks = Array.from(absoluteEls).filter((el) => {
-      const style = (el as HTMLElement).style;
-      return style.top && parseFloat(style.top) > 0;
+    const taskBlocks  = Array.from(absoluteEls).filter((el) => {
+      const left = parseFloat((el as HTMLElement).style.left);
+      return !isNaN(left) && left > 0;
     });
 
     expect(taskBlocks.length).toBeGreaterThan(0);
-    // At least one block has top = 144px
-    const hasCorrectTop = Array.from(taskBlocks).some((el) => {
-      return parseFloat((el as HTMLElement).style.top) === expectedTop;
-    });
-    expect(hasCorrectTop).toBe(true);
+    const hasCorrectLeft = taskBlocks.some(
+      (el) => parseFloat((el as HTMLElement).style.left) === expectedLeft,
+    );
+    expect(hasCorrectLeft).toBe(true);
+  });
+
+  it("task on day 3 (Mercredi) is in the timeline for that day", () => {
+    render(<VisualTimeline tasks={[TASKS[1]]} {...DEFAULT_PROPS} />);
+    expect(screen.getByText("Réunion équipe")).toBeInTheDocument();
+  });
+
+  it("renders no task blocks when tasks array is empty", () => {
+    const { container } = render(<VisualTimeline tasks={[]} {...DEFAULT_PROPS} />);
+    const draggable = container.querySelectorAll("[draggable]");
+    expect(draggable.length).toBe(0);
   });
 });

@@ -55,24 +55,16 @@ const WeekCreator = () => {
       <Grid item xs={12} md={12}>
         {isLoading && <Loading />}
         {!isLoading && (
-          <Card sx={{ boxShadow: 3, height: "100%" }}>
+          <Card sx={{ boxShadow: 3 }}>
             <TopBar />
-            <Grid container direction={isMd ? "row" : "column"} sx={{ height: "100%" }}>
-              <Grid item md={3}>
+            <Grid container direction={isMd ? "row" : "column"}>
+              <Grid item xs={12} md={3}>
                 <AddBloc />
               </Grid>
-              <Grid
-                item
-                md={7}
-                sx={{
-                  backgroundColor: "#F6F4FC",
-                  height: !isMd ? "70vh" : "80vh",
-                  width: "100%",
-                }}
-              >
+              <Grid item xs={12} md={6} sx={{ width: "100%" }}>
                 <TimelineBloc />
               </Grid>
-              <Grid item md={2} padding={4} sx={{ height: !isMd && "100vh" }}>
+              <Grid item xs={12} md={3} sx={{ p: 2 }}>
                 <TimeSummaryBloc />
               </Grid>
             </Grid>
