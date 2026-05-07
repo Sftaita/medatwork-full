@@ -93,6 +93,7 @@ security:
     - { path: ^/api/create, roles: PUBLIC_ACCESS }
     - { path: ^/api/passwordReset, roles: PUBLIC_ACCESS }
     - { path: ^/api/passwordResetWithToken, roles: PUBLIC_ACCESS }
+    - { path: ^/api/version, roles: PUBLIC_ACCESS }
     - { path: ^/api/contactUs, roles: PUBLIC_ACCESS }
     - { path: ^/api/resend-activation, roles: PUBLIC_ACCESS, methods: [POST] }
     - { path: ^/api/ManagerActivation,  roles: PUBLIC_ACCESS, methods: [GET, POST] }
