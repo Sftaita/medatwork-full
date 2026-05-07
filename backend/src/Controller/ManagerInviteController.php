@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\NotificationManager;
+use App\Enum\ManagerJob;
 use App\Enum\Sexe;
+use App\Repository\HospitalAdminRepository;
 use App\Repository\ManagerRepository;
 use App\Services\AvatarUploadHelper;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +25,12 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/managers')]
 class ManagerInviteController extends AbstractController
 {
+    public function __construct(
+        private readonly MailerController $mailer,
+        private readonly string $frontendUrl,
+    ) {
+    }
+
     private function renderPage(string $title, string $message, string $color = '#a439b6'): string
     {
         return <<<HTML
@@ -73,7 +82,7 @@ class ManagerInviteController extends AbstractController
             return new JsonResponse(['message' => 'Ce lien a déjà été utilisé'], Response::HTTP_GONE);
         }
 
-        if ($manager->getTokenExpiration() < new \DateTime()) {
+        if ($manager->getTokenExpiration() === null || $manager->getTokenExpiration() < new \DateTime()) {
             return new JsonResponse(['message' => 'Ce lien a expiré'], Response::HTTP_GONE);
         }
 
@@ -120,7 +129,7 @@ class ManagerInviteController extends AbstractController
             return new JsonResponse(['message' => 'Ce lien a déjà été utilisé'], Response::HTTP_GONE);
         }
 
-        if ($manager->getTokenExpiration() < new \DateTime()) {
+        if ($manager->getTokenExpiration() === null || $manager->getTokenExpiration() < new \DateTime()) {
             return new JsonResponse(['message' => 'Ce lien a expiré'], Response::HTTP_GONE);
         }
 
@@ -137,7 +146,7 @@ class ManagerInviteController extends AbstractController
 
         $password = trim((string) ($data['password'] ?? ''));
         $sexeVal  = trim((string) ($data['sexe'] ?? ''));
-        $job      = trim((string) ($data['job'] ?? ''));
+        $jobVal   = trim((string) ($data['job'] ?? ''));
 
         if (strlen($password) < 8) {
             return new JsonResponse(['message' => 'Le mot de passe doit contenir au moins 8 caractères'], Response::HTTP_BAD_REQUEST);
@@ -148,8 +157,10 @@ class ManagerInviteController extends AbstractController
             return new JsonResponse(['message' => 'Sexe invalide (male ou female)'], Response::HTTP_BAD_REQUEST);
         }
 
-        if ($job === '') {
-            return new JsonResponse(['message' => 'Titre / fonction obligatoire'], Response::HTTP_BAD_REQUEST);
+        $job = ManagerJob::tryFrom($jobVal);
+        if ($job === null) {
+            $valid = implode(', ', array_column(ManagerJob::cases(), 'value'));
+            return new JsonResponse(['message' => "Fonction invalide. Valeurs acceptées : $valid"], Response::HTTP_BAD_REQUEST);
         }
 
         $manager
@@ -163,6 +174,11 @@ class ManagerInviteController extends AbstractController
         foreach ($manager->getManagerYears() as $my) {
             if ($my->getInvitedAt() !== null) {
                 $my->setInvitedAt(null);
+            }
+            // Ajouter le manager à l'hôpital de chaque année (source de vérité pour auto-ajout futur)
+            $hospital = $my->getYears()?->getHospital();
+            if ($hospital !== null && !$manager->getHospitals()->contains($hospital)) {
+                $manager->addHospital($hospital);
             }
         }
 
@@ -204,6 +220,11 @@ class ManagerInviteController extends AbstractController
             if ($my->getInvitedAt() !== null) {
                 $my->setInvitedAt(null);
             }
+            // Lier le manager à l'hôpital pour que les prochaines années l'auto-ajoutent
+            $hospital = $my->getYears()?->getHospital();
+            if ($hospital !== null && !$manager->getHospitals()->contains($hospital)) {
+                $manager->addHospital($hospital);
+            }
         }
 
         $manager->setToken(null)->setTokenExpiration(null);
@@ -221,8 +242,12 @@ class ManagerInviteController extends AbstractController
      * Refuse a year invitation. Returns HTML.
      */
     #[Route('/refuse-year/{token}', name: 'manager_refuse_year', methods: ['GET'])]
-    public function refuseYearInvite(string $token, ManagerRepository $repo, EntityManagerInterface $em): Response
-    {
+    public function refuseYearInvite(
+        string $token,
+        ManagerRepository $repo,
+        HospitalAdminRepository $hospitalAdminRepo,
+        EntityManagerInterface $em,
+    ): Response {
         $manager = $repo->findOneBy(['token' => $token]);
 
         if ($manager === null || $manager->getTokenExpiration() === null || $manager->getTokenExpiration() < new \DateTime()) {
@@ -238,7 +263,16 @@ class ManagerInviteController extends AbstractController
         $pendingYrs = array_filter($allYrs, fn ($my) => $my->getInvitedAt() !== null);
         $activeYrs  = array_filter($allYrs, fn ($my) => $my->getInvitedAt() === null);
 
+        // Collect info for admin notifications before removing the pending years
+        $refusedSummary = [];
         foreach ($pendingYrs as $my) {
+            $hospital = $my->getYears()?->getHospital();
+            if ($hospital !== null) {
+                $refusedSummary[] = [
+                    'hospital'  => $hospital,
+                    'yearTitle' => $my->getYears()?->getTitle() ?? '—',
+                ];
+            }
             $em->remove($my);
         }
 
@@ -246,6 +280,66 @@ class ManagerInviteController extends AbstractController
             $em->remove($manager);
         } else {
             $manager->setToken(null)->setTokenExpiration(null);
+        }
+
+        $em->flush();
+
+        // Notify hospital admins for each refused year
+        $managerName = trim(($manager->getFirstname() ?? '') . ' ' . ($manager->getLastname() ?? ''));
+        foreach ($refusedSummary as ['hospital' => $hospital, 'yearTitle' => $yearTitle]) {
+            $subject = sprintf('%s a refusé l\'invitation à l\'année "%s"', $managerName, $yearTitle);
+            $body    = sprintf(
+                '%s a refusé votre invitation à rejoindre l\'année "%s" de l\'hôpital %s.',
+                $managerName,
+                $yearTitle,
+                $hospital->getName(),
+            );
+
+            // Notify HospitalAdmin entities (email only — no in-app for HospitalAdmin entity)
+            foreach ($hospitalAdminRepo->findBy(['hospital' => $hospital]) as $ha) {
+                try {
+                    $this->mailer->sendEmail(
+                        $ha->getEmail(),
+                        $subject,
+                        'email/managerRefusedYear.html.twig',
+                        [
+                            'adminFirstname' => $ha->getFirstname() ?? '',
+                            'managerName'    => $managerName,
+                            'yearTitle'      => $yearTitle,
+                            'hospitalName'   => $hospital->getName(),
+                        ],
+                    );
+                } catch (\Throwable) { /* email non bloquant */ }
+            }
+
+            // Notify Manager-type hospital admins (email + in-app notification)
+            foreach ($hospital->getManagers() as $adminManager) {
+                if ($adminManager->getAdminHospital()?->getId() !== $hospital->getId()) {
+                    continue;
+                }
+                try {
+                    $this->mailer->sendEmail(
+                        $adminManager->getEmail(),
+                        $subject,
+                        'email/managerRefusedYear.html.twig',
+                        [
+                            'adminFirstname' => $adminManager->getFirstname() ?? '',
+                            'managerName'    => $managerName,
+                            'yearTitle'      => $yearTitle,
+                            'hospitalName'   => $hospital->getName(),
+                        ],
+                    );
+                } catch (\Throwable) { /* email non bloquant */ }
+
+                $notif = (new NotificationManager())
+                    ->setManager($adminManager)
+                    ->setObject('Invitation refusée')
+                    ->setBody($body)
+                    ->setType('invitation_refused')
+                    ->setCreatedAt(new \DateTime())
+                    ->setIsRead(false);
+                $em->persist($notif);
+            }
         }
 
         $em->flush();

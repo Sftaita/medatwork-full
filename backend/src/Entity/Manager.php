@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\ManagerJob;
 use App\Enum\ManagerStatus;
 use App\Enum\Sexe;
 use App\Repository\ManagerRepository;
@@ -87,10 +88,8 @@ class Manager implements UserInterface, PasswordAuthenticatedUserInterface
 
 
 
-    #[ORM\Column(type: 'string', length: 255)]
-    #[Assert\Length(max: 100, maxMessage: 'job doit être renseigné')]
-    #[Assert\Type(type: 'string', message: 'Le job doit être une chaîne de caractères')]
-    private string $job;
+    #[ORM\Column(enumType: ManagerJob::class, nullable: true)]
+    private ?ManagerJob $job = null;
 
 
 
@@ -371,12 +370,12 @@ class Manager implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getJob(): ?string
+    public function getJob(): ?ManagerJob
     {
         return $this->job;
     }
 
-    public function setJob(string $job): self
+    public function setJob(?ManagerJob $job): self
     {
         $this->job = $job;
 

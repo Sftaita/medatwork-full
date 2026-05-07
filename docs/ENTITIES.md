@@ -2,11 +2,34 @@
 
 ## Vue d'Ensemble
 
-25 entités Doctrine organisées autour de deux acteurs principaux (**Manager** et **Resident**), liés par une **Year** (année académique), elle-même rattachée à un **Hospital**.
+26 entités Doctrine organisées autour de deux acteurs principaux (**Manager** et **Resident**), liés par une **Year** (année académique), elle-même rattachée à un **Hospital**.
 
 **Nouvelles entités Sprint 1 (2026-04-02) :** `Hospital`, `AppAdmin`, `HospitalAdmin`, `HospitalRequest`.
 
 **Nouvelles entités Sprint 2 (2026-04-07) :** `CommunicationMessage`, `CommunicationMessageRead`.
+
+**Nouvelles entités Sprint 3 (2026-05-06) :** `StaffPlannerMonthStatus`.
+
+---
+
+## StaffPlannerMonthStatus
+
+Trace les exports Staff Planner par mois calendaire d'une année académique.
+
+| Champ | Type | Description |
+|---|---|---|
+| `year` | FK → Years | Année académique concernée |
+| `month` | smallint (1–12) | Mois calendaire |
+| `calendarYear` | smallint | Année calendaire (ex. 2024) |
+| `treated` | bool | Export réalisé ? |
+| `treatedAt` | datetime? | Quand le dernier export a eu lieu |
+| `treatedBy` | FK → Manager? | Qui a généré l'export |
+| `lastGeneratedAt` | datetime? | Dernier appel à SPImport pour ce mois |
+| `downloadCount` | int | Nombre total de générations |
+
+**Contrainte unique :** `(year_id, month, calendar_year)` — un seul statut par mois/année.
+
+**Flux :** `POST /api/managers/SPImport` → génère le fichier .txt → appelle automatiquement `StaffPlannerMonthsService::markMonthsAsTreatedAfterGeneration()` → crée/met à jour les `StaffPlannerMonthStatus`.
 
 ---
 
@@ -71,13 +94,26 @@ Représente un médecin responsable de stage.
 | `receiveComplianceEmails` | bool | Alertes conformité par email |
 
 **Relations :**
-- `hospitals` (ManyToMany → `Hospital`, pivot `manager_hospital`)
+- `hospitals` (ManyToMany → `Hospital`, pivot `manager_hospital`) — **source de vérité** pour l'appartenance d'un manager à un hôpital. Un manager dans `getHospitals()` est ajouté automatiquement aux années de cet hôpital sans invitation. Peuplé à 4 moments : auto-inscription, promotion admin, setup profil après invitation, acceptation d'invitation d'année.
 - `managerYears` (OneToMany → `ManagerYears`)
-- `notificationManagers` (OneToMany → `NotificationManager`)
+- `notificationManagers` (OneToMany → `NotificationManager`, orphanRemoval)
+- `adminHospital` (ManyToOne → `Hospital`, nullable) — hôpital dont ce manager est l'administrateur RH
 
 **Enum `ManagerStatus` :**
 - `active` — compte actif et lié à au moins un hôpital
 - `pending_hospital` — en attente d'approbation de la demande d'hôpital → connexion bloquée
+
+**Statut UI en fonction des champs :**
+| `ManagerYears.invitedAt` | `token` | `validatedAt` | Chip dashboard |
+|---|---|---|---|
+| `!= null` | `!= null` | `null` | 🟡 Compte non activé |
+| `!= null` | `!= null` | `!= null` | 🔵 Invitation non acceptée |
+| `null` | `!= null` | `null` | 🟡 Compte non activé (auto-ajouté) |
+| `null` | `null` | `!= null` | ✅ Actif |
+
+**Actions de suppression (sémantiques différentes) :**
+- **Retirer de l'année** (`DELETE /api/hospital-admin/manager-years/{myId}`) → supprime uniquement `ManagerYears`. Le lien `manager_hospital` et les autres attributions restent intacts.
+- **Supprimer de l'hôpital** (`DELETE /api/hospital-admin/managers/{managerId}`) → supprime tous les `ManagerYears` liés aux années de cet hôpital ET le lien `manager_hospital`. Le `Manager` entity est soft-deleté s'il n'a plus aucune autre appartenance.
 
 ---
 

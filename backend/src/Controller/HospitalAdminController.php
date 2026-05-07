@@ -10,6 +10,7 @@ use App\Entity\HospitalAdmin;
 use App\Entity\HospitalAdminAuditLog;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
+use App\Entity\NotificationManager;
 use App\Entity\Resident;
 use App\Entity\Years;
 use App\Entity\YearsResident;
@@ -795,9 +796,10 @@ class HospitalAdminController extends AbstractController
         $isNew   = $manager === null;
 
         if (!$isNew && $managerYearsRepository->checkRelation($manager, $year)) {
-            return new JsonResponse(['message' => 'Ce manager est déjà rattaché à cette année'], Response::HTTP_CONFLICT);
+            return new JsonResponse(['message' => 'Ce manager est déjà associé à cette année.'], Response::HTTP_CONFLICT);
         }
 
+        // ── Nouveau manager (pas de compte) ──────────────────────────────────
         if ($isNew) {
             $manager = (new Manager())
                 ->setEmail($email)
@@ -805,31 +807,20 @@ class HospitalAdminController extends AbstractController
                 ->setLastname($lastname)
                 ->setRole('manager')
                 ->setRoles(['ROLE_MANAGER'])
-                ->setSexe(\App\Enum\Sexe::Male)
-                ->setJob('')
+                ->setSexe(Sexe::Male)
                 ->setPassword($passwordHasher->hashPassword(new Manager(), bin2hex(random_bytes(16))))
                 ->setCreatedAt(new \DateTime());
             $em->persist($manager);
-        }
 
-        $my = (new ManagerYears())
-            ->setManager($manager)
-            ->setYears($year)
-            ->setOwner(false)
-            ->setAdmin(false)
-            ->setDataAccess(true)
-            ->setDataValidation(false)
-            ->setDataDownload(true)
-            ->setInvitedAt(new \DateTimeImmutable());
-        $em->persist($my);
-        $em->flush();
+            $my = $this->createManagerYears($manager, $year, invitedAt: new \DateTimeImmutable());
+            $em->persist($my);
+            $em->flush();
 
-        $token = bin2hex(random_bytes(32));
-        $manager->setToken($token)->setTokenExpiration(new \DateTime('+48 hours'));
-        $em->flush();
+            $token = bin2hex(random_bytes(32));
+            $manager->setToken($token)->setTokenExpiration(new \DateTime('+48 hours'));
+            $em->flush();
 
-        try {
-            if ($isNew) {
+            try {
                 $this->mailer->sendEmail(
                     $email,
                     'Vous avez été invité à rejoindre MED@WORK',
@@ -842,25 +833,114 @@ class HospitalAdminController extends AbstractController
                         'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
                     ],
                 );
-            } else {
-                $this->mailer->sendEmail(
-                    $email,
-                    'Invitation à rejoindre une année — MED@WORK',
-                    'email/managerYearInvite.html.twig',
-                    [
-                        'firstname'    => $manager->getFirstname(),
-                        'hospitalName' => $hospital->getName(),
-                        'yearTitle'    => $year->getTitle(),
-                        'acceptLink'   => rtrim($this->apiUrl, '/') . '/api/managers/accept-year/' . $token,
-                        'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
-                    ],
-                );
+            } catch (\Throwable) {
+                // Email failure must not block the operation
             }
+
+            return $this->json($this->serializeManagerYears($my, $year, $manager), Response::HTTP_CREATED);
+        }
+
+        // ── Manager existant appartenant à cet hôpital → ajout automatique ──
+        if ($manager->getHospitals()->contains($hospital)) {
+            // Accepted d'office : invitedAt=null dès la création
+            $my = $this->createManagerYears($manager, $year, invitedAt: null);
+            $em->persist($my);
+
+            // Notification in-app
+            $notif = (new NotificationManager())
+                ->setManager($manager)
+                ->setObject('Ajout à une année de formation')
+                ->setBody(sprintf(
+                    'Vous avez été ajouté comme manager à l\'année "%s" de l\'hôpital %s.',
+                    $year->getTitle(),
+                    $hospital->getName(),
+                ))
+                ->setType('year_added')
+                ->setCreatedAt(new \DateTime())
+                ->setIsRead(false);
+            $em->persist($notif);
+            $em->flush();
+
+            try {
+                if ($manager->getValidatedAt() === null) {
+                    // Compte non activé : régénérer le token d'activation et renvoyer l'email de setup
+                    $token = bin2hex(random_bytes(32));
+                    $manager->setToken($token)->setTokenExpiration(new \DateTime('+48 hours'));
+                    $em->flush();
+
+                    $this->mailer->sendEmail(
+                        $email,
+                        'Activez votre compte MED@WORK',
+                        'email/managerSetup.html.twig',
+                        [
+                            'firstname'    => $manager->getFirstname(),
+                            'hospitalName' => $hospital->getName(),
+                            'yearTitle'    => $year->getTitle(),
+                            'setupLink'    => rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token,
+                            'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
+                        ],
+                    );
+                } else {
+                    // Compte actif : email d'information simple (pas d'accept/refuse)
+                    $this->mailer->sendEmail(
+                        $email,
+                        'Vous avez été ajouté à une année — MED@WORK',
+                        'email/managerAddedToYearInfo.html.twig',
+                        [
+                            'firstname'    => $manager->getFirstname(),
+                            'hospitalName' => $hospital->getName(),
+                            'yearTitle'    => $year->getTitle(),
+                            'loginUrl'     => rtrim($this->frontendUrl, '/') . '/login',
+                        ],
+                    );
+                }
+            } catch (\Throwable) {
+                // Email failure must not block the operation
+            }
+
+            return $this->json($this->serializeManagerYears($my, $year, $manager), Response::HTTP_CREATED);
+        }
+
+        // ── Manager existant n'appartenant pas à l'hôpital → invitation ──────
+        $my = $this->createManagerYears($manager, $year, invitedAt: new \DateTimeImmutable());
+        $em->persist($my);
+        $em->flush();
+
+        $token = bin2hex(random_bytes(32));
+        $manager->setToken($token)->setTokenExpiration(new \DateTime('+48 hours'));
+        $em->flush();
+
+        try {
+            $this->mailer->sendEmail(
+                $email,
+                'Invitation à rejoindre une année — MED@WORK',
+                'email/managerYearInvite.html.twig',
+                [
+                    'firstname'    => $manager->getFirstname(),
+                    'hospitalName' => $hospital->getName(),
+                    'yearTitle'    => $year->getTitle(),
+                    'acceptLink'   => rtrim($this->apiUrl, '/') . '/api/managers/accept-year/' . $token,
+                    'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
+                ],
+            );
         } catch (\Throwable) {
             // Email failure must not block the operation
         }
 
         return $this->json($this->serializeManagerYears($my, $year, $manager), Response::HTTP_CREATED);
+    }
+
+    private function createManagerYears(Manager $manager, Years $year, ?\DateTimeImmutable $invitedAt): ManagerYears
+    {
+        return (new ManagerYears())
+            ->setManager($manager)
+            ->setYears($year)
+            ->setOwner(false)
+            ->setAdmin(false)
+            ->setDataAccess(true)
+            ->setDataValidation(false)
+            ->setDataDownload(true)
+            ->setInvitedAt($invitedAt);
     }
 
     /**
@@ -904,33 +984,21 @@ class HospitalAdminController extends AbstractController
             return new JsonResponse(['message' => 'Manager introuvable'], Response::HTTP_NOT_FOUND);
         }
 
-        if ($my->getInvitedAt() === null) {
-            return new JsonResponse(['message' => 'Ce manager a déjà accepté l\'invitation'], Response::HTTP_CONFLICT);
+        // Manager complètement actif (pas de token + invitedAt=null) → rien à renvoyer
+        if ($my->getInvitedAt() === null && $manager->getToken() === null) {
+            return new JsonResponse(['message' => 'Ce manager est déjà actif sur cette année'], Response::HTTP_CONFLICT);
         }
 
         $hospital = $this->resolveHospital();
         $year     = $my->getYears();
-        $isNew    = $manager->getValidatedAt() === null;
 
         $token = bin2hex(random_bytes(32));
         $manager->setToken($token)->setTokenExpiration(new \DateTime('+48 hours'));
         $em->flush();
 
         try {
-            if ($isNew) {
-                $this->mailer->sendEmail(
-                    $manager->getEmail(),
-                    'Vous avez été invité à rejoindre MED@WORK',
-                    'email/managerSetup.html.twig',
-                    [
-                        'firstname'    => $manager->getFirstname(),
-                        'hospitalName' => $hospital->getName(),
-                        'yearTitle'    => $year?->getTitle(),
-                        'setupLink'    => rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token,
-                        'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
-                    ],
-                );
-            } else {
+            if ($my->getInvitedAt() !== null) {
+                // Invitation d'année en attente (manager externe) → renvoyer lien accept/refuse
                 $this->mailer->sendEmail(
                     $manager->getEmail(),
                     'Invitation à rejoindre une année — MED@WORK',
@@ -940,6 +1008,20 @@ class HospitalAdminController extends AbstractController
                         'hospitalName' => $hospital->getName(),
                         'yearTitle'    => $year?->getTitle(),
                         'acceptLink'   => rtrim($this->apiUrl, '/') . '/api/managers/accept-year/' . $token,
+                        'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
+                    ],
+                );
+            } else {
+                // Auto-ajouté (invitedAt=null) mais compte non activé → renvoyer lien d'activation
+                $this->mailer->sendEmail(
+                    $manager->getEmail(),
+                    'Activez votre compte MED@WORK',
+                    'email/managerSetup.html.twig',
+                    [
+                        'firstname'    => $manager->getFirstname(),
+                        'hospitalName' => $hospital->getName(),
+                        'yearTitle'    => $year?->getTitle(),
+                        'setupLink'    => rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token,
                         'refuseLink'   => rtrim($this->apiUrl, '/') . '/api/managers/refuse-year/' . $token,
                     ],
                 );
@@ -991,6 +1073,10 @@ class HospitalAdminController extends AbstractController
         foreach ($hospitalYrs as $my) {
             $em->remove($my);
         }
+
+        // Remove the manager ↔ hospital link so they are no longer considered
+        // part of this hospital for future auto-add purposes.
+        $manager->removeHospital($hospital);
 
         if (!$hasOtherLinks) {
             // Soft-delete: keep the manager record for audit trail
@@ -1141,18 +1227,23 @@ class HospitalAdminController extends AbstractController
     private function serializeYearsResident(YearsResident $yr, ?Years $year, ?Resident $resident): array
     {
         return [
-            'yrId'       => $yr->getId(),
-            'residentId' => $resident?->getId(),
-            'firstname'  => $resident?->getFirstname(),
-            'lastname'   => $resident?->getLastname(),
-            'email'      => $resident?->getEmail(),
-            'avatarUrl'  => $this->buildAvatarUrl($resident?->getAvatarPath()),
-            'yearId'     => $year?->getId(),
-            'yearTitle'  => $year?->getTitle(),
-            'optingOut'  => $yr->getOptingOut(),
-            'allowed'    => $yr->getAllowed(),
-            'status'     => $this->computeStatus($yr),
-            'createdAt'  => $yr->getCreatedAt()->format(\DateTimeInterface::ATOM),
+            'yrId'             => $yr->getId(),
+            'residentId'       => $resident?->getId(),
+            'firstname'        => $resident?->getFirstname(),
+            'lastname'         => $resident?->getLastname(),
+            'email'            => $resident?->getEmail(),
+            'avatarUrl'        => $this->buildAvatarUrl($resident?->getAvatarPath()),
+            'yearId'           => $year?->getId(),
+            'yearTitle'        => $year?->getTitle(),
+            'optingOut'        => $yr->getOptingOut(),
+            'allowed'          => $yr->getAllowed(),
+            'status'           => $this->computeStatus($yr),
+            // true = account was activated (validatedAt set); false = invitation sent, never activated.
+            // A MACCS who already has an account from another hospital will have accountActivated=true
+            // and status='active' (added directly, no token); for a brand-new MACCS,
+            // accountActivated=false and status='pending' until they click the activation link.
+            'accountActivated' => $resident?->getValidatedAt() !== null,
+            'createdAt'        => $yr->getCreatedAt()->format(\DateTimeInterface::ATOM),
         ];
     }
 
@@ -1172,15 +1263,25 @@ class HospitalAdminController extends AbstractController
             'managerCount'  => $year->getManagers()->count(),
             'token'         => $year->getToken(),
             'residents'     => array_values(array_filter(array_map(
-                fn ($yr) => $yr->getResident()
-                    ? ['firstname' => $yr->getResident()->getFirstname(), 'lastname' => $yr->getResident()->getLastname()]
-                    : null,
+                function ($yr) {
+                    try {
+                        $r = $yr->getResident();
+                        return $r ? ['firstname' => $r->getFirstname(), 'lastname' => $r->getLastname()] : null;
+                    } catch (\Throwable) {
+                        return null;
+                    }
+                },
                 $year->getResidents()->toArray()
             ))),
             'managers'      => array_values(array_filter(array_map(
-                fn ($my) => $my->getManager()
-                    ? ['firstname' => $my->getManager()->getFirstname(), 'lastname' => $my->getManager()->getLastname()]
-                    : null,
+                function ($my) {
+                    try {
+                        $m = $my->getManager();
+                        return $m ? ['firstname' => $m->getFirstname(), 'lastname' => $m->getLastname()] : null;
+                    } catch (\Throwable) {
+                        return null;
+                    }
+                },
                 $year->getManagers()->toArray()
             ))),
         ];
@@ -1218,17 +1319,23 @@ class HospitalAdminController extends AbstractController
     private function serializeManagerYears(ManagerYears $my, ?Years $year, ?Manager $manager): array
     {
         return [
-            'myId'          => $my->getId(),
-            'managerId'     => $manager?->getId(),
-            'firstname'     => $manager?->getFirstname(),
-            'lastname'      => $manager?->getLastname(),
-            'email'         => $manager?->getEmail(),
-            'avatarUrl'     => $this->buildAvatarUrl($manager?->getAvatarPath()),
-            'job'           => $manager?->getJob(),
-            'yearId'        => $year?->getId(),
-            'yearTitle'     => $year?->getTitle(),
-            'status'        => $this->computeManagerStatus($my),
-            'canCreateYear' => $manager?->isCanCreateYear() ?? false,
+            'myId'             => $my->getId(),
+            'managerId'        => $manager?->getId(),
+            'firstname'        => $manager?->getFirstname(),
+            'lastname'         => $manager?->getLastname(),
+            'email'            => $manager?->getEmail(),
+            'avatarUrl'        => $this->buildAvatarUrl($manager?->getAvatarPath()),
+            'job'              => $manager?->getJob(),
+            'yearId'           => $year?->getId(),
+            'yearTitle'        => $year?->getTitle(),
+            'status'           => $this->computeManagerStatus($my),
+            'canCreateYear'    => $manager?->isCanCreateYear() ?? false,
+            // accountActivated: false + status=pending → account never activated
+            //                   true  + status=pending → account active but year invitation not yet accepted
+            'accountActivated' => $manager?->getValidatedAt() !== null,
+            // yearPending: true → invitedAt is set → year invitation not yet accepted/refused by the manager
+            //              false → year attribution is effective (auto-added or accepted)
+            'yearPending'      => $my->getInvitedAt() !== null,
         ];
     }
 
@@ -1416,20 +1523,24 @@ class HospitalAdminController extends AbstractController
             $isCurrent = $year->getDateOfEnd() >= $today;
 
             foreach ($year->getResidents() as $yr) {
-                if ($yr->getResident() === null) { continue; }
-                $status = $this->computeStatus($yr);
-                if ($status === 'active')     { $maccsActive++; }
-                elseif ($status === 'pending')    { $maccsPending++; $pendingInvites++; }
-                elseif ($status === 'incomplete') { $maccsIncomplete++; }
-                elseif ($status === 'retired')    { $maccsRetired++; }
+                try {
+                    if ($yr->getResident() === null) { continue; }
+                    $status = $this->computeStatus($yr);
+                } catch (\Throwable) { continue; }
+                if ($status === 'active')          { $maccsActive++; }
+                elseif ($status === 'pending')     { $maccsPending++; $pendingInvites++; }
+                elseif ($status === 'incomplete')  { $maccsIncomplete++; }
+                elseif ($status === 'retired')     { $maccsRetired++; }
             }
 
             foreach ($year->getManagers() as $my) {
-                if ($my->getManager() === null) { continue; }
-                $status = $this->computeManagerStatus($my);
-                if ($status === 'active')     { $managersActive++; }
-                elseif ($status === 'pending')    { $managersPending++; $pendingInvites++; }
-                elseif ($status === 'incomplete') { $managersIncomplete++; }
+                try {
+                    if ($my->getManager() === null) { continue; }
+                    $status = $this->computeManagerStatus($my);
+                } catch (\Throwable) { continue; }
+                if ($status === 'active')          { $managersActive++; }
+                elseif ($status === 'pending')     { $managersPending++; $pendingInvites++; }
+                elseif ($status === 'incomplete')  { $managersIncomplete++; }
             }
 
             if ($isCurrent) {

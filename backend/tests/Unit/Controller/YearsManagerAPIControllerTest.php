@@ -8,6 +8,7 @@ use App\Controller\YearsAPI\ManagersAPI\YearsManagerAPIController;
 use App\Entity\Hospital;
 use App\Entity\Manager;
 use App\Entity\Years;
+use App\Enum\ManagerJob;
 use App\Enum\Sexe;
 use App\Repository\HospitalRepository;
 use App\Repository\ManagerYearsRepository;
@@ -77,7 +78,7 @@ final class YearsManagerAPIControllerTest extends TestCase
         $m->method('getFirstname')->willReturn($firstname);
         $m->method('getLastname')->willReturn($lastname);
         $m->method('getSexe')->willReturn(Sexe::Male);
-        $m->method('getJob')->willReturn('Médecin senior');
+        $m->method('getJob')->willReturn(ManagerJob::Doctor);
         $m->method('getHospital')->willReturn('CHU Liège');
 
         return $m;

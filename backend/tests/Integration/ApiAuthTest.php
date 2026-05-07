@@ -6,6 +6,7 @@ namespace App\Tests\Integration;
 
 use App\Entity\Manager;
 use App\Entity\Resident;
+use App\Enum\ManagerJob;
 use App\Enum\Sexe;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -66,9 +67,10 @@ class ApiAuthTest extends WebTestCase
         $manager->setRole('manager');
         $manager->setRoles(['ROLE_MANAGER']);
         $manager->setSexe(Sexe::Female);
-        $manager->setJob('Chef de service');
+        $manager->setJob(ManagerJob::MedicalSupervisor);
         $manager->setHospital('CHU Test');
-        // token = null → UserChecker allows login (non-null token = pending activation)
+        // validatedAt must be set — UserChecker blocks accounts where validatedAt === null
+        $manager->setValidatedAt(new \DateTime());
         $manager->setPassword($hasher->hashPassword($manager, 'Password123!'));
 
         $em->persist($manager);
@@ -82,6 +84,8 @@ class ApiAuthTest extends WebTestCase
         $resident->setRoles(['ROLE_RESIDENT']);
         $resident->setSexe(Sexe::Male);
         $resident->setDateOfMaster(new \DateTime('2020-01-01'));
+        // validatedAt must be set — UserChecker blocks accounts where validatedAt === null
+        $resident->setValidatedAt(new \DateTime());
         $resident->setPassword($hasher->hashPassword($resident, 'Password123!'));
 
         $em->persist($resident);

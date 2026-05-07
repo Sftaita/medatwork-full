@@ -200,16 +200,32 @@ class TokenActivationController extends AbstractController
         $em->flush();
 
         if ($resident !== null) {
-            $link = rtrim($this->frontendUrl, '/') . '/activate/resident/' . $token;
+            $link     = rtrim($this->frontendUrl, '/') . '/activate/resident/' . $token;
+            $template = 'email/activationEmail.html.twig';
+            $params   = ['firstname' => $user->getFirstname(), 'link' => $link];
         } else {
-            // Manager invited via HospitalAdmin: must complete setup (set password) first
-            $link = rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token;
-        }
+            // Managers invited via HospitalAdmin have a pending ManagerYear (invitedAt != null)
+            // and must complete their profile (set password, sexe, job) via /manager-setup/.
+            // Self-registered managers already have a password — they just need email confirmation
+            // via /activate/manager/.
+            $isInvitedManager = false;
+            foreach ($manager->getManagerYears() as $my) {
+                if ($my->getInvitedAt() !== null) {
+                    $isInvitedManager = true;
+                    break;
+                }
+            }
 
-        $template = ($resident !== null) ? 'email/activationEmail.html.twig' : 'email/managerSetup.html.twig';
-        $params   = ($resident !== null)
-            ? ['firstname' => $user->getFirstname(), 'link' => $link]
-            : ['firstname' => $user->getFirstname(), 'setupLink' => $link];
+            if ($isInvitedManager) {
+                $link     = rtrim($this->frontendUrl, '/') . '/manager-setup/' . $token;
+                $template = 'email/managerSetup.html.twig';
+                $params   = ['firstname' => $user->getFirstname(), 'setupLink' => $link];
+            } else {
+                $link     = rtrim($this->frontendUrl, '/') . '/activate/manager/' . $token;
+                $template = 'email/activationEmail.html.twig';
+                $params   = ['firstname' => $user->getFirstname(), 'link' => $link];
+            }
+        }
 
         try {
             $this->mailer->sendEmail($email, 'Activation de votre compte', $template, $params);

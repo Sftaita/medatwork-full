@@ -281,7 +281,7 @@ const manager = [
         ),
       },
       {
-        title: "Postes de travail",
+        title: "Semaines modèles",
         href: "/manager/week-creator",
         disabled: false,
         icon: (
@@ -332,7 +332,7 @@ const manager = [
         ),
       },
       {
-        title: "Mes postes",
+        title: "Semaines modèles",
         href: "/manager/week-creator",
         disabled: false,
         icon: (
@@ -827,6 +827,27 @@ const hospitalAdmin = [
           </svg>
         ),
       },
+      {
+        title: "Exports RH",
+        href: "/hospital-admin/exports",
+        icon: (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            width={24}
+            height={24}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+        ),
+      },
     ],
   },
   {
@@ -876,7 +897,7 @@ const hospitalAdmin = [
         ),
       },
       {
-        title: "Postes de travail",
+        title: "Semaines modèles",
         href: "/manager/week-creator",
         icon: (
           <svg

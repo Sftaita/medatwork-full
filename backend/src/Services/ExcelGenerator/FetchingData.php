@@ -48,8 +48,20 @@ class FetchingData
             $timesheets[] = ['id' => $id, 'dateOfStart' => $dateOfStart, 'dateOfEnd' => $dateOfEnd, 'pause' => $pause, 'scientific' => $scientific, 'called' => $called];
         }
 
-        // 2. Gardes
-        $gardes = array_values($this->gardeRepository->findByYear($year, $resident));
+        // 2. Gardes — normalize type to string.
+        // GardeRepository::findByYear() returns type as a GardeType enum object (Doctrine DQL
+        // partial selects apply enumType hydration). onPlaceDayPeriod() and CallableGardeMapper
+        // compare against string literals, so the enum must be converted here, exactly like
+        // absences below use ->value.
+        $gardes = [];
+        foreach ($this->gardeRepository->findByYear($year, $resident) as $g) {
+            $gardes[] = [
+                'id'          => $g['id'],
+                'dateOfStart' => $g['dateOfStart'],
+                'dateOfEnd'   => $g['dateOfEnd'],
+                'type'        => $g['type'] instanceof \BackedEnum ? $g['type']->value : (string) $g['type'],
+            ];
+        }
 
         // 3. Absences
         $request = $this->absenceRepository->findBy(['year' => $year, 'resident' => $resident]);

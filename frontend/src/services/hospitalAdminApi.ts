@@ -17,6 +17,8 @@ export interface MaccsRow {
   optingOut: boolean | null;
   allowed: boolean;
   status: MaccsStatus;
+  /** true = account was activated (token cleared); false = invitation sent, never activated */
+  accountActivated: boolean;
   createdAt: string;
 }
 
@@ -62,6 +64,16 @@ export interface ManagerRow {
   yearTitle: string | null;
   status: ManagerStatus;
   canCreateYear: boolean;
+  /**
+   * true  + status=pending → existing manager, account activated, but hasn't accepted the year invitation
+   * false + status=pending → new manager, account never activated (setup link not clicked)
+   */
+  accountActivated: boolean;
+  /**
+   * true  → invitedAt is set → this specific year attribution is not yet accepted/refused by the manager
+   * false → year attribution is effective (auto-added or invitation accepted)
+   */
+  yearPending: boolean;
 }
 
 export interface CsvImportResult {

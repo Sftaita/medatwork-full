@@ -135,7 +135,7 @@ const MaccsSetupPage = () => {
               </Typography>
               <Alert severity="error">
                 {status === "expired"
-                  ? "Ce lien d'invitation a expiré (validité 24 heures). Contactez votre responsable de stage pour recevoir un nouvel email."
+                  ? "Ce lien d'invitation a expiré (validité 7 jours). Contactez votre responsable de stage pour recevoir un nouvel email."
                   : "Ce lien est invalide ou a déjà été utilisé."}
               </Alert>
             </>

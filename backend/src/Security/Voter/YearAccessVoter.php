@@ -52,16 +52,22 @@ class YearAccessVoter extends Voter
         /** @var Years $year */
         $year = $subject;
 
-        // HospitalAdmin has full access to every year that belongs to their hospital
+        // HospitalAdmin entity has full access to every year of their hospital
         if ($user instanceof HospitalAdmin) {
             $yearHospital = $year->getHospital();
-
             return $yearHospital !== null
                 && $yearHospital->getId() === $user->getHospital()->getId();
         }
 
         if (! $user instanceof Manager) {
             return false;
+        }
+
+        // Manager promoted to hospital admin has full access to years of their hospital
+        if ($user->getAdminHospital() !== null) {
+            $yearHospital = $year->getHospital();
+            return $yearHospital !== null
+                && $yearHospital->getId() === $user->getAdminHospital()->getId();
         }
 
         $relation = $this->managerYearsRepository->findOneBy([

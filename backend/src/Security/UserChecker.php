@@ -19,7 +19,7 @@ class UserChecker implements UserCheckerInterface
     {
         if ($user instanceof Manager || $user instanceof Resident) {
             // Account not yet email-validated
-            if ($user->getToken() !== null) {
+            if ($user->getValidatedAt() === null) {
                 throw new AccountDisabledException();
             }
 

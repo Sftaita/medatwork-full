@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useAuth from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 
@@ -13,7 +14,6 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Grid from "@mui/material/Grid";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import CardActionArea from "@mui/material/CardActionArea";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Divider from "@mui/material/Divider";
@@ -42,10 +42,17 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
+import Collapse from "@mui/material/Collapse";
 
 import SearchIcon from "@mui/icons-material/Search";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import SendIcon from "@mui/icons-material/Send";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import CloseIcon from "@mui/icons-material/Close";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CheckIcon from "@mui/icons-material/Check";
@@ -58,6 +65,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -176,10 +184,18 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
         "&:hover": { boxShadow: 4, borderColor: "primary.main" },
       }}
     >
-      {/* Clickable area — navigates to realtime */}
-      <CardActionArea
+      {/* Clickable area — navigates to realtime. Plain Box instead of CardActionArea
+          to avoid nesting <button> inside <button> (IconButton is inside the content). */}
+      <Box
         onClick={goToRealtime}
-        sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "stretch" }}
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          cursor: "pointer",
+          "&:hover": { bgcolor: "action.hover" },
+          borderRadius: "inherit",
+        }}
       >
         <CardContent
           sx={{
@@ -313,9 +329,9 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
             </Tooltip>
           </Box>
         </CardContent>
-      </CardActionArea>
+      </Box>
 
-      {/* Actions menu — outside CardActionArea */}
+      {/* Actions menu — outside clickable Box */}
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
@@ -486,9 +502,16 @@ interface YearFormDialogProps {
   isPending: boolean;
   onClose: () => void;
   onSave: (data: YearInput) => void;
+  /** Pré-remplit le champ "Lieu" avec le nom de l'hôpital lors de la création. */
+  defaultLocation?: string;
 }
 
-const YearFormDialog = ({ open, initial, isPending, onClose, onSave }: YearFormDialogProps) => {
+const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLocation }: YearFormDialogProps) => {
+  const emptyForm: YearInput = {
+    ...EMPTY_FORM,
+    location: defaultLocation ?? "",
+  };
+
   const [form, setForm] = useState<YearInput>(() =>
     initial
       ? {
@@ -501,7 +524,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave }: YearFormD
           comment: initial.comment ?? "",
           status: initial.status,
         }
-      : EMPTY_FORM
+      : emptyForm
   );
 
   const periodOptions = buildPeriodOptions(initial?.period);
@@ -518,7 +541,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave }: YearFormD
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleClose = () => {
-    setForm(EMPTY_FORM);
+    setForm(emptyForm);
     onClose();
   };
 
@@ -668,10 +691,23 @@ interface StatCardProps {
   icon: React.ReactNode;
   color: string;
   sublabel?: string;
+  onClick?: () => void;
 }
 
-const StatCard = ({ label, value, icon, color, sublabel }: StatCardProps) => (
-  <Card variant="outlined" sx={{ height: "100%" }}>
+const StatCard = ({ label, value, icon, color, sublabel, onClick }: StatCardProps) => (
+  <Card
+    variant="outlined"
+    sx={{
+      height: "100%",
+      cursor: onClick ? "pointer" : "default",
+      transition: "box-shadow 0.15s, border-color 0.15s",
+      ...(onClick && {
+        "&:hover": { boxShadow: 3, borderColor: `${color}.main` },
+        "&:active": { boxShadow: 1 },
+      }),
+    }}
+    onClick={onClick}
+  >
     <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 2.5, "&:last-child": { pb: 2.5 } }}>
       <Box
         sx={{
@@ -681,15 +717,15 @@ const StatCard = ({ label, value, icon, color, sublabel }: StatCardProps) => (
       >
         <Box sx={{ color: `${color}.main` }}>{icon}</Box>
       </Box>
-      <Box>
+      <Box minWidth={0}>
         <Typography variant="h5" fontWeight={700} lineHeight={1.1}>
           {value}
         </Typography>
-        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+        <Typography variant="body2" color="text.secondary" fontWeight={500} noWrap>
           {label}
         </Typography>
         {sublabel && (
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" color={onClick ? `${color}.main` : "text.disabled"}>
             {sublabel}
           </Typography>
         )}
@@ -697,6 +733,307 @@ const StatCard = ({ label, value, icon, color, sublabel }: StatCardProps) => (
     </CardContent>
   </Card>
 );
+
+// ── Pending invites dialog ────────────────────────────────────────────────────
+
+interface PendingInvitesDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onResent: () => void;
+}
+
+const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogProps) => {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);          // key of the row being acted on
+  const [confirmKey, setConfirmKey] = useState<string | null>(null); // inline confirm state
+
+  // Fetch from ALL years (current + history) so the count matches dashboard stats.
+  const { data: rCur = [], isLoading: rlC } = useQuery({ queryKey: ["ha-pr-c"], queryFn: () => hospitalAdminApi.listResidents("current"), enabled: open });
+  const { data: rHis = [], isLoading: rlH } = useQuery({ queryKey: ["ha-pr-h"], queryFn: () => hospitalAdminApi.listResidents("history"), enabled: open });
+  const { data: mCur = [], isLoading: mlC } = useQuery({ queryKey: ["ha-pm-c"], queryFn: () => hospitalAdminApi.listManagers("current"),  enabled: open });
+  const { data: mHis = [], isLoading: mlH } = useQuery({ queryKey: ["ha-pm-h"], queryFn: () => hospitalAdminApi.listManagers("history"),  enabled: open });
+
+  const isLoading = rlC || rlH || mlC || mlH;
+  const pendingResidents = [...rCur, ...rHis].filter((r) => r.status === "pending");
+  const pendingManagers  = [...mCur, ...mHis].filter((m) => m.status === "pending");
+  const total = pendingResidents.length + pendingManagers.length;
+
+  const invalidateAll = () => {
+    (["ha-pr-c", "ha-pr-h", "ha-pm-c", "ha-pm-h"] as const).forEach((k) =>
+      qc.invalidateQueries({ queryKey: [k] }),
+    );
+    onResent();
+  };
+
+  const resendResident = async (yrId: number) => {
+    setBusy(`r-${yrId}`);
+    try {
+      await hospitalAdminApi.resendResidentInvite(yrId);
+      // MACCS pending → toujours un lien d'activation de compte
+      toast.success("Lien d'activation renvoyé");
+      invalidateAll();
+    }
+    catch { toast.error("Erreur lors de l'envoi"); }
+    finally { setBusy(null); }
+  };
+
+  const resendManager = async (myId: number) => {
+    setBusy(`m-${myId}`);
+    // Récupère accountActivated depuis la liste locale pour afficher le bon message
+    const mgr = [...mCur, ...mHis].find((m) => m.myId === myId);
+    try {
+      await hospitalAdminApi.resendManagerInvite(myId);
+      toast.success(
+        mgr?.accountActivated
+          ? "Invitation à l'année renvoyée"
+          : "Lien de création de compte renvoyé",
+      );
+      invalidateAll();
+    }
+    catch { toast.error("Erreur lors de l'envoi"); }
+    finally { setBusy(null); }
+  };
+
+  const cancelResident = async (yrId: number) => {
+    setBusy(`rc-${yrId}`);
+    try { await hospitalAdminApi.retireResident(yrId); toast.success("Invitation annulée"); setConfirmKey(null); invalidateAll(); }
+    catch { toast.error("Erreur lors de l'annulation"); }
+    finally { setBusy(null); }
+  };
+
+  const cancelManager = async (myId: number) => {
+    setBusy(`mc-${myId}`);
+    try { await hospitalAdminApi.removeManagerYear(myId); toast.success("Invitation annulée"); setConfirmKey(null); invalidateAll(); }
+    catch { toast.error("Erreur lors de l'annulation"); }
+    finally { setBusy(null); }
+  };
+
+  const handleClose = () => { setConfirmKey(null); onClose(); };
+  const isBusy = busy !== null;
+
+  /** Chip showing why a person is pending (account never activated vs invitation not accepted) */
+  const PendingReasonChip = ({ accountActivated, isManager }: { accountActivated: boolean; isManager?: boolean }) => {
+    if (!accountActivated) {
+      return (
+        <Chip
+          label="Compte non activé"
+          size="small"
+          color="warning"
+          variant="outlined"
+          sx={{ height: 20, fontSize: "0.68rem", mr: 0.5 }}
+        />
+      );
+    }
+    // accountActivated=true + status=pending → year invitation not yet accepted
+    return (
+      <Chip
+        label={isManager ? "Invitation non acceptée" : "En attente de rejoindre l'année"}
+        size="small"
+        color="info"
+        variant="outlined"
+        sx={{ height: 20, fontSize: "0.68rem", mr: 0.5 }}
+      />
+    );
+  };
+
+  /**
+   * Resend button + cancel for a MACCS.
+   * MACCS pending always = account never activated → always sends the activation email.
+   */
+  const ResidentActions = ({ yrId }: { yrId: number }) => {
+    const key = `r-${yrId}`;
+    if (confirmKey === key) {
+      return (
+        <Stack direction="row" gap={0.5} alignItems="center">
+          <Button size="small" color="error" variant="contained" disabled={isBusy}
+            onClick={() => cancelResident(yrId)}
+            startIcon={busy === `rc-${yrId}` ? <CircularProgress size={12} sx={{ color: "inherit" }} /> : undefined}>
+            Confirmer
+          </Button>
+          <Button size="small" disabled={isBusy} onClick={() => setConfirmKey(null)}>Non</Button>
+        </Stack>
+      );
+    }
+    return (
+      <Stack direction="row" gap={0.5} alignItems="center">
+        <Tooltip title="Renvoie le lien pour créer et activer son compte MED@WORK. Une fois activé, le MACCS rejoint l'année automatiquement." arrow placement="top">
+          <span>
+            <Button size="small" variant="outlined" disabled={isBusy}
+              startIcon={busy === `r-${yrId}` ? <CircularProgress size={12} /> : <SendIcon sx={{ fontSize: 14 }} />}
+              onClick={() => resendResident(yrId)}>
+              Renvoyer l'invitation
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title="Annuler et retirer ce MACCS de l'année" arrow>
+          <span>
+            <IconButton size="small" color="error" disabled={isBusy} onClick={() => setConfirmKey(key)}>
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Stack>
+    );
+  };
+
+  /**
+   * Resend button + cancel for a manager.
+   * Backend already sends the right email automatically:
+   *   accountActivated=false → managerSetup.html.twig   (create account + refuse)
+   *   accountActivated=true  → managerYearInvite.html.twig (accept year + refuse)
+   * We surface this distinction in the button label.
+   */
+  const ManagerActions = ({ myId, accountActivated }: { myId: number; accountActivated: boolean }) => {
+    const key = `m-${myId}`;
+    if (confirmKey === key) {
+      return (
+        <Stack direction="row" gap={0.5} alignItems="center">
+          <Button size="small" color="error" variant="contained" disabled={isBusy}
+            onClick={() => cancelManager(myId)}
+            startIcon={busy === `mc-${myId}` ? <CircularProgress size={12} sx={{ color: "inherit" }} /> : undefined}>
+            Confirmer
+          </Button>
+          <Button size="small" disabled={isBusy} onClick={() => setConfirmKey(null)}>Non</Button>
+        </Stack>
+      );
+    }
+
+    const resendLabel    = accountActivated ? "Renvoyer l'invitation" : "Renvoyer l'invitation";
+    const resendTooltip  = accountActivated
+      ? "Renvoie le lien pour accepter ou refuser cette année de stage"
+      : "Renvoie le lien de création de compte. Une fois activé, le manager rejoint l'année automatiquement.";
+    const cancelTooltip  = accountActivated
+      ? "Retirer ce manager de cette année"
+      : "Annuler l'invitation de compte";
+
+    return (
+      <Stack direction="row" gap={0.5} alignItems="center">
+        <Tooltip title={resendTooltip} arrow placement="top">
+          <span>
+            <Button size="small" variant="outlined" disabled={isBusy}
+              startIcon={busy === `m-${myId}` ? <CircularProgress size={12} /> : <SendIcon sx={{ fontSize: 14 }} />}
+              onClick={() => resendManager(myId)}>
+              {resendLabel}
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title={cancelTooltip} arrow>
+          <span>
+            <IconButton size="small" color="error" disabled={isBusy} onClick={() => setConfirmKey(key)}>
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Stack>
+    );
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <HourglassEmptyIcon sx={{ color: "warning.main", fontSize: 22 }} />
+        Invitations en attente
+        {!isLoading && (
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+            ({total})
+          </Typography>
+        )}
+      </DialogTitle>
+
+      <DialogContent dividers sx={{ p: 0 }}>
+        {isLoading && (
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress size={32} />
+          </Box>
+        )}
+
+        {!isLoading && total === 0 && (
+          <Box px={3} py={3}>
+            <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
+              Aucune invitation en attente — tout le monde a activé son compte !
+            </Alert>
+          </Box>
+        )}
+
+        {/* MACCS */}
+        <Collapse in={!isLoading && pendingResidents.length > 0}>
+          <Box px={3} pt={2} pb={0.5}>
+            <Typography variant="overline" color="text.secondary" fontWeight={700}>
+              MACCS ({pendingResidents.length})
+            </Typography>
+          </Box>
+          <List disablePadding dense>
+            {pendingResidents.map((r) => (
+              <ListItem key={r.yrId} divider secondaryAction={<ResidentActions yrId={r.yrId} />}
+                sx={{ pr: confirmKey === `r-${r.yrId}` ? 22 : 18 }}>
+                <ListItemText
+                  primary={
+                    <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+                      <Typography variant="body2" fontWeight={600} component="span">
+                        {`${r.firstname ?? ""} ${r.lastname ?? ""}`.trim() || r.email}
+                      </Typography>
+                      <PendingReasonChip accountActivated={r.accountActivated} />
+                    </Box>
+                  }
+                  secondary={
+                    <span>
+                      {r.email}
+                      {r.yearTitle && (
+                        <Typography component="span" variant="caption" color="text.disabled">
+                          {" — "}{r.yearTitle}
+                        </Typography>
+                      )}
+                    </span>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Collapse>
+
+        {/* Managers */}
+        <Collapse in={!isLoading && pendingManagers.length > 0}>
+          <Box px={3} pt={2} pb={0.5}>
+            <Typography variant="overline" color="text.secondary" fontWeight={700}>
+              Managers ({pendingManagers.length})
+            </Typography>
+          </Box>
+          <List disablePadding dense>
+            {pendingManagers.map((m) => (
+              <ListItem key={m.myId} divider secondaryAction={<ManagerActions myId={m.myId} accountActivated={m.accountActivated} />}
+                sx={{ pr: confirmKey === `m-${m.myId}` ? 22 : 18 }}>
+                <ListItemText
+                  primary={
+                    <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+                      <Typography variant="body2" fontWeight={600} component="span">
+                        {`${m.firstname ?? ""} ${m.lastname ?? ""}`.trim() || m.email}
+                      </Typography>
+                      <PendingReasonChip accountActivated={m.accountActivated} isManager />
+                    </Box>
+                  }
+                  secondary={
+                    <span>
+                      {m.email}
+                      {m.yearTitle && (
+                        <Typography component="span" variant="caption" color="text.disabled">
+                          {" — "}{m.yearTitle}
+                        </Typography>
+                      )}
+                    </span>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Collapse>
+      </DialogContent>
+
+      <DialogActions>
+        <Button onClick={handleClose}>Fermer</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Year list row (list view) ─────────────────────────────────────────────────
 
@@ -794,6 +1131,9 @@ const ALL_TAB = "__all__";
 const HospitalAdminDashboardPage = () => {
   useAxiosPrivate();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { authentication } = useAuth();
+  const hospitalName = authentication.hospitalName ?? "";
 
   const { data: years = [], isLoading } = useQuery({
     queryKey: ["hospital-admin-years"],
@@ -808,6 +1148,7 @@ const HospitalAdminDashboardPage = () => {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState(ALL_TAB);
   const [viewMode, setViewMode] = useState<"grid" | "list">(loadView);
+  const [helpOpen, setHelpOpen] = useState(false);
   const tabInitialized = useRef(false);
 
   const handleViewMode = (_: React.MouseEvent, val: "grid" | "list" | null) => {
@@ -819,6 +1160,7 @@ const HospitalAdminDashboardPage = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<HospitalYear | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HospitalYear | null>(null);
+  const [pendingOpen, setPendingOpen] = useState(false);
 
   // Unique periods sorted newest → oldest
   const periods = useMemo(() => {
@@ -906,18 +1248,65 @@ const HospitalAdminDashboardPage = () => {
         mb={3}
       >
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              Tableau de bord
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Années de formation rattachées à votre hôpital
-            </Typography>
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <Box>
+              <Box display="flex" alignItems="center" gap={0.5}>
+                <Typography variant="h5" fontWeight={700}>
+                  Tableau de bord
+                </Typography>
+                <Tooltip title="Comprendre les statuts" arrow>
+                  <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ color: "text.disabled", mt: "-2px" }}>
+                    <HelpOutlineIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Années de formation rattachées à votre hôpital
+              </Typography>
+            </Box>
           </Box>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
             Nouvelle année
           </Button>
         </Box>
+
+        {/* ── Statuts help dialog ────────────────────────────────────────── */}
+        <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <HelpOutlineIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+            Comprendre les statuts
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2.5}>
+              {([
+                {
+                  chip: { label: "Compte non activé", color: "warning" as const },
+                  text: "La personne a reçu un email d'invitation mais n'a pas encore créé son compte. Une fois son compte activé, elle rejoint automatiquement l'année — aucune autre action n'est requise.",
+                },
+                {
+                  chip: { label: "Invitation non acceptée", color: "info" as const },
+                  text: "La personne a déjà un compte MED@WORK (activé via un hôpital précédent ou une autre année) mais n'a pas encore accepté l'invitation à rejoindre cette année spécifique.",
+                },
+                {
+                  chip: { label: "Actif", color: "success" as const },
+                  text: "La personne a accès à l'année. Elle peut se connecter et consulter ses données.",
+                },
+                {
+                  chip: { label: "Ajout automatique", color: "default" as const },
+                  text: "Le manager appartient déjà à cet hôpital (relation directe). Il est ajouté à la nouvelle année sans invitation : si son compte est activé il peut se connecter immédiatement, sinon il reçoit un lien pour finaliser son compte.",
+                },
+              ] as const).map(({ chip, text }) => (
+                <Box key={chip.label} display="flex" gap={2} alignItems="flex-start">
+                  <Chip label={chip.label} color={chip.color} size="small" sx={{ flexShrink: 0, mt: 0.25 }} />
+                  <Typography variant="body2" color="text.secondary">{text}</Typography>
+                </Box>
+              ))}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setHelpOpen(false)}>Fermer</Button>
+          </DialogActions>
+        </Dialog>
 
         <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
           <Tabs
@@ -976,34 +1365,37 @@ const HospitalAdminDashboardPage = () => {
               value={stats.maccs.active}
               icon={<CheckCircleOutlineIcon />}
               color="success"
-              sublabel={`${stats.maccs.total} au total`}
+              sublabel={`${stats.maccs.total} au total · voir la liste`}
+              onClick={() => navigate("/hospital-admin/residents")}
             />
           </Grid>
           <Grid item xs={6} sm={3}>
             <StatCard
-              label="En attente"
-              value={stats.maccs.pending + stats.managers.pending}
+              label="Managers actifs"
+              value={stats.managers.active}
+              icon={<PersonOutlineIcon />}
+              color="info"
+              sublabel={`${stats.managers.total} au total · voir la liste`}
+              onClick={() => navigate("/hospital-admin/managers")}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              label="Invitations en attente"
+              value={stats.pendingInvites}
               icon={<HourglassEmptyIcon />}
               color="warning"
-              sublabel="MACCS + managers"
+              sublabel={stats.pendingInvites > 0 ? "Cliquer pour gérer" : "Tout le monde a accepté"}
+              onClick={stats.pendingInvites > 0 ? () => setPendingOpen(true) : undefined}
             />
           </Grid>
           <Grid item xs={6} sm={3}>
             <StatCard
-              label="Incomplets"
-              value={stats.maccs.incomplete + stats.managers.incomplete}
-              icon={<WarningAmberIcon />}
-              color="error"
-              sublabel="Compte non activé"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              label="Invitations en cours"
-              value={stats.pendingInvites}
-              icon={<NotificationsActiveIcon />}
-              color="info"
-              sublabel={`${stats.managers.active} managers actifs`}
+              label="Années de formation"
+              value={stats.totalYears}
+              icon={<CalendarMonthOutlinedIcon />}
+              color="secondary"
+              sublabel={`${stats.activeYears.length} en cours`}
             />
           </Grid>
         </Grid>
@@ -1084,6 +1476,13 @@ const HospitalAdminDashboardPage = () => {
           )}
         </Box>
       )}
+
+      {/* ── Pending invites dialog ───────────────────────────────────────── */}
+      <PendingInvitesDialog
+        open={pendingOpen}
+        onClose={() => setPendingOpen(false)}
+        onResent={() => qc.invalidateQueries({ queryKey: ["hospital-admin-dashboard-stats"] })}
+      />
 
       {/* ── Create dialog ─────────────────────────────────────────────────── */}
       <YearFormDialog

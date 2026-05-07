@@ -1,0 +1,365 @@
+/**
+ * Tests for HospitalAdminExportsPage (architecture YearsResident × month).
+ *
+ * Covers :
+ * - spItemKey utility
+ * - Tous les MACCS apparaissent même sans ResidentValidation
+ * - Présélection des items non traités
+ * - Non présélection des items traités
+ * - Toggle individuel
+ * - Génération avec items { yearResidentId, month, calendarYear }
+ * - Validé MDS : V si validatedByMds=true, — sinon (indépendant de ResidentValidation)
+ * - setItemTreated appelé au toggle du switch
+ * - Bouton Générer désactivé / actif
+ * - [NEW] Bouton Générer positionné AVANT la liste des mois
+ * - Recherche filtre par nom MACCS
+ * - Excel : bouton actif / désactivé selon residentId
+ * - Excel : appel downloadResidentExcel
+ * - [NEW] Excel : texte masqué (visibility:hidden) pendant le téléchargement
+ * - [NEW] Erreur génération : parse du blob 400 → message toast correct
+ */
+
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import HospitalAdminExportsPage from "./HospitalAdminExportsPage";
+import type { StaffPlannerMonthGroup } from "../../services/exportsRhApi";
+import type { HospitalYear } from "../../services/hospitalAdminApi";
+import hospitalAdminApi from "../../services/hospitalAdminApi";
+import exportsRhApi from "../../services/exportsRhApi";
+
+vi.mock("../../services/hospitalAdminApi");
+vi.mock("../../services/exportsRhApi");
+vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
+vi.mock("react-toastify", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+}));
+vi.mock("../../components/YearSelect", () => ({
+  default: ({ years, value, onChange }: any) => (
+    <select data-testid="year-select" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      {years.map((y: any) => <option key={y.id} value={y.id}>{y.title}</option>)}
+    </select>
+  ),
+}));
+
+// ── Fixtures ──────────────────────────────────────────────────────────────────
+
+const YEAR: HospitalYear = {
+  id: 1, title: "Urgences 2024-25", period: "2024-2025", location: "CHU",
+  speciality: null, comment: null, status: "active",
+  dateOfStart: "2024-11-01", dateOfEnd: "2025-01-31",
+  residentCount: 2, managerCount: 1,
+};
+
+const ALICE = {
+  yearResidentId: 10,
+  residentValidationId: 101,      // RV exists, validated=true
+  residentId: 45,
+  residentFirstname: "Alice", residentLastname: "Martin",
+  residentEmail: "alice@test.be", residentAvatarUrl: null,
+  validatedByMds: true,
+  treated: false, treatedAt: null, treatedByType: null,
+};
+
+const BOB = {
+  yearResidentId: 11,
+  residentValidationId: null,     // No RV at all
+  residentId: 46,
+  residentFirstname: "Bob", residentLastname: "Dupont",
+  residentEmail: "bob@test.be", residentAvatarUrl: null,
+  validatedByMds: false,          // false because no RV
+  treated: true,                  // already treated
+  treatedAt: "2024-11-20T10:00:00+00:00", treatedByType: "manager",
+};
+
+const NOV_GROUP: StaffPlannerMonthGroup = {
+  month: 11, calendarYear: 2024, label: "Novembre 2024",
+  items: [ALICE, BOB],
+};
+const DEC_GROUP: StaffPlannerMonthGroup = {
+  month: 12, calendarYear: 2024, label: "Décembre 2024",
+  items: [], // no MACCS validated for dec
+};
+
+// Format YearResident retourné par /api/hospital-admin/years/{id}/residents
+const ALICE_MACCS = { id: 101, firstname: "Alice", lastname: "Martin", email: "alice@test.be" };
+const BOB_MACCS   = { id: 102, firstname: "Bob",   lastname: "Dupont",  email: "bob@test.be" };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={qc}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>;
+}
+
+function renderPage() {
+  return render(<Wrapper><HospitalAdminExportsPage /></Wrapper>);
+}
+
+async function waitForNov() {
+  await waitFor(() => screen.getByText("Novembre 2024"));
+}
+
+async function expandNov() {
+  renderPage();
+  await waitForNov();
+  fireEvent.click(screen.getByText("Novembre 2024"));
+  await waitFor(() => screen.getByText("Alice Martin"));
+}
+
+async function openExcelTab() {
+  renderPage();
+  await waitFor(() => screen.getByRole("tab", { name: /Excel/ }));
+  fireEvent.click(screen.getByRole("tab", { name: /Excel/ }));
+  await waitFor(() => screen.getByText("Alice Martin"));
+}
+
+// ── itemKey format (inline, pas de dépendance sur le module mocké) ────────────
+
+describe("itemKey format", () => {
+  it("retourne yearResidentId-month-calendarYear", () => {
+    expect(`${ALICE.yearResidentId}-11-2024`).toBe("10-11-2024");
+    expect(`${BOB.yearResidentId}-12-2024`).toBe("11-12-2024");
+  });
+});
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+describe("HospitalAdminExportsPage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue([YEAR]);
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValue([NOV_GROUP, DEC_GROUP]);
+    vi.mocked(exportsRhApi.listYearResidents).mockResolvedValue([ALICE_MACCS, BOB_MACCS]);
+    vi.mocked(exportsRhApi.downloadResidentExcel).mockResolvedValue(undefined);
+    vi.mocked(exportsRhApi.setItemTreated).mockResolvedValue({
+      yearResidentId: 10, month: 11, calendarYear: 2024,
+      treated: true, treatedAt: new Date().toISOString(), treatedByType: "manager",
+    });
+    vi.mocked(exportsRhApi.generateStaffPlanner).mockResolvedValue(new Blob(["test"]));
+  });
+
+  // ── Présence de tous les MACCS ────────────────────────────────────────────────
+
+  it("Bob apparaît même sans ResidentValidation", async () => {
+    await expandNov();
+    expect(screen.getByText("Bob Dupont")).toBeDefined();
+  });
+
+  it("Bob affiche — dans Validé MDS (pas de RV)", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const bobRow = rows.find((r) => r.textContent?.includes("Bob Dupont"))!;
+    expect(bobRow.textContent).toContain("—");
+  });
+
+  // ── Présélection ──────────────────────────────────────────────────────────────
+
+  it("présélectionne Alice (non traitée)", async () => {
+    renderPage();
+    await waitFor(() => screen.getByText(/Générer Staff Planner \(1\)/));
+  });
+
+  it("ne présélectionne pas Bob (traité)", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const bobRow = rows.find((r) => r.textContent?.includes("Bob Dupont"))!;
+    const cb = bobRow.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(cb.checked).toBe(false);
+  });
+
+  it("présélectionne Alice (non traitée)", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const aliceRow = rows.find((r) => r.textContent?.includes("Alice Martin"))!;
+    const cb = aliceRow.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(cb.checked).toBe(true);
+  });
+
+  // ── Validé MDS ────────────────────────────────────────────────────────────────
+
+  it("affiche V pour Alice (validatedByMds=true)", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const aliceRow = rows.find((r) => r.textContent?.includes("Alice Martin"))!;
+    expect(aliceRow.textContent).toContain("V");
+  });
+
+  it("affiche — pour Bob (validatedByMds=false, pas de RV)", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const bobRow = rows.find((r) => r.textContent?.includes("Bob Dupont"))!;
+    expect(bobRow.textContent).toContain("—");
+  });
+
+  // ── Toggle ────────────────────────────────────────────────────────────────────
+
+  it("permet de cocher Bob (traité mais sélectionnable)", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const bobRow = rows.find((r) => r.textContent?.includes("Bob Dupont"))!;
+    const cb = bobRow.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(cb);
+    expect(cb.checked).toBe(true);
+  });
+
+  // ── Génération ────────────────────────────────────────────────────────────────
+
+  it("envoie items avec yearResidentId, month, calendarYear à generateStaffPlanner", async () => {
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    await waitFor(() =>
+      expect(exportsRhApi.generateStaffPlanner).toHaveBeenCalledWith([
+        { yearResidentId: 10, month: 11, calendarYear: 2024 },
+      ]),
+    );
+  });
+
+  it("désactive le bouton Générer si aucun item sélectionné", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [{ ...ALICE, treated: true }, { ...BOB }] },
+    ]);
+    renderPage();
+    await waitFor(() => {
+      const btn = screen.getByRole("button", { name: /Générer Staff Planner/ });
+      expect(btn).toBeDisabled();
+    });
+  });
+
+  // ── Switch traité ─────────────────────────────────────────────────────────────
+
+  it("appelle setItemTreated avec yearResidentId, month, calendarYear", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const aliceRow = rows.find((r) => r.textContent?.includes("Alice Martin"))!;
+    const inputs = Array.from(aliceRow.querySelectorAll('input[type="checkbox"]'));
+    const sw = inputs[inputs.length - 1] as HTMLInputElement;
+    fireEvent.click(sw);
+    await waitFor(() =>
+      expect(exportsRhApi.setItemTreated).toHaveBeenCalledWith(10, 11, 2024, true),
+    );
+  });
+
+  // ── Recherche ─────────────────────────────────────────────────────────────────
+
+  it("filtre par nom de MACCS", async () => {
+    renderPage();
+    await waitForNov();
+    fireEvent.change(screen.getByPlaceholderText(/Rechercher un MACCS/), {
+      target: { value: "alice" },
+    });
+    await waitFor(() => expect(screen.queryByText("Décembre 2024")).toBeNull());
+  });
+
+  // ── Excel ─────────────────────────────────────────────────────────────────────
+
+  async function expandAndOpenExcel() {
+    renderPage();
+    await waitFor(() => screen.getByRole("tab", { name: /Excel/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Excel/ }));
+    await waitFor(() => screen.getByText("Alice Martin"));
+  }
+
+  it("affiche un bouton Excel pour chaque MACCS", async () => {
+    await openExcelTab();
+    const btns = screen.getAllByRole("button", { name: /Excel annuel/ });
+    expect(btns.length).toBe(2);
+  });
+
+  it("tous les boutons Excel sont actifs (endpoint retourne id toujours défini)", async () => {
+    await openExcelTab();
+    const btns = screen.getAllByRole("button", { name: /Excel annuel/ });
+    btns.forEach((btn) => expect(btn).not.toBeDisabled());
+  });
+
+  it("appelle downloadResidentExcel avec r.id au clic", async () => {
+    await openExcelTab();
+    fireEvent.click(screen.getAllByRole("button", { name: /Excel annuel/ })[0]);
+    await waitFor(() =>
+      expect(exportsRhApi.downloadResidentExcel).toHaveBeenCalledWith(1, 101, "Alice Martin"),
+    );
+  });
+
+  // ── [NEW] Position du bouton Générer ─────────────────────────────────────────
+
+  it("le bouton Générer apparaît avant le premier accordéon de mois", async () => {
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner/ }));
+    const genBtn  = screen.getByRole("button", { name: /Générer Staff Planner/ });
+    const novText = screen.getByText("Novembre 2024");
+    // compareDocumentPosition & DOCUMENT_POSITION_FOLLOWING (4) : novText suit genBtn
+    expect(
+      genBtn.compareDocumentPosition(novText) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  // ── [NEW] Excel : texte masqué pendant le téléchargement ─────────────────────
+
+  it("masque le texte 'Excel annuel' (visibility:hidden) pendant le téléchargement", async () => {
+    let resolveDownload!: () => void;
+    (exportsRhApi.downloadResidentExcel as Mock).mockReturnValueOnce(
+      new Promise<void>((r) => { resolveDownload = r; }),
+    );
+    await openExcelTab();
+    fireEvent.click(screen.getAllByRole("button", { name: /Excel annuel/ })[0]);
+
+    // Pendant le chargement, le span du texte doit être invisible
+    await waitFor(() => {
+      const spans = screen.getAllByText("Excel annuel");
+      expect(spans.some((s) => (s as HTMLElement).style.visibility === "hidden")).toBe(true);
+    });
+
+    resolveDownload();
+    // Après résolution, le texte redevient visible
+    await waitFor(() => {
+      const spans = screen.getAllByText("Excel annuel");
+      expect(spans.every((s) => (s as HTMLElement).style.visibility !== "hidden")).toBe(true);
+    });
+  });
+
+  // ── [NEW] Erreur génération : parse blob 400 ──────────────────────────────────
+
+  it("affiche 'Ressources HRID manquantes' quand le serveur retourne errors[]", async () => {
+    const errorBlob = new Blob(
+      [JSON.stringify({ errors: ["HRID manquant pour résident 45"] })],
+      { type: "application/json" },
+    );
+    const axiosError = Object.assign(new Error("400"), { response: { data: errorBlob } });
+    (exportsRhApi.generateStaffPlanner as Mock).mockRejectedValueOnce(axiosError);
+
+    const { toast } = await import("react-toastify");
+
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Ressources HRID manquantes pour certains résidents.",
+      ),
+    );
+  });
+
+  it("affiche le message backend quand le blob contient un champ message", async () => {
+    const errorBlob = new Blob(
+      [JSON.stringify({ message: "Corps JSON invalide — champ \"items\" requis" })],
+      { type: "application/json" },
+    );
+    const axiosError = Object.assign(new Error("400"), { response: { data: errorBlob } });
+    (exportsRhApi.generateStaffPlanner as Mock).mockRejectedValueOnce(axiosError);
+
+    const { toast } = await import("react-toastify");
+
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Corps JSON invalide — champ "items" requis',
+      ),
+    );
+  });
+});

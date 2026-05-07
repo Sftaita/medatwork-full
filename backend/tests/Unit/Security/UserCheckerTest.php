@@ -17,15 +17,21 @@ use Symfony\Component\Security\Core\User\UserInterface;
 /**
  * Unit tests for UserChecker::checkPreAuth().
  *
+ * The activation criterion is validatedAt === null, NOT token !== null.
+ * A non-null token may represent a pending password reset on an already-activated
+ * account and must never block login.
+ *
  * Covers:
- * - Resident with token → blocked
- * - Resident without token → allowed
- * - Manager with token → blocked (email not validated)
- * - Manager without token, Active → allowed
- * - Manager without token, PendingHospital → blocked with specific message
- * - HospitalAdmin Invited → blocked with specific message
- * - HospitalAdmin Active → allowed
- * - Unknown UserInterface implementation → allowed (no check)
+ * - Resident with validatedAt null            → blocked
+ * - Resident with validatedAt set             → allowed
+ * - Resident activated + reset token pending  → allowed (regression for password-reset flow)
+ * - Manager with validatedAt null             → blocked
+ * - Manager with validatedAt set, Active      → allowed
+ * - Manager activated + reset token pending   → allowed
+ * - Manager with validatedAt set, PendingHospital → blocked with specific message
+ * - HospitalAdmin Invited                     → blocked with specific message
+ * - HospitalAdmin Active                      → allowed
+ * - Unknown UserInterface implementation      → allowed (no check)
  */
 final class UserCheckerTest extends TestCase
 {
@@ -38,19 +44,30 @@ final class UserCheckerTest extends TestCase
 
     // ── Resident ──────────────────────────────────────────────────────────────
 
-    public function testResidentWithTokenIsBlocked(): void
+    public function testNonActivatedResidentIsBlocked(): void
     {
         $resident = $this->createMock(Resident::class);
-        $resident->method('getToken')->willReturn('abc123');
+        $resident->method('getValidatedAt')->willReturn(null);
 
         $this->expectException(AccountDisabledException::class);
         $this->checker->checkPreAuth($resident);
     }
 
-    public function testResidentWithoutTokenIsAllowed(): void
+    public function testActivatedResidentIsAllowed(): void
     {
         $resident = $this->createMock(Resident::class);
-        $resident->method('getToken')->willReturn(null);
+        $resident->method('getValidatedAt')->willReturn(new \DateTime());
+
+        $this->checker->checkPreAuth($resident); // no exception
+        $this->addToAssertionCount(1);
+    }
+
+    /** Regression: password-reset flow sets a non-null token on activated accounts. */
+    public function testActivatedResidentWithPendingResetTokenIsNotBlocked(): void
+    {
+        $resident = $this->createMock(Resident::class);
+        $resident->method('getValidatedAt')->willReturn(new \DateTime());
+        $resident->method('getToken')->willReturn('some64hexresettoken0000000000000000000000000000000000000000000000');
 
         $this->checker->checkPreAuth($resident); // no exception
         $this->addToAssertionCount(1);
@@ -58,19 +75,31 @@ final class UserCheckerTest extends TestCase
 
     // ── Manager — email validation ────────────────────────────────────────────
 
-    public function testManagerWithTokenIsBlocked(): void
+    public function testNonActivatedManagerIsBlocked(): void
     {
         $manager = $this->createMock(Manager::class);
-        $manager->method('getToken')->willReturn('abc123');
+        $manager->method('getValidatedAt')->willReturn(null);
 
         $this->expectException(AccountDisabledException::class);
         $this->checker->checkPreAuth($manager);
     }
 
-    public function testManagerWithoutTokenAndActiveStatusIsAllowed(): void
+    public function testActivatedManagerWithActiveStatusIsAllowed(): void
     {
         $manager = $this->createMock(Manager::class);
-        $manager->method('getToken')->willReturn(null);
+        $manager->method('getValidatedAt')->willReturn(new \DateTime());
+        $manager->method('getStatus')->willReturn(ManagerStatus::Active);
+
+        $this->checker->checkPreAuth($manager); // no exception
+        $this->addToAssertionCount(1);
+    }
+
+    /** Regression: password-reset flow must not lock out activated managers. */
+    public function testActivatedManagerWithPendingResetTokenIsNotBlocked(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getValidatedAt')->willReturn(new \DateTime());
+        $manager->method('getToken')->willReturn('some64hexresettoken0000000000000000000000000000000000000000000000');
         $manager->method('getStatus')->willReturn(ManagerStatus::Active);
 
         $this->checker->checkPreAuth($manager); // no exception
@@ -79,20 +108,20 @@ final class UserCheckerTest extends TestCase
 
     // ── Manager — PendingHospital ─────────────────────────────────────────────
 
-    public function testManagerPendingHospitalIsBlocked(): void
+    public function testActivatedManagerPendingHospitalIsBlocked(): void
     {
         $manager = $this->createMock(Manager::class);
-        $manager->method('getToken')->willReturn(null);
+        $manager->method('getValidatedAt')->willReturn(new \DateTime());
         $manager->method('getStatus')->willReturn(ManagerStatus::PendingHospital);
 
         $this->expectException(AccountDisabledException::class);
         $this->checker->checkPreAuth($manager);
     }
 
-    public function testManagerPendingHospitalBlockMessageContainsValidation(): void
+    public function testActivatedManagerPendingHospitalBlockMessageContainsValidation(): void
     {
         $manager = $this->createMock(Manager::class);
-        $manager->method('getToken')->willReturn(null);
+        $manager->method('getValidatedAt')->willReturn(new \DateTime());
         $manager->method('getStatus')->willReturn(ManagerStatus::PendingHospital);
 
         try {

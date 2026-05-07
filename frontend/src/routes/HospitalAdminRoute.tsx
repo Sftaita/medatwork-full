@@ -8,7 +8,8 @@ const HospitalAdminRoute = () => {
   const isHospitalAdmin =
     authentication?.AccessToken &&
     (authentication.role === "hospital_admin" ||
-      (authentication.role === "manager" && !!authentication.hospitalName));
+      (authentication.role === "manager" && !!authentication.hospitalName) ||
+      (authentication.role === "manager" && authentication.job === "human resources"));
 
   return isHospitalAdmin ? (
     <Outlet />

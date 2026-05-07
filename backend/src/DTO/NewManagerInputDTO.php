@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
+use App\Enum\ManagerJob;
 use App\Enum\Sexe;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -15,14 +16,14 @@ use Symfony\Component\HttpFoundation\Request;
 final class NewManagerInputDTO
 {
     private function __construct(
-        public readonly string  $email,
-        public readonly string  $password,
-        public readonly string  $firstname,
-        public readonly string  $lastname,
-        public readonly Sexe    $sexe,
-        public readonly string  $job,
-        public readonly ?int    $hospitalId,
-        public readonly ?string $hospitalName,
+        public readonly string     $email,
+        public readonly string     $password,
+        public readonly string     $firstname,
+        public readonly string     $lastname,
+        public readonly Sexe       $sexe,
+        public readonly ManagerJob $job,
+        public readonly ?int       $hospitalId,
+        public readonly ?string    $hospitalName,
     ) {
     }
 
@@ -47,7 +48,7 @@ final class NewManagerInputDTO
             }
         }
 
-        foreach (['firstname', 'lastname', 'sexe', 'job'] as $field) {
+        foreach (['firstname', 'lastname', 'sexe'] as $field) {
             if (! is_string($data[$field]) || $data[$field] === '') {
                 throw new \InvalidArgumentException("$field must be a non-empty string");
             }
@@ -64,6 +65,12 @@ final class NewManagerInputDTO
         $sexe = Sexe::tryFrom($data['sexe']);
         if ($sexe === null) {
             throw new \InvalidArgumentException('sexe must be one of: male, female');
+        }
+
+        $job = ManagerJob::tryFrom(is_string($data['job']) ? $data['job'] : '');
+        if ($job === null) {
+            $valid = implode(', ', array_column(ManagerJob::cases(), 'value'));
+            throw new \InvalidArgumentException("job must be one of: $valid");
         }
 
         $hospitalId   = null;
@@ -97,7 +104,7 @@ final class NewManagerInputDTO
             firstname: $data['firstname'],
             lastname: $data['lastname'],
             sexe: $sexe,
-            job: $data['job'],
+            job: $job,
             hospitalId: $hospitalId,
             hospitalName: $hospitalName,
         );

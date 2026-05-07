@@ -11,6 +11,8 @@ export interface AuthState {
   hospitalName?: string | null;
   avatarUrl?: string | null;
   canCreateYear?: boolean;
+  /** Fonction du manager (null pour les non-managers) */
+  job?: string | null;
 }
 
 export const AUTH_INITIAL_STATE: AuthState = {
@@ -36,4 +38,5 @@ export interface RefreshTokenResponse {
   hospitalName?: string | null;
   avatarUrl?: string | null;
   canCreateYear?: boolean;
+  job?: string | null;
 }

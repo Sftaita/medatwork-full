@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Services\ExcelGenerator;
 
+use App\Entity\Resident;
+use App\Entity\Years;
+use App\Enum\GardeType;
 use App\Repository\AbsenceRepository;
 use App\Repository\GardeRepository;
 use App\Repository\TimesheetRepository;
@@ -177,5 +180,146 @@ final class FetchingDataTest extends TestCase
         $this->assertCount(2, $result);
         $this->assertArrayHasKey('01-10-2025', $result);
         $this->assertArrayHasKey('02-10-2025', $result);
+    }
+
+    // ── getExcelTransformedData — type normalisation ───────────────────────────
+    //
+    // Regression tests for: GardeRepository::findByYear() returns GardeType enum
+    // objects (not strings) in Doctrine ORM partial selects.  The fix in
+    // getExcelTransformedData() must normalize them to strings so that
+    // onPlaceDayPeriod() and CallableGardeMapper::map() can compare correctly.
+
+    public function testGetExcelTransformedDataConvertsGardeTypeEnumToString(): void
+    {
+        $year     = $this->createMock(Years::class);
+        $resident = $this->createMock(Resident::class);
+
+        // Repository returns GardeType enum object (Doctrine ORM partial-select behaviour)
+        $gardeRepo = $this->createMock(GardeRepository::class);
+        $gardeRepo->method('findByYear')->willReturn([
+            [
+                'id'          => 1,
+                'dateOfStart' => new \DateTime('2025-11-20 20:00:00'),
+                'dateOfEnd'   => new \DateTime('2025-11-21 08:00:00'),
+                'type'        => GardeType::Callable,   // enum object, NOT a string
+            ],
+            [
+                'id'          => 2,
+                'dateOfStart' => new \DateTime('2025-11-22 08:00:00'),
+                'dateOfEnd'   => new \DateTime('2025-11-22 20:00:00'),
+                'type'        => GardeType::Hospital,   // enum object, NOT a string
+            ],
+        ]);
+
+        $timesheetRepo = $this->createMock(TimesheetRepository::class);
+        $timesheetRepo->method('findBy')->willReturn([]);
+        $absenceRepo   = $this->createMock(AbsenceRepository::class);
+        $absenceRepo->method('findBy')->willReturn([]);
+        $tools         = $this->createMock(Tools::class);
+
+        $fetching = new FetchingData($timesheetRepo, $gardeRepo, $absenceRepo, $tools);
+        $data     = $fetching->getExcelTransformedData($year, $resident);
+
+        $this->assertSame('callable', $data['gardes'][0]['type'],
+            'GardeType::Callable enum must be normalized to string "callable"');
+        $this->assertSame('hospital', $data['gardes'][1]['type'],
+            'GardeType::Hospital enum must be normalized to string "hospital"');
+    }
+
+    public function testGetExcelTransformedDataAlsoWorksWithStringTypes(): void
+    {
+        // Ensure backward compat: if repository already returns strings, nothing breaks
+        $year     = $this->createMock(Years::class);
+        $resident = $this->createMock(Resident::class);
+
+        $gardeRepo = $this->createMock(GardeRepository::class);
+        $gardeRepo->method('findByYear')->willReturn([
+            [
+                'id'          => 1,
+                'dateOfStart' => new \DateTime('2025-11-20 20:00:00'),
+                'dateOfEnd'   => new \DateTime('2025-11-21 08:00:00'),
+                'type'        => 'callable',   // already a string
+            ],
+        ]);
+
+        $timesheetRepo = $this->createMock(TimesheetRepository::class);
+        $timesheetRepo->method('findBy')->willReturn([]);
+        $absenceRepo   = $this->createMock(AbsenceRepository::class);
+        $absenceRepo->method('findBy')->willReturn([]);
+        $tools         = $this->createMock(Tools::class);
+
+        $fetching = new FetchingData($timesheetRepo, $gardeRepo, $absenceRepo, $tools);
+        $data     = $fetching->getExcelTransformedData($year, $resident);
+
+        $this->assertSame('callable', $data['gardes'][0]['type']);
+    }
+
+    // ── onPlaceDayPeriod — hospital gardes filtered correctly ─────────────────
+
+    public function testOnPlaceDayPeriodSelectsOnlyHospitalGardes(): void
+    {
+        // Simulated gardes AFTER type normalization (strings, as getExcelTransformedData delivers)
+        $hospitalGarde = [
+            'id'          => 1,
+            'dateOfStart' => new \DateTime('2025-11-10 08:00:00'),
+            'dateOfEnd'   => new \DateTime('2025-11-10 20:00:00'),
+            'type'        => 'hospital',
+        ];
+        $callableGarde = [
+            'id'          => 2,
+            'dateOfStart' => new \DateTime('2025-11-11 20:00:00'),
+            'dateOfEnd'   => new \DateTime('2025-11-12 08:00:00'),
+            'type'        => 'callable',
+        ];
+
+        $timesheetRepo = $this->createMock(TimesheetRepository::class);
+        $gardeRepo     = $this->createMock(GardeRepository::class);
+        $absenceRepo   = $this->createMock(AbsenceRepository::class);
+
+        // Tools::separateTimesheetsByDay and separateGardeByDay must be real for this test
+        $tools = $this->createMock(Tools::class);
+        $tools->method('separateTimesheetsByDay')->willReturn([]);
+        $tools->method('separateGardeByDay')->willReturnCallback(function (array $gardes) {
+            // Return one entry per garde so we can count what was passed
+            return array_map(fn($g) => [
+                'start' => $g['dateOfStart']->format('Y-m-d H:i:s'),
+                'end'   => $g['dateOfEnd']->format('Y-m-d H:i:s'),
+                'type'  => $g['type'],
+            ], $gardes);
+        });
+
+        $fetching = new FetchingData($timesheetRepo, $gardeRepo, $absenceRepo, $tools);
+        $result   = $fetching->onPlaceDayPeriod([], [$hospitalGarde, $callableGarde]);
+
+        // Only the hospital garde should appear (callable gardes go to col E via CallableGardeMapper)
+        $gardeEntries = array_filter($result, fn($e) => ($e['index'] ?? '') === 'garde');
+        $this->assertCount(1, $gardeEntries, 'Only hospital gardes must appear in onPlaceDayPeriod output');
+
+        $gardePeriod = array_values($gardeEntries)[0];
+        $this->assertStringContainsString('2025-11-10', $gardePeriod['start'],
+            'The hospital garde (2025-11-10) must be in the output');
+    }
+
+    public function testOnPlaceDayPeriodIgnoresCallableGardes(): void
+    {
+        $callableGarde = [
+            'id'          => 1,
+            'dateOfStart' => new \DateTime('2025-11-20 20:00:00'),
+            'dateOfEnd'   => new \DateTime('2025-11-21 08:00:00'),
+            'type'        => 'callable',
+        ];
+
+        $timesheetRepo = $this->createMock(TimesheetRepository::class);
+        $gardeRepo     = $this->createMock(GardeRepository::class);
+        $absenceRepo   = $this->createMock(AbsenceRepository::class);
+        $tools         = $this->createMock(Tools::class);
+        $tools->method('separateTimesheetsByDay')->willReturn([]);
+        $tools->method('separateGardeByDay')->willReturn([]);
+
+        $fetching = new FetchingData($timesheetRepo, $gardeRepo, $absenceRepo, $tools);
+        $result   = $fetching->onPlaceDayPeriod([], [$callableGarde]);
+
+        $this->assertSame([], $result,
+            'Callable gardes must NOT appear in onPlaceDayPeriod — they belong in col E via CallableGardeMapper');
     }
 }

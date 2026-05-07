@@ -91,4 +91,27 @@ class ResidentValidationRepository extends ServiceEntityRepository
         ;
     }
     */
+
+    /**
+     * Load all ResidentValidations for a given year in a single query,
+     * indexed by "{residentId}-{periodValidationId}" to avoid N+1 in list views.
+     *
+     * @return array<string, ResidentValidation>
+     */
+    public function findAllForYearIndexed(Years $year): array
+    {
+        $results = $this->createQueryBuilder('rv')
+            ->join('rv.periodValidation', 'pv')
+            ->where('pv.year = :year')
+            ->setParameter('year', $year)
+            ->getQuery()
+            ->getResult();
+
+        $indexed = [];
+        foreach ($results as $rv) {
+            $key = $rv->getResident()?->getId() . '-' . $rv->getPeriodValidation()?->getId();
+            $indexed[$key] = $rv;
+        }
+        return $indexed;
+    }
 }

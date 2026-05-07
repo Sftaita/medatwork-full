@@ -7,12 +7,17 @@ namespace App\Tests\Unit\Controller;
 use App\Controller\MailerController;
 use App\Controller\TokenActivationController;
 use App\Entity\Manager;
+use App\Entity\ManagerYears;
 use App\Entity\Resident;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * Unit tests for TokenActivationController POST endpoints.
@@ -36,6 +41,11 @@ use Symfony\Component\DependencyInjection\Container;
  * - valid token       → 200 + {success:true} + flushes
  * - valid token       → clears token on user
  * - valid token       → sets validatedAt on user
+ *
+ * resendActivation (POST /api/resend-activation):
+ * - resident not yet activated → sends /activate/resident/{token} link
+ * - self-registered manager (no pending ManagerYear) → sends /activate/manager/{token} link
+ * - invited manager (pending ManagerYear with invitedAt set) → sends /manager-setup/{token} link
  */
 final class TokenActivationControllerTest extends TestCase
 {
@@ -299,5 +309,156 @@ final class TokenActivationControllerTest extends TestCase
             $this->makeManagerRepo($manager),
             $this->em,
         );
+    }
+
+    // ── resendActivation ──────────────────────────────────────────────────────
+
+    private function buildControllerWithMailer(): array
+    {
+        $mailer     = $this->createMock(MailerController::class);
+        $controller = new TokenActivationController($mailer, 'http://localhost:8000/api/', 'http://localhost:3000');
+        $controller->setContainer(new Container());
+
+        return [$controller, $mailer];
+    }
+
+    private function buildAcceptedLimiter(): RateLimiterFactoryInterface
+    {
+        $rateLimit = $this->createMock(\Symfony\Component\RateLimiter\RateLimit::class);
+        $rateLimit->method('isAccepted')->willReturn(true);
+
+        $limiter = $this->createMock(\Symfony\Component\RateLimiter\LimiterInterface::class);
+        $limiter->method('consume')->willReturn($rateLimit);
+
+        $factory = $this->createMock(RateLimiterFactoryInterface::class);
+        $factory->method('create')->willReturn($limiter);
+
+        return $factory;
+    }
+
+    private function makeResidentForResend(): Resident
+    {
+        $r = $this->createMock(Resident::class);
+        $r->method('getFirstname')->willReturn('Alice');
+        $r->method('getValidatedAt')->willReturn(null);
+        $r->method('setToken')->willReturnSelf();
+        $r->method('setTokenExpiration')->willReturnSelf();
+
+        return $r;
+    }
+
+    private function makeManagerForResend(bool $hasInvitedYear = false): Manager
+    {
+        $my = $this->createMock(ManagerYears::class);
+        $my->method('getInvitedAt')->willReturn($hasInvitedYear ? new \DateTimeImmutable() : null);
+
+        $m = $this->createMock(Manager::class);
+        $m->method('getFirstname')->willReturn('Jean');
+        $m->method('getValidatedAt')->willReturn(null);
+        $m->method('setToken')->willReturnSelf();
+        $m->method('setTokenExpiration')->willReturnSelf();
+        $m->method('getManagerYears')->willReturn(new ArrayCollection([$my]));
+
+        return $m;
+    }
+
+    private function jsonRequest(string $email): Request
+    {
+        return new Request([], [], [], [], [], ['REMOTE_ADDR' => '127.0.0.1'], json_encode(['email' => $email]));
+    }
+
+    public function testResendActivationResidentSendsActivateResidentLink(): void
+    {
+        [$controller, $mailer] = $this->buildControllerWithMailer();
+
+        $resident = $this->makeResidentForResend();
+
+        $residentRepo = $this->createMock(ResidentRepository::class);
+        $residentRepo->method('findOneBy')->willReturn($resident);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn(null);
+
+        $capturedLink = null;
+        $mailer->method('sendEmail')
+            ->willReturnCallback(function (string $to, string $subject, string $tpl, array $params) use (&$capturedLink): void {
+                $capturedLink = $params['link'] ?? null;
+            });
+
+        $controller->resendActivation(
+            $this->jsonRequest('alice@test.be'),
+            $residentRepo,
+            $managerRepo,
+            $this->em,
+            $this->buildAcceptedLimiter(),
+        );
+
+        $this->assertNotNull($capturedLink);
+        $this->assertStringContainsString('/activate/resident/', $capturedLink);
+        $this->assertStringNotContainsString('/manager-setup/', $capturedLink);
+    }
+
+    public function testResendActivationSelfRegisteredManagerSendsActivateManagerLink(): void
+    {
+        [$controller, $mailer] = $this->buildControllerWithMailer();
+
+        // Manager with one ManagerYear whose invitedAt is null → self-registered
+        $manager = $this->makeManagerForResend(hasInvitedYear: false);
+
+        $residentRepo = $this->createMock(ResidentRepository::class);
+        $residentRepo->method('findOneBy')->willReturn(null);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($manager);
+
+        $capturedLink = null;
+        $mailer->method('sendEmail')
+            ->willReturnCallback(function (string $to, string $subject, string $tpl, array $params) use (&$capturedLink): void {
+                $capturedLink = $params['link'] ?? null;
+            });
+
+        $controller->resendActivation(
+            $this->jsonRequest('jean@test.be'),
+            $residentRepo,
+            $managerRepo,
+            $this->em,
+            $this->buildAcceptedLimiter(),
+        );
+
+        $this->assertNotNull($capturedLink);
+        $this->assertStringContainsString('/activate/manager/', $capturedLink);
+        $this->assertStringNotContainsString('/manager-setup/', $capturedLink);
+    }
+
+    public function testResendActivationInvitedManagerSendsManagerSetupLink(): void
+    {
+        [$controller, $mailer] = $this->buildControllerWithMailer();
+
+        // Manager with a ManagerYear whose invitedAt is set → invited via HospitalAdmin
+        $manager = $this->makeManagerForResend(hasInvitedYear: true);
+
+        $residentRepo = $this->createMock(ResidentRepository::class);
+        $residentRepo->method('findOneBy')->willReturn(null);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($manager);
+
+        $capturedSetupLink = null;
+        $mailer->method('sendEmail')
+            ->willReturnCallback(function (string $to, string $subject, string $tpl, array $params) use (&$capturedSetupLink): void {
+                $capturedSetupLink = $params['setupLink'] ?? null;
+            });
+
+        $controller->resendActivation(
+            $this->jsonRequest('jean@test.be'),
+            $residentRepo,
+            $managerRepo,
+            $this->em,
+            $this->buildAcceptedLimiter(),
+        );
+
+        $this->assertNotNull($capturedSetupLink);
+        $this->assertStringContainsString('/manager-setup/', $capturedSetupLink);
+        $this->assertStringNotContainsString('/activate/manager/', $capturedSetupLink);
     }
 }

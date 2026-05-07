@@ -8,6 +8,7 @@ use App\Repository\ResidentValidationRepository;
 use App\Repository\YearsResidentRepository;
 use App\Security\Voter\YearAccessVoter;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use App\Entity\YearsResident;
 
 class GenerateStaffPlannerExport
 {
@@ -87,6 +88,83 @@ class GenerateStaffPlannerExport
                 $alerts[] = ['firstname' => $resident->getFirstname(), 'lastname' => $resident->getLastname()];
                 continue;
             }
+
+            $data = $this->getDataByMonth->fetchData($resident, $firstDay, $lastDay);
+            $this->writeEntries($handle, $workerHRID, $sectionHRID, $data);
+        }
+
+        fclose($handle);
+
+        return ['filePath' => $filePath, 'alerts' => $alerts];
+    }
+
+    /**
+     * Generate a StaffPlanner-compatible TXT file from (yearsResident, month, calendarYear) items.
+     * Does NOT require a ResidentValidation to exist — works from raw timesheet/garde/absence data.
+     *
+     * @param  list<array{yearResidentId: int, month: int, calendarYear: int}> $items
+     * @return array{filePath: string, alerts: list<array{firstname: string, lastname: string}>}
+     */
+    public function generateFromItems(array $items): array
+    {
+        $filePath = tempnam(sys_get_temp_dir(), 'horaire_');
+        if ($filePath === false) {
+            throw new \RuntimeException('Unable to create temp file.');
+        }
+
+        $handle = fopen($filePath, 'w');
+        if ($handle === false) {
+            throw new \RuntimeException('Unable to open temp file for writing.');
+        }
+
+        fwrite($handle, 'SEPARATOR=|' . "\n");
+
+        $yearIdMemory = null;
+        $hasAccess    = false;
+        $alerts       = [];
+
+        foreach ($items as $item) {
+            $yearsResident = $this->yearsResidentRepository->find($item['yearResidentId']);
+            if ($yearsResident === null || !$yearsResident->getAllowed()) {
+                continue;
+            }
+
+            $resident = $yearsResident->getResident();
+            if ($resident === null) {
+                continue;
+            }
+
+            $year = $yearsResident->getYear();
+            if ($year === null) {
+                continue;
+            }
+
+            // Cache access check per year
+            if ($year->getId() !== $yearIdMemory) {
+                $hasAccess    = $this->authorizationChecker->isGranted(YearAccessVoter::ADMIN, $year)
+                             || $this->authorizationChecker->isGranted(YearAccessVoter::DATA_DOWNLOAD, $year);
+                $yearIdMemory = $year->getId();
+            }
+
+            if (!$hasAccess) {
+                continue;
+            }
+
+            $staffPlannerResource = $yearsResident->getStaffPlannerResources();
+            if ($staffPlannerResource === null) {
+                continue;
+            }
+
+            $workerHRID  = $staffPlannerResource->getWorkerHRID();
+            $sectionHRID = $staffPlannerResource->getSectionHRID();
+
+            if ($workerHRID === null || $sectionHRID === null) {
+                $alerts[] = ['firstname' => $resident->getFirstname(), 'lastname' => $resident->getLastname()];
+                continue;
+            }
+
+            $firstDay = (new \DateTime($item['calendarYear'] . '-' . $item['month'] . '-01'))->format('Y-m-01 00:00:00');
+            $lastDay  = (new \DateTime($firstDay))->format('Y-m-t 23:59:59');
 
             $data = $this->getDataByMonth->fetchData($resident, $firstDay, $lastDay);
             $this->writeEntries($handle, $workerHRID, $sectionHRID, $data);

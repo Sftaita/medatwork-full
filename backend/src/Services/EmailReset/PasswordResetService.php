@@ -37,6 +37,12 @@ final class PasswordResetService implements PasswordResetServiceInterface
             return;
         }
 
+        // Non-activated accounts must use the activation link, not the reset flow.
+        // Returning silently preserves the existing activation token.
+        if ($user->getValidatedAt() === null) {
+            return;
+        }
+
         $token      = bin2hex(random_bytes(32));
         $expiration = new DateTime('+1 day', new DateTimeZone('Europe/Paris'));
 

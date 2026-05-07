@@ -78,6 +78,9 @@ const HospitalAdminCommunicationPage = lazy(
 const HospitalAdminAuditLogPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminAuditLogPage")
 );
+const HospitalAdminExportsPage = lazy(
+  () => import("./pages/HospitalAdmin/HospitalAdminExportsPage")
+);
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage"));
 
 // ── Manager pages ─────────────────────────────────────────────────────────────
@@ -387,6 +390,14 @@ function App() {
                         </Suspense>
                       }
                     />
+                    <Route
+                      path="/hospital-admin/exports"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <HospitalAdminExportsPage />
+                        </Suspense>
+                      }
+                    />
                   </Route>
 
                   {/* Manager routes — accessible to managers and hospital admins */}
@@ -485,7 +496,7 @@ function App() {
                       path="/manager/week-creator"
                       element={
                         <Suspense fallback={<PageSkeleton />}>
-                          <WeekCreatorPage />
+                          <TimePlannerPage />
                         </Suspense>
                       }
                     />

@@ -42,6 +42,9 @@ class AuthenticationSuccessListener
                 $data['role']          = $user->getRole();
                 $data['canCreateYear'] = $user instanceof Manager && $user->isCanCreateYear();
             }
+            if ($user instanceof Manager) {
+                $data['job'] = $user->getJob()?->value;
+            }
         } elseif ($user instanceof AppAdmin) {
             $data['firstname'] = $user->getFirstname();
             $data['lastname'] = $user->getLastname();

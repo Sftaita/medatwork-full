@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Unit\DTO;
 
 use App\DTO\NewManagerInputDTO;
+use App\Enum\ManagerJob;
 use App\Enum\Sexe;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +30,7 @@ class NewManagerInputDTOTest extends TestCase
             'firstname' => 'Jean',
             'lastname'  => 'Dupont',
             'sexe'      => 'male',
-            'job'       => 'Chirurgien',
+            'job'       => 'medical supervisor',
         ];
     }
 
@@ -44,7 +45,7 @@ class NewManagerInputDTOTest extends TestCase
         $this->assertSame('Jean', $dto->firstname);
         $this->assertSame('Dupont', $dto->lastname);
         $this->assertSame(Sexe::Male, $dto->sexe);
-        $this->assertSame('Chirurgien', $dto->job);
+        $this->assertSame(ManagerJob::MedicalSupervisor, $dto->job);
         $this->assertNull($dto->hospitalId);
     }
 
@@ -227,7 +228,24 @@ class NewManagerInputDTOTest extends TestCase
         return [
             'firstname' => ['firstname'],
             'lastname'  => ['lastname'],
-            'job'       => ['job'],
         ];
+    }
+
+    public function testInvalidJobThrows(): void
+    {
+        $body = $this->validBody();
+        $body['job'] = 'Chirurgien';
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('job must be one of:');
+        NewManagerInputDTO::fromRequest($this->makeRequest($body));
+    }
+
+    public function testEmptyJobThrows(): void
+    {
+        $body = $this->validBody();
+        $body['job'] = '';
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('job must be one of:');
+        NewManagerInputDTO::fromRequest($this->makeRequest($body));
     }
 }

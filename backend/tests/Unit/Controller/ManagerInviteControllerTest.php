@@ -79,6 +79,7 @@ final class ManagerInviteControllerTest extends TestCase
     private function makeManager(
         bool $validated = false,
         bool $expired = false,
+        bool $nullExpiration = false,
         array $managerYears = [],
     ): Manager {
         $manager = $this->createMock(Manager::class);
@@ -87,7 +88,9 @@ final class ManagerInviteControllerTest extends TestCase
         $manager->method('getEmail')->willReturn('jean.dupont@chu.be');
         $manager->method('getValidatedAt')->willReturn($validated ? new \DateTime('-1 day') : null);
         $manager->method('getTokenExpiration')->willReturn(
-            $expired ? new \DateTime('-1 day') : new \DateTime('+48 hours')
+            $nullExpiration
+                ? null
+                : ($expired ? new \DateTime('-1 day') : new \DateTime('+48 hours'))
         );
         $manager->method('getManagerYears')->willReturn(new ArrayCollection($managerYears));
 
@@ -157,6 +160,15 @@ final class ManagerInviteControllerTest extends TestCase
         $this->repo->method('findOneBy')->willReturn($this->makeManager(expired: true));
 
         $response = $this->buildController()->checkSetupToken('expiredtoken', $this->repo);
+
+        $this->assertSame(410, $response->getStatusCode());
+    }
+
+    public function testCheckSetupTokenNullExpirationReturns410(): void
+    {
+        $this->repo->method('findOneBy')->willReturn($this->makeManager(nullExpiration: true));
+
+        $response = $this->buildController()->checkSetupToken('nullexptoken', $this->repo);
 
         $this->assertSame(410, $response->getStatusCode());
     }
@@ -297,6 +309,22 @@ final class ManagerInviteControllerTest extends TestCase
 
         $response = $this->buildController()->completeSetup(
             'expiredtoken',
+            $this->makeRequest(['password' => 'Secure123', 'sexe' => 'male', 'job' => 'doctor']),
+            $this->repo,
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
+        );
+
+        $this->assertSame(410, $response->getStatusCode());
+    }
+
+    public function testCompleteSetupNullExpirationReturns410(): void
+    {
+        $this->repo->method('findOneBy')->willReturn($this->makeManager(nullExpiration: true));
+
+        $response = $this->buildController()->completeSetup(
+            'nullexptoken',
             $this->makeRequest(['password' => 'Secure123', 'sexe' => 'male', 'job' => 'doctor']),
             $this->repo,
             $this->em,

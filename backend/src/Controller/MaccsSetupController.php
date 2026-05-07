@@ -35,7 +35,7 @@ class MaccsSetupController extends AbstractController
             return new JsonResponse(['message' => 'Lien invalide ou déjà utilisé'], Response::HTTP_NOT_FOUND);
         }
 
-        if ($resident->getTokenExpiration() < new \DateTime()) {
+        if ($resident->getTokenExpiration() === null || $resident->getTokenExpiration() < new \DateTime()) {
             return new JsonResponse(['message' => 'Lien expiré'], Response::HTTP_GONE);
         }
 
@@ -81,7 +81,7 @@ class MaccsSetupController extends AbstractController
             return new JsonResponse(['message' => 'Lien invalide ou déjà utilisé'], Response::HTTP_NOT_FOUND);
         }
 
-        if ($resident->getTokenExpiration() < new \DateTime()) {
+        if ($resident->getTokenExpiration() === null || $resident->getTokenExpiration() < new \DateTime()) {
             return new JsonResponse(['message' => 'Lien expiré'], Response::HTTP_GONE);
         }
 

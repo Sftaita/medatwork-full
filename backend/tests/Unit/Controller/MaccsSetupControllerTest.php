@@ -67,15 +67,16 @@ final class MaccsSetupControllerTest extends TestCase
     private function makeResident(
         bool $expired = false,
         bool $nullToken = false,
+        bool $nullExpiration = false,
     ): Resident {
         $r = $this->createMock(Resident::class);
         $r->method('getFirstname')->willReturn('Alice');
         $r->method('getLastname')->willReturn('Dupont');
         $r->method('getEmail')->willReturn('alice@test.be');
         $r->method('getTokenExpiration')->willReturn(
-            $expired
-                ? new \DateTime('-1 day')
-                : new \DateTime('+1 day')
+            $nullExpiration
+                ? null
+                : ($expired ? new \DateTime('-1 day') : new \DateTime('+1 day'))
         );
         $r->method('getYearsResidents')->willReturn(new ArrayCollection());
 
@@ -155,6 +156,13 @@ final class MaccsSetupControllerTest extends TestCase
         $this->assertSame(410, $response->getStatusCode());
     }
 
+    public function testCheckTokenNullExpirationReturns410(): void
+    {
+        $repo     = $this->makeRepo($this->makeResident(nullExpiration: true));
+        $response = $this->buildController()->checkToken('nullexptoken', $repo);
+        $this->assertSame(410, $response->getStatusCode());
+    }
+
     public function testCheckTokenValidReturns200WithContext(): void
     {
         $repo     = $this->makeRepo($this->makeResidentWithHospital());
@@ -199,6 +207,20 @@ final class MaccsSetupControllerTest extends TestCase
         $repo     = $this->makeRepo($this->makeResident(expired: true));
         $response = $this->buildController()->completeProfile(
             'expiredtoken',
+            $this->postRequest($this->validPayload()),
+            $repo,
+            $this->em,
+            $this->hasher,
+            $this->avatarHelper,
+        );
+        $this->assertSame(410, $response->getStatusCode());
+    }
+
+    public function testCompleteProfileNullExpirationReturns410(): void
+    {
+        $repo     = $this->makeRepo($this->makeResident(nullExpiration: true));
+        $response = $this->buildController()->completeProfile(
+            'nullexptoken',
             $this->postRequest($this->validPayload()),
             $repo,
             $this->em,

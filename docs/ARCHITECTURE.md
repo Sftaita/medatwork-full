@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-04-26 (session 20)
+**Dernière mise à jour :** 2026-05-07 (session 24 — Semaines modèles / Week Creator redesign)
 
 ## Vue d'Ensemble
 
@@ -836,33 +836,117 @@ API Platform 2.7.18 est installé. Les entités utilisent le nouveau namespace `
 
 ---
 
+## Règles métier — Visibilité des années par rôle (session 22)
+
+> **Validées 2026-05-05**
+
+### Règles strictes
+
+| Règle | Description |
+|---|---|
+| Un manager voit uniquement les années pour lesquelles il a un `ManagerYears` explicite. | La relation `manager_hospital` (ManyToMany) **ne donne aucun accès automatique** aux années de l'hôpital. |
+| Un manager peut avoir 0, 1 ou plusieurs années. | Ne pas afficher de badge "incomplet" — c'est un état normal. |
+| Un `HospitalAdmin` (ou Manager avec `adminHospital`) voit **toutes** les années de son hôpital via `years.hospital_id`. | Flux via `hospital-admin/years`, indépendant des `ManagerYears`. |
+| "Retirer de l'année" = supprimer uniquement `ManagerYears`. | Ne supprime PAS le lien `manager_hospital`. |
+| "Supprimer de l'hôpital" = supprimer `ManagerYears` liés aux années de cet hôpital + supprimer le lien `manager_hospital`. | Le `Manager` entity reste si lié à d'autres hôpitaux (soft-delete sinon). |
+
+### Endpoints utilisés par la page Gestion des Managers (UI refactorée session 22)
+
+| Endpoint | Méthode | Usage |
+|---|---|---|
+| `/api/hospital-admin/managers?mode=current|history` | GET | Liste managers (1 `ManagerRow` par `ManagerYears`) — groupés en frontend |
+| `/api/hospital-admin/years` | GET | Liste toutes les années de l'hôpital (modal "Ajouter à une année") |
+| `/api/hospital-admin/managers` | POST | Ajouter un manager (nouveau ou existant) à une année |
+| `/api/hospital-admin/manager-years/{myId}` | DELETE | Retirer d'une année (supprime uniquement `ManagerYears`) |
+| `/api/hospital-admin/managers/{managerId}` | DELETE | Supprimer de l'hôpital (supprime `ManagerYears` + lien `manager_hospital`) |
+| `/api/hospital-admin/manager-years/{myId}/resend-invite` | POST | Renvoyer invitation (activation ou année selon contexte) |
+| `/api/hospital-admin/managers/{managerId}/can-create-year` | PATCH | Toggle droit de créer une année |
+
+### Champ `yearPending` dans `ManagerRow`
+
+Ajouté en session 22. Indique si cette attribution spécifique (`ManagerYears`) est en attente d'acceptation par le manager (i.e. `invitedAt != null`).
+
+```
+yearPending=false + status=active   → Attribution active ✅
+yearPending=false + status=pending  → Auto-ajouté, compte non activé ⏳
+yearPending=true  + status=pending  → Invitation à l'année en attente 📩
+yearPending=true  + status=active   → Compte actif, invitation année en attente 📩
+```
+
+---
+
 ## Flux d'invitation Manager (hospital_admin)
 
-### Deux cas selon l'existence du manager
+> **Mise à jour 2026-05-05 (session 21 & 22)** — Ajout du flux auto-ajout + fix `deleteManager` supprime `manager_hospital`.
+
+### Source de vérité : `manager.getHospitals()`
+
+La relation `Manager ↔ Hospital` (ManyToMany via `manager_hospital`) détermine si un manager
+"appartient" à un hôpital. Ce n'est **pas** déduit de l'historique des `ManagerYears`.
+
+`addHospital($hospital)` est appelé à **4 endroits** :
+1. `AdminController` — super-admin lie manuellement un manager à un hôpital
+2. `ManagersAPIController` — manager s'auto-inscrit avec son hôpital
+3. `ManagerInviteController::completeSetup()` — nouveau manager invité complète son profil
+4. `ManagerInviteController::acceptYearInvite()` — manager externe accepte une invitation d'année
+
+### Trois cas selon l'existence et l'appartenance du manager
 
 **Cas 1 — Nouveau manager (pas de compte)**
 1. `POST /api/hospital-admin/managers` → crée `Manager` (incomplet) + `ManagerYears` (invitedAt=now) + token
 2. Email `managerSetup.html.twig` → lien `{frontendUrl}/manager-setup/{token}` + lien refus
 3. Manager ouvre la page → `GET /api/managers/setup/{token}` → retourne contexte (nom, hôpital, année)
-4. Manager soumet le formulaire → `POST /api/managers/setup/{token}` → password hashé, sexe, job, validatedAt=now, token=null, invitedAt=null sur tous les ManagerYears pending
+4. Manager soumet le formulaire → `POST /api/managers/setup/{token}` → password hashé, sexe, job,
+   validatedAt=now, token=null, invitedAt=null sur tous les ManagerYears pending
+   → `addHospital($hospital)` pour chaque hôpital lié via ManagerYears
 
-**Cas 2 — Manager existant (compte actif)**
-1. `POST /api/hospital-admin/managers` → crée uniquement `ManagerYears` (invitedAt=now) + token sur le Manager existant
+**Cas 2 — Manager existant appartenant à l'hôpital (`hospital ∈ manager.getHospitals()`)**
+
+_Sous-cas 2a — compte activé (validatedAt != null)_ :
+1. `POST /api/hospital-admin/managers` → crée `ManagerYears` avec `invitedAt=null` (accepté d'office)
+   → PAS de token year-invitation
+2. Email info `managerAddedToYearInfo.html.twig` → "Vous avez été ajouté à l'année X"
+3. `NotificationManager` in-app créée pour le manager
+4. Résultat immédiat : statut `active`
+
+_Sous-cas 2b — compte non activé (validatedAt=null, token existant)_ :
+1. `POST /api/hospital-admin/managers` → crée `ManagerYears` avec `invitedAt=null` (accepté d'office)
+   → PAS de token year-invitation
+2. Nouveau token d'activation généré, email setup renvoyé (`managerSetup.html.twig`)
+3. `NotificationManager` in-app créée
+4. Résultat : statut `pending` jusqu'à activation du compte
+
+**Cas 3 — Manager existant n'appartenant pas à l'hôpital**
+1. `POST /api/hospital-admin/managers` → crée `ManagerYears` (invitedAt=now) + token sur Manager existant
 2. Email `managerYearInvite.html.twig` → liens accept/refuse (routes backend HTML)
-3a. Accepter → `GET /api/managers/accept-year/{token}` → invitedAt=null, token=null → HTML succès
-3b. Refuser → `GET /api/managers/refuse-year/{token}` → supprime ManagerYears pending ; nouveau sans années actives → supprime Manager → HTML info
+3a. Accepter → `GET /api/managers/accept-year/{token}` → invitedAt=null, token=null,
+    `addHospital($hospital)` → HTML succès
+3b. Refuser → `GET /api/managers/refuse-year/{token}` → supprime ManagerYears pending ;
+    nouveau sans années actives → supprime Manager ; sinon token=null
+    → email + NotificationManager de notification aux admins de l'hôpital
 
-### Convention de statut (ManagerYears.invitedAt)
-| Valeur | Statut | Signification |
-|--------|--------|---------------|
-| `invitedAt != null` | **pending** | Invitation envoyée, non acceptée |
-| `invitedAt == null && validatedAt == null` | **incomplete** | Compte créé, profil non complété |
-| `invitedAt == null && validatedAt != null` | **active** | Manager actif |
+### Bouton "Renvoyer l'invitation" (dashboard hospital-admin)
+
+| Cas | Action backend | Email envoyé |
+|---|---|---|
+| MACCS `pending` (compte non activé) | `resendResidentInvite(yrId)` | `maccsInvited.html.twig` |
+| Manager `pending` + `accountActivated=false` + `invitedAt=null` | `resendManagerInvite(myId)` | `managerSetup.html.twig` (activation) |
+| Manager `pending` + `accountActivated=false` + `invitedAt!=null` | `resendManagerInvite(myId)` | `managerSetup.html.twig` (setup) |
+| Manager `pending` + `accountActivated=true` | `resendManagerInvite(myId)` | `managerYearInvite.html.twig` (accept/refuse) |
+
+### Convention de statut (ManagerYears.invitedAt + Manager.token)
+| `invitedAt` | `token` | `validatedAt` | Statut UI | Signification |
+|---|---|---|---|---|
+| `!= null` | `!= null` | `null` | pending — Compte non activé | Invitation envoyée, setup non complété |
+| `!= null` | `!= null` | `!= null` | pending — Invitation non acceptée | Compte existant, année non acceptée |
+| `null` | `!= null` | `null` | pending — Compte non activé | Auto-ajouté, compte non activé |
+| `null` | `null` | `!= null` | active | Pleinement opérationnel |
 
 ### Token lifecycle
 - Généré avec `bin2hex(random_bytes(32))` — validité 48h (`tokenExpiration`)
 - Stocké sur `Manager.token` + `Manager.tokenExpiration`
 - Effacé après accept/refuse/setup complet
+- Pour les auto-ajoutés (Cas 2b) : token d'activation régénéré, PAS de token year-invitation
 
 ---
 
@@ -1051,10 +1135,46 @@ Un changement de slot `(yearWeekTemplateId, weekIntervalId)` remplace toujours l
 | `frontend/src/service-worker.js` | SW custom : precache + StaleWhileRevalidate images + App Shell |
 | `frontend/src/hooks/usePwaUpdate.ts` | Détecte les mises à jour SW, affiche un toast cliquable |
 | `frontend/src/components/small/InstallPrompt.tsx` | Bouton "Installer" dans la Topbar (capte `beforeinstallprompt`) |
+| `frontend/src/components/YearSelect.tsx` | **Composant réutilisable** — Sélecteur d'année avec recherche, tri du plus récent au plus ancien. Voir JSDoc dans le fichier. |
 | `frontend/public/manifest.json` | Manifest complet (lang, scope, icons any+maskable, screenshots, shortcuts) |
 | `frontend/public/logo-maskable-512.png` | Icône maskable 512×512 (logo centré sur fond `#9155FD`, 20% padding) |
 | `frontend/public/screenshot-narrow.png` | Capture mobile 540×720 (Lighthouse form_factor: narrow) |
 | `frontend/public/screenshot-wide.png` | Capture desktop 1280×720 (Lighthouse form_factor: wide) |
+
+---
+
+## Composants réutilisables frontend (session 22)
+
+### `YearSelect` — Sélecteur d'année avec recherche
+
+**Fichier :** `frontend/src/components/YearSelect.tsx`
+
+Composant MUI `Select` enrichi pour choisir une année parmi la liste fournie.
+
+**Fonctionnalités :**
+- Tri automatique du plus récent au plus ancien (`dateOfStart DESC`)
+- Champ de recherche intégré dans le dropdown (filtre par titre, période, lieu)
+- Prop `disabledYearIds` pour marquer des années comme "déjà attribuées"
+- Entièrement contrôlé (`value` + `onChange`)
+
+**Usage :**
+```tsx
+import YearSelect from "@/components/YearSelect";
+
+<YearSelect
+  years={allYears}           // HospitalYear[] depuis hospitalAdminApi.listMyYears()
+  value={selectedId}         // number | ""
+  onChange={(id) => setId(id)}
+  label="Année académique"
+  required
+  disabledYearIds={new Set([1, 3])}  // optionnel
+/>
+```
+
+**Exports nommés :**
+- `sortYearsNewestFirst(years)` — tri seul (pour réutilisation hors composant)
+
+**Utilisé dans :** `HospitalAdminManagersPage` (dialog "Ajouter un manager")
 
 ### Fonctionnement
 
@@ -1092,4 +1212,140 @@ Mise à jour disponible
 | Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
 | devOptions activé (test dev) | ✅ `vite.config.js` |
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-15 (session 17)*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-06 (session 23)*
+
+---
+
+## Workflow Staff Planner RH (2026-05-06)
+
+### Concept
+
+Le Staff Planner est un outil RH tiers qui consomme un fichier `.txt` structuré décrivant les horaires mensuels des résidents. Medatwork génère ce fichier à la demande, mois par mois.
+
+### Entités impliquées
+
+```
+Years ──── PeriodValidation ──── ResidentValidation
+ │           (month, yearNb,         (resident FK,
+ │            validated=MDS)          validated=résident)
+ │
+ └──── StaffPlannerMonthStatus
+        (month, calendarYear, treated, treatedBy, downloadCount)
+```
+
+### Endpoints
+
+| Méthode | URL | Accès | Rôle |
+|---|---|---|---|
+| `GET` | `/api/hospital-admin/years/{yearId}/staff-planner-months` | ROLE_MANAGER* | Lister les mois + statut |
+| `PATCH` | `/api/hospital-admin/years/{yearId}/staff-planner-months/{month}/{calYear}` | ROLE_MANAGER* | Mettre à jour traité |
+| `POST` | `/api/managers/SPImport` | ROLE_MANAGER | Générer le fichier .txt |
+
+*Le chemin `/api/hospital-admin/years/.../staff-planner-months` est accessible `ROLE_MANAGER` (pas seulement `ROLE_HOSPITAL_ADMIN`) grâce à une rule spécifique dans `security.yaml`. Le contrôleur enforce le job check pour les managers RH.
+
+### Accès
+
+| Utilisateur | Accès |
+|---|---|
+| `AppAdmin` (ROLE_SUPER_ADMIN) | ✅ via admin |
+| `HospitalAdmin` entité | ✅ |
+| `Manager` avec `adminHospital` | ✅ |
+| `Manager` avec `job=human_resources` | ✅ vérification dans contrôleur + `$user->getHospitals()` |
+| `Manager` avec autre job | ❌ 403 |
+| `Resident` | ❌ 401/403 |
+
+### JWT — champ `job`
+
+Le champ `job` est exposé dans le JWT pour les `Manager` uniquement (valeur de l'enum `ManagerJob`). Géré dans `AuthenticationSuccessListener::onAuthenticationSuccess()`.
+
+### Flux complet
+
+```
+1. Frontend charge GET /staff-planner-months → reçoit mois + residentValidationIds
+2. Utilisateur coche les mois à exporter
+3. Frontend appelle POST /managers/SPImport avec periodsId = residentValidationIds des mois cochés
+4. Backend génère le fichier .txt (GenerateStaffPlannerExport)
+5. Backend appelle StaffPlannerMonthsService::markMonthsAsTreatedAfterGeneration()
+   → crée/met à jour StaffPlannerMonthStatus pour chaque mois couvert
+6. Frontend invalide le cache React Query → mois passent en "traité"
+7. Utilisateur peut aussi basculer le statut manuellement via PATCH
+```
+
+
+---
+
+## Semaines modèles — Week Creator (2026-05-07)
+
+Page `/manager/week-creator` — refonte complète du planificateur de semaine type.
+
+### Architecture frontend
+
+```
+WeekCreatorPage/
+├── TimePlannerPage.tsx             # Wrapper lazy (point d'entrée du router)
+└── components/planner/
+    ├── types.ts                    # Interfaces + utilitaires partagés
+    ├── WeekPlannerApp.tsx           # Composant racine : état, API calls, layout
+    ├── TopBar.tsx                  # Titre + sélecteur de modèles + sync status + tutoriel
+    ├── TimeRuler.tsx               # Règle horaire sticky top, drag-to-scroll
+    ├── DayRow.tsx                  # Ligne de jour : création/déplacement/resize de créneaux
+    ├── WeekTotals.tsx              # Décompte des heures (barre de progression)
+    ├── DescriptionEditor.tsx       # Éditeur de description du créneau sélectionné
+    ├── DayPickerModal.tsx          # Sélecteur de jours cibles (copier/appliquer)
+    └── planner.test.tsx            # Tests unitaires (Vitest + RTL)
+```
+
+### Layout CSS
+
+```
+root (flex column, height: calc(100vh - 64px))
+├── topArea — TopBar (fixe en haut)
+└── mainLayout (CSS grid: minmax(0,1fr) | 300px)
+    ├── plannerCard (min-width:0, overflow:hidden, carte blanche)
+    │   └── timelineScroll (overflow-x:auto — scroll horizontal uniquement ici)
+    │       └── timelineContent (min-width: 1100px)
+    │           ├── TimeRuler (sticky top:0 ; spacer sticky left:0)
+    │           └── DayRow × n (label sticky left:0, 180px)
+    └── sidePanel (300px fixe, jamais écrasé par la grille)
+        ├── WeekTotals
+        └── DescriptionEditor
+```
+
+**Clé CSS** : `min-width: 0` sur la colonne gauche du grid est indispensable — sans ça, le contenu force le débordement sous l'inspecteur.
+
+### Modèle de données local vs serveur
+
+| Champ serveur (`WeekTask`) | Stockage | Usage |
+|---|---|---|
+| `title` | `slot.name` | Nom du créneau |
+| `description` | `"color\|description text"` | Couleur + description (séparateur `\|`) |
+| `dayOfWeek` (1–7) | `slot.start` + day key | Lundi=1, Dimanche=7 |
+| `startTime` ("H:i") | `slot.start` (heures décimales) | 8.5 = 08:30 |
+| `endTime` ("H:i") | `slot.end` (heures décimales) | |
+
+Format `description` : `"violet|Poste de nuit"` → couleur=violet, description="Poste de nuit". Rétrocompatible avec l'ancien format (juste la couleur sans `|`).
+
+### Auto-save
+
+Toutes les mutations sont synchronisées immédiatement :
+- **Ajout de créneau** → `POST managers/weekTask/create`
+- **Suppression** → `DELETE managers/weekTask/{id}`
+- **Déplacement / resize / description** → `PUT managers/weekTask/{id}` avec **debounce 500ms** (évite les appels pendant le drag)
+- **Renommage de modèle** → `PUT managers/weekTemplate/{id}` (optimiste)
+- **Duplication de modèle** → optimiste (ID temporaire négatif), puis `POST managers/weekTemplate/{id}/copy` + rename, rollback si erreur
+
+### Naming automatique des copies
+
+Format : `"Nom - Copie"`, `"Nom - Copie 2"`, etc. Le suffixe ` - Copie N` est retiré de la base avant de chercher le prochain nom disponible.
+
+### Tests (`planner.test.tsx`)
+
+| Suite | Ce qui est testé |
+|---|---|
+| `timeStrToDecimal` | Conversion "H:i" → nombre décimal |
+| `decimalToTimeStr` | Inverse |
+| `fmtHM` / `fmtDuration` | Formatage d'affichage |
+| `isValidColor` | Validation des couleurs |
+| `serverToLocal` | Parsing `color\|description`, tri par heure, fallback couleur |
+| `WeekTotals` | Affichage "—" sans créneaux, total correct avec créneaux |
+| `DescriptionEditor` | État vide, affichage avec slot, appel `onChange` |

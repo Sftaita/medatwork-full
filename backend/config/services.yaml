@@ -61,6 +61,10 @@ services:
       $apiUrl: '%env(API_URL)%'
       $frontendUrl: '%env(FRONTEND_URL)%'
 
+  App\Controller\ManagerInviteController:
+    arguments:
+      $frontendUrl: '%env(FRONTEND_URL)%'
+
   App\Controller\ManagersAPI\ManagersAPI\ManagersAPIController:
     arguments:
       $apiUrl: '%env(API_URL)%'
@@ -107,3 +111,7 @@ services:
   App\Compliance\ResidentWorkComplianceService:
     arguments:
       $checkers: !tagged_iterator app.compliance_checker
+
+  App\Services\StaffPlanner\StaffPlannerMonthsService:
+    arguments:
+      $apiUrl: '%env(API_URL)%'

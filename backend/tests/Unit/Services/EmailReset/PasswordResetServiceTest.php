@@ -40,38 +40,79 @@ final class PasswordResetServiceTest extends TestCase
         );
     }
 
+    /** Returns an activated Resident mock (validatedAt set). */
+    private function activatedResident(): Resident
+    {
+        $resident = $this->createMock(Resident::class);
+        $resident->method('getValidatedAt')->willReturn(new DateTime('-1 day'));
+
+        return $resident;
+    }
+
+    /** Returns an activated Manager mock (validatedAt set). */
+    private function activatedManager(): Manager
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getValidatedAt')->willReturn(new DateTime('-1 day'));
+
+        return $manager;
+    }
+
+    // ── Unknown email ─────────────────────────────────────────────────────────
+
     public function testUnknownEmailDoesNothing(): void
     {
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn(null);
+        $this->residentRepo->method('findOneBy')->willReturn(null);
+        $this->managerRepo->method('findOneBy')->willReturn(null);
 
-        $this->managerRepo
-            ->method('findOneBy')
-            ->willReturn(null);
-
-        $this->entityManager
-            ->expects($this->never())
-            ->method('flush');
-
-        $this->mailer
-            ->expects($this->never())
-            ->method('sendEmail');
+        $this->entityManager->expects($this->never())->method('flush');
+        $this->mailer->expects($this->never())->method('sendEmail');
 
         $this->buildService()->requestReset('unknown@example.com');
     }
 
-    public function testKnownResidentGetsTokenSet(): void
+    // ── Non-activated accounts must not have their token overwritten ──────────
+
+    public function testNonActivatedResidentDoesNotGetTokenSet(): void
     {
         $resident = $this->createMock(Resident::class);
+        $resident->method('getValidatedAt')->willReturn(null);
 
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn($resident);
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
+        $this->managerRepo->expects($this->never())->method('findOneBy');
 
-        $this->managerRepo
-            ->expects($this->never())
-            ->method('findOneBy');
+        $resident->expects($this->never())->method('setToken');
+
+        $this->entityManager->expects($this->never())->method('flush');
+        $this->mailer->expects($this->never())->method('sendEmail');
+
+        $this->buildService()->requestReset('notactivated@example.com');
+    }
+
+    public function testNonActivatedManagerDoesNotGetTokenSet(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getValidatedAt')->willReturn(null);
+
+        $this->residentRepo->method('findOneBy')->willReturn(null);
+        $this->managerRepo->method('findOneBy')->willReturn($manager);
+
+        $manager->expects($this->never())->method('setToken');
+
+        $this->entityManager->expects($this->never())->method('flush');
+        $this->mailer->expects($this->never())->method('sendEmail');
+
+        $this->buildService()->requestReset('notactivated@example.com');
+    }
+
+    // ── Activated resident ────────────────────────────────────────────────────
+
+    public function testKnownResidentGetsTokenSet(): void
+    {
+        $resident = $this->activatedResident();
+
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
+        $this->managerRepo->expects($this->never())->method('findOneBy');
 
         $resident
             ->expects($this->once())
@@ -85,28 +126,20 @@ final class PasswordResetServiceTest extends TestCase
             ->with($this->isInstanceOf(DateTime::class))
             ->willReturn($resident);
 
-        $this->entityManager
-            ->expects($this->once())
-            ->method('flush');
-
-        $this->mailer
-            ->expects($this->once())
-            ->method('sendEmail');
+        $this->entityManager->expects($this->once())->method('flush');
+        $this->mailer->expects($this->once())->method('sendEmail');
 
         $this->buildService()->requestReset('resident@example.com');
     }
 
+    // ── Activated manager ─────────────────────────────────────────────────────
+
     public function testKnownManagerGetsTokenSet(): void
     {
-        $manager = $this->createMock(Manager::class);
+        $manager = $this->activatedManager();
 
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn(null);
-
-        $this->managerRepo
-            ->method('findOneBy')
-            ->willReturn($manager);
+        $this->residentRepo->method('findOneBy')->willReturn(null);
+        $this->managerRepo->method('findOneBy')->willReturn($manager);
 
         $manager
             ->expects($this->once())
@@ -120,26 +153,20 @@ final class PasswordResetServiceTest extends TestCase
             ->with($this->isInstanceOf(DateTime::class))
             ->willReturn($manager);
 
-        $this->entityManager
-            ->expects($this->once())
-            ->method('flush');
-
-        $this->mailer
-            ->expects($this->once())
-            ->method('sendEmail');
+        $this->entityManager->expects($this->once())->method('flush');
+        $this->mailer->expects($this->once())->method('sendEmail');
 
         $this->buildService()->requestReset('manager@example.com');
     }
 
+    // ── Token format and expiry ───────────────────────────────────────────────
+
     public function testTokenIs64CharHex(): void
     {
-        $resident = $this->createMock(Resident::class);
-
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn($resident);
-
+        $resident      = $this->activatedResident();
         $capturedToken = null;
+
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
 
         $resident
             ->method('setToken')
@@ -149,9 +176,7 @@ final class PasswordResetServiceTest extends TestCase
                 return $resident;
             });
 
-        $resident
-            ->method('setTokenExpiration')
-            ->willReturn($resident);
+        $resident->method('setTokenExpiration')->willReturn($resident);
 
         $this->buildService()->requestReset('resident@example.com');
 
@@ -162,17 +187,12 @@ final class PasswordResetServiceTest extends TestCase
 
     public function testExpirationIsApproximately1Day(): void
     {
-        $resident = $this->createMock(Resident::class);
-
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn($resident);
-
+        $resident           = $this->activatedResident();
         $capturedExpiration = null;
 
-        $resident
-            ->method('setToken')
-            ->willReturn($resident);
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
+
+        $resident->method('setToken')->willReturn($resident);
 
         $resident
             ->method('setTokenExpiration')
@@ -186,7 +206,7 @@ final class PasswordResetServiceTest extends TestCase
 
         $this->assertNotNull($capturedExpiration);
 
-        $now      = new DateTime('now');
+        $now        = new DateTime('now');
         $lowerBound = (clone $now)->modify('+23 hours');
         $upperBound = (clone $now)->modify('+25 hours');
 
@@ -203,18 +223,17 @@ final class PasswordResetServiceTest extends TestCase
         );
     }
 
+    // ── Email content ─────────────────────────────────────────────────────────
+
     public function testFrontendUrlTrimsTrailingSlash(): void
     {
-        $resident = $this->createMock(Resident::class);
+        $resident       = $this->activatedResident();
+        $capturedParams = null;
 
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn($resident);
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
 
         $resident->method('setToken')->willReturn($resident);
         $resident->method('setTokenExpiration')->willReturn($resident);
-
-        $capturedParams = null;
 
         $this->mailer
             ->expects($this->once())
@@ -233,17 +252,14 @@ final class PasswordResetServiceTest extends TestCase
 
     public function testEmailSubjectAndTemplate(): void
     {
-        $resident = $this->createMock(Resident::class);
+        $resident         = $this->activatedResident();
+        $capturedSubject  = null;
+        $capturedTemplate = null;
 
-        $this->residentRepo
-            ->method('findOneBy')
-            ->willReturn($resident);
+        $this->residentRepo->method('findOneBy')->willReturn($resident);
 
         $resident->method('setToken')->willReturn($resident);
         $resident->method('setTokenExpiration')->willReturn($resident);
-
-        $capturedSubject  = null;
-        $capturedTemplate = null;
 
         $this->mailer
             ->expects($this->once())

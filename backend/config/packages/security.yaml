@@ -83,6 +83,9 @@ security:
     - { path: ^/api/managers/setup, roles: PUBLIC_ACCESS }
     - { path: ^/api/managers/accept-year, roles: PUBLIC_ACCESS }
     - { path: ^/api/managers/refuse-year, roles: PUBLIC_ACCESS }
+    # Staff Planner endpoints — also accessible by HR managers (ROLE_MANAGER + job check in controller)
+    - { path: '^/api/hospital-admin/years/\d+/staff-planner-months', roles: ROLE_MANAGER }
+    - { path: '^/api/hospital-admin/staff-planner-items', roles: ROLE_MANAGER }
     - { path: ^/api/hospital-admin, roles: ROLE_HOSPITAL_ADMIN }
     - { path: ^/api/hospitals, roles: PUBLIC_ACCESS, methods: [GET] }
     - { path: ^/api/token/invalidate, roles: PUBLIC_ACCESS }
