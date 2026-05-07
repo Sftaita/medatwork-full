@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Controller;
 
+use App\Controller\MailerController;
 use App\Controller\ManagerInviteController;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
@@ -60,7 +61,8 @@ final class ManagerInviteControllerTest extends TestCase
 
     private function buildController(): ManagerInviteController
     {
-        $controller = new ManagerInviteController();
+        $mailer = $this->createMock(MailerController::class);
+        $controller = new ManagerInviteController($mailer, 'https://localhost');
         $controller->setContainer(new Container());
 
         return $controller;
