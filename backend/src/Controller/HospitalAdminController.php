@@ -1131,15 +1131,63 @@ class HospitalAdminController extends AbstractController
             return new JsonResponse(['message' => 'canCreateYear (boolean) requis'], Response::HTTP_BAD_REQUEST);
         }
 
-        $manager->setCanCreateYear($data['canCreateYear']);
+        $canCreate = $data['canCreateYear'];
+        $manager->setCanCreateYear($canCreate);
 
         $actor = $this->getUser();
+        $actorName = match (true) {
+            $actor instanceof HospitalAdmin => trim(($actor->getFirstname() ?? '') . ' ' . ($actor->getLastname() ?? '')),
+            $actor instanceof Manager       => trim(($actor->getFirstname() ?? '') . ' ' . ($actor->getLastname() ?? '')),
+            default                         => 'Administrateur',
+        };
+
+        // ── Audit ────────────────────────────────────────────────────────────────
         if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
-            $action = $data['canCreateYear'] ? 'grant_create_year' : 'revoke_create_year';
-            $this->auditService->log($actor, $hospital, $action, 'manager', $manager->getId(), sprintf('Droit "créer une année" %s pour %s %s', $data['canCreateYear'] ? 'accordé' : 'révoqué', $manager->getFirstname(), $manager->getLastname()));
+            $action = $canCreate ? 'grant_create_year' : 'revoke_create_year';
+            $this->auditService->log($actor, $hospital, $action, 'manager', $manager->getId(), sprintf('Droit "créer une année" %s pour %s %s', $canCreate ? 'accordé' : 'révoqué', $manager->getFirstname(), $manager->getLastname()));
         }
 
         $em->flush();
+
+        // ── Notification in-app + email uniquement lors de l'octroi du droit ────
+        if ($canCreate) {
+            $managerEmail = $manager->getEmail();
+
+            // Notification in-app
+            $notif = (new NotificationManager())
+                ->setManager($manager)
+                ->setObject('Nouveau droit accordé')
+                ->setBody(sprintf(
+                    '%s vous a accordé le droit de créer des années académiques pour l\'hôpital %s.',
+                    $actorName,
+                    $hospital->getName(),
+                ))
+                ->setType('grant_create_year')
+                ->setCreatedAt(new \DateTime())
+                ->setIsRead(false);
+            $em->persist($notif);
+            $em->flush();
+
+            // Email d'information (non bloquant)
+            if ($managerEmail !== null) {
+                try {
+                    $this->mailer->sendEmail(
+                        $managerEmail,
+                        'Nouveau droit accordé — MED@WORK',
+                        'email/managerCanCreateYearGranted.html.twig',
+                        [
+                            'firstname'     => $manager->getFirstname() ?? '',
+                            'hospitalName'  => $hospital->getName(),
+                            'grantedByName' => $actorName,
+                            'grantedAt'     => (new \DateTime())->format('d/m/Y à H:i'),
+                            'loginUrl'      => rtrim($this->frontendUrl, '/') . '/login',
+                        ],
+                    );
+                } catch (\Throwable) {
+                    // L'email ne doit jamais bloquer l'opération
+                }
+            }
+        }
 
         return new JsonResponse(['canCreateYear' => $manager->isCanCreateYear()]);
     }

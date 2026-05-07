@@ -732,8 +732,27 @@ const HospitalAdminManagersPage = () => {
   const toggleMutation = useMutation({
     mutationFn: ({ managerId, value }: { managerId: number; value: boolean }) =>
       hospitalAdminApi.setManagerCanCreateYear(managerId, value),
-    onSuccess: (data) => { toast.success(data.canCreateYear ? "Droit accordé." : "Droit révoqué."); invalidate(); },
-    onError: () => toast.error("Erreur lors de la mise à jour du droit."),
+    onMutate: async ({ managerId, value }) => {
+      await qc.cancelQueries({ queryKey: ["hospital-managers"] });
+      const prevCurrent = qc.getQueryData<ManagerRow[]>(["hospital-managers", "current"]);
+      const prevHistory = qc.getQueryData<ManagerRow[]>(["hospital-managers", "history"]);
+      const apply = (rows: ManagerRow[] | undefined) =>
+        rows?.map((r) => r.managerId === managerId ? { ...r, canCreateYear: value } : r);
+      qc.setQueryData(["hospital-managers", "current"], apply(prevCurrent));
+      qc.setQueryData(["hospital-managers", "history"], apply(prevHistory));
+      return { prevCurrent, prevHistory };
+    },
+    onSuccess: (data) => {
+      toast.success(data.canCreateYear ? "Droit accordé." : "Droit révoqué.");
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevCurrent !== undefined)
+        qc.setQueryData(["hospital-managers", "current"], context.prevCurrent);
+      if (context?.prevHistory !== undefined)
+        qc.setQueryData(["hospital-managers", "history"], context.prevHistory);
+      toast.error("Erreur lors de la mise à jour du droit.");
+    },
+    onSettled: () => invalidate(),
   });
 
   const openDrawer = (g: ManagerGroup) =>
