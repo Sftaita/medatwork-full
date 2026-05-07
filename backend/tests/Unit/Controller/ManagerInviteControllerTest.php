@@ -483,6 +483,7 @@ final class ManagerInviteControllerTest extends TestCase
         $pendingMy = $this->makePendingManagerYear();
         $manager   = $this->makeManager(validated: true, managerYears: [$pendingMy]);
         $this->repo->method('findOneBy')->willReturn($manager);
+        $this->hospitalAdminRepo->method('findBy')->willReturn([]);
         $this->em->expects($this->once())->method('remove')->with($pendingMy);
 
         $response = $this->buildController()->refuseYearInvite('validtoken', $this->repo, $this->hospitalAdminRepo, $this->em);
@@ -497,6 +498,7 @@ final class ManagerInviteControllerTest extends TestCase
         // Not validated → new manager, no active years
         $manager = $this->makeManager(validated: false, managerYears: [$pendingMy]);
         $this->repo->method('findOneBy')->willReturn($manager);
+        $this->hospitalAdminRepo->method('findBy')->willReturn([]);
 
         $removeArgs = [];
         $this->em->method('remove')->willReturnCallback(function ($entity) use (&$removeArgs) {

@@ -180,7 +180,7 @@ final class YearsManagerAPIControllerTest extends TestCase
         $this->assertSame('Alice', $data[0]['firstname']);
         $this->assertSame('Dupont', $data[0]['lastname']);
         $this->assertSame('male', $data[0]['sexe']);
-        $this->assertSame('Médecin senior', $data[0]['job']);
+        $this->assertSame('doctor', $data[0]['job']);
         $this->assertSame(11, $data[1]['id']);
         $this->assertSame('Bob', $data[1]['firstname']);
     }
