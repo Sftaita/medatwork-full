@@ -61,6 +61,11 @@ function fullName(item: StaffPlannerItem): string {
   return [item.residentFirstname, item.residentLastname].filter(Boolean).join(" ") || "—";
 }
 
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 // ── Tutorial modal ────────────────────────────────────────────────────────────
 
 const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
@@ -88,11 +93,19 @@ const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }
         </Box>
         <Divider />
         <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Colonne "Validé MDS"</Typography>
-          <Typography variant="body2" color="text.secondary">
-            <strong>V</strong> = le maître de stage a validé l'horaire de ce résident pour ce mois
-            (statut par MACCS, pas global pour le mois). Informatif — ne bloque pas la génération.
-          </Typography>
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Colonnes du tableau</Typography>
+          <Stack spacing={0.5}>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Validé MDS</strong> — V = le maître de stage a validé l'horaire de ce résident pour ce mois.
+              Informatif — ne bloque pas la génération.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Statut</strong> — indique si cet item a été inclus dans un export Staff Planner.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Exports</strong> — nombre de fois que ce MACCS × mois a été exporté, avec la date du dernier export.
+            </Typography>
+          </Stack>
         </Box>
         <Divider />
         <Box>
@@ -362,7 +375,7 @@ const HospitalAdminExportsPage = () => {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <Box p={3} maxWidth={1100} mx="auto">
+    <Box p={3} maxWidth={1200} mx="auto">
 
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
@@ -518,8 +531,8 @@ const HospitalAdminExportsPage = () => {
 
                   <Stack spacing={1} mb={2}>
                     {filteredGroups.map((group) => {
-                      const keys       = group.items.map((i) => itemKey(i, group));
-                      const allChecked = keys.length > 0 && keys.every((k) => selected.has(k));
+                      const keys        = group.items.map((i) => itemKey(i, group));
+                      const allChecked  = keys.length > 0 && keys.every((k) => selected.has(k));
                       const someChecked = keys.some((k) => selected.has(k)) && !allChecked;
                       const treatedCount = group.items.filter((i) => i.treated).length;
 
@@ -586,7 +599,15 @@ const HospitalAdminExportsPage = () => {
                                           </Typography>
                                         </Tooltip>
                                       </TableCell>
-                                      <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT RH</Typography></TableCell>
+                                      <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
+                                      <TableCell>
+                                        <Tooltip title="Nombre d'exports Staff Planner incluant ce MACCS pour ce mois" arrow>
+                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
+                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
+                                            EXPORTS
+                                          </Typography>
+                                        </Tooltip>
+                                      </TableCell>
                                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">TRAITÉ</Typography></TableCell>
                                     </TableRow>
                                   </TableHead>
@@ -642,6 +663,24 @@ const HospitalAdminExportsPage = () => {
                                             color={item.treated ? "success" : "default"}
                                             variant="outlined"
                                           />
+                                        </TableCell>
+                                        <TableCell>
+                                          {item.downloadCount > 0 ? (
+                                            <Tooltip
+                                              title={`Dernier export : ${fmtDate(item.lastGeneratedAt)}`}
+                                              arrow
+                                            >
+                                              <Chip
+                                                label={`×${item.downloadCount}`}
+                                                size="small"
+                                                color="info"
+                                                variant="outlined"
+                                                sx={{ fontVariantNumeric: "tabular-nums", cursor: "help" }}
+                                              />
+                                            </Tooltip>
+                                          ) : (
+                                            <Typography variant="body2" color="text.disabled">—</Typography>
+                                          )}
                                         </TableCell>
                                         <TableCell onClick={(e) => e.stopPropagation()}>
                                           <Switch
@@ -743,26 +782,23 @@ const HospitalAdminExportsPage = () => {
                               />
                             </TableCell>
                             <TableCell align="right">
-                              <Tooltip
-                                title="Télécharger le fichier Excel annuel"
-                                arrow
-                              >
+                              <Tooltip title="Télécharger le fichier Excel annuel" arrow>
                                 <span>
                                   <Button
                                     size="small"
                                     variant="outlined"
                                     disabled={isDownloading}
                                     onClick={() => handleExcelDownload(r)}
-                                    sx={{ position: 'relative' }}
+                                    sx={{ position: "relative" }}
                                   >
-                                    <span style={{ visibility: isDownloading ? 'hidden' : 'visible' }}>
+                                    <span style={{ visibility: isDownloading ? "hidden" : "visible" }}>
                                       Excel annuel
                                     </span>
                                     {isDownloading && (
                                       <CircularProgress
                                         size={14}
                                         color="inherit"
-                                        sx={{ position: 'absolute' }}
+                                        sx={{ position: "absolute" }}
                                       />
                                     )}
                                   </Button>

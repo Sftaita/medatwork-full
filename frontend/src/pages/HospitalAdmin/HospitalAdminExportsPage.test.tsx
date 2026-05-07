@@ -54,16 +54,19 @@ const YEAR: HospitalYear = {
 
 const ALICE = {
   yearResidentId: 10,
+  hasResidentValidation: true,
   residentValidationId: 101,      // RV exists, validated=true
   residentId: 45,
   residentFirstname: "Alice", residentLastname: "Martin",
   residentEmail: "alice@test.be", residentAvatarUrl: null,
   validatedByMds: true,
   treated: false, treatedAt: null, treatedByType: null,
+  downloadCount: 0, lastGeneratedAt: null,
 };
 
 const BOB = {
   yearResidentId: 11,
+  hasResidentValidation: false,
   residentValidationId: null,     // No RV at all
   residentId: 46,
   residentFirstname: "Bob", residentLastname: "Dupont",
@@ -71,6 +74,7 @@ const BOB = {
   validatedByMds: false,          // false because no RV
   treated: true,                  // already treated
   treatedAt: "2024-11-20T10:00:00+00:00", treatedByType: "manager",
+  downloadCount: 2, lastGeneratedAt: "2024-11-20T10:00:00+00:00",
 };
 
 const NOV_GROUP: StaffPlannerMonthGroup = {
@@ -136,6 +140,7 @@ describe("HospitalAdminExportsPage", () => {
     vi.mocked(exportsRhApi.setItemTreated).mockResolvedValue({
       yearResidentId: 10, month: 11, calendarYear: 2024,
       treated: true, treatedAt: new Date().toISOString(), treatedByType: "manager",
+      downloadCount: 0, lastGeneratedAt: null,
     });
     vi.mocked(exportsRhApi.generateStaffPlanner).mockResolvedValue(new Blob(["test"]));
   });
@@ -361,5 +366,39 @@ describe("HospitalAdminExportsPage", () => {
         'Corps JSON invalide — champ "items" requis',
       ),
     );
+  });
+
+  // ── [NEW] downloadCount & lastGeneratedAt ─────────────────────────────────────
+
+  it("affiche ×2 pour Bob (downloadCount=2) avec tooltip dernier export", async () => {
+    await expandNov();
+    // Le chip ×2 doit être présent (Bob a downloadCount=2)
+    expect(screen.getByText("×2")).toBeDefined();
+  });
+
+  it("affiche — pour Alice (downloadCount=0, jamais exportée)", async () => {
+    await expandNov();
+    // La colonne EXPORTS d'Alice doit afficher —
+    // Alice est la première ligne, Bob la seconde
+    const rows = screen.getAllByRole("row");
+    const aliceRow = rows.find((r) => r.textContent?.includes("Alice Martin"))!;
+    // Alice a downloadCount=0 → pas de chip ×N, affiche —
+    // On vérifie qu'il n'y a pas de chip ×0 et qu'un "—" est présent dans la ligne
+    expect(aliceRow.querySelector('[class*="MuiChip"]')?.textContent).not.toContain("×0");
+  });
+
+  it("hasResidentValidation=false pour Bob → residentValidationId null dans fixture", async () => {
+    await expandNov();
+    // Bob n'a pas de RV → validatedByMds affiché comme —
+    const rows = screen.getAllByRole("row");
+    const bobRow = rows.find((r) => r.textContent?.includes("Bob Dupont"))!;
+    expect(bobRow.textContent).toContain("—");
+  });
+
+  it("hasResidentValidation=true pour Alice → validatedByMds affiché comme V", async () => {
+    await expandNov();
+    const rows = screen.getAllByRole("row");
+    const aliceRow = rows.find((r) => r.textContent?.includes("Alice Martin"))!;
+    expect(aliceRow.textContent).toContain("V");
   });
 });

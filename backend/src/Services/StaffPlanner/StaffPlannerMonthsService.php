@@ -22,6 +22,14 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * Source de base : YearsResident (tous les MACCS actifs de l'année).
  * Enrichissement : ResidentValidation si elle existe (validatedByMds).
  * Statut traité  : StaffPlannerExportStatus keyed on (yearsResident, month, calendarYear).
+ *
+ * Champs exposés dans l'API (par item) :
+ *   - hasResidentValidation  : true si une ResidentValidation existe pour ce MACCS × mois
+ *   - residentValidationId   : son ID, null si absent
+ *   - validatedByMds         : ResidentValidation.validated si RV existe, false sinon
+ *   - treated / treatedAt / treatedByType
+ *   - downloadCount          : nb de fois inclus dans un export Staff Planner
+ *   - lastGeneratedAt        : date du dernier export (null si jamais exporté)
  */
 class StaffPlannerMonthsService
 {
@@ -53,6 +61,7 @@ class StaffPlannerMonthsService
      *   label: string,
      *   items: list<array{
      *     yearResidentId: int,
+     *     hasResidentValidation: bool,
      *     residentValidationId: int|null,
      *     residentId: int|null,
      *     residentFirstname: string|null,
@@ -62,7 +71,9 @@ class StaffPlannerMonthsService
      *     validatedByMds: bool,
      *     treated: bool,
      *     treatedAt: string|null,
-     *     treatedByType: string|null
+     *     treatedByType: string|null,
+     *     downloadCount: int,
+     *     lastGeneratedAt: string|null
      *   }>
      * }>
      */
@@ -125,6 +136,7 @@ class StaffPlannerMonthsService
 
                 $items[] = [
                     'yearResidentId'       => $yr->getId(),
+                    'hasResidentValidation' => $rv !== null,
                     'residentValidationId' => $rv?->getId(),
                     'residentId'           => $resident->getId(),
                     'residentFirstname'    => $resident->getFirstname(),
@@ -135,6 +147,8 @@ class StaffPlannerMonthsService
                     'treated'              => $status?->isTreated() ?? false,
                     'treatedAt'            => $status?->getTreatedAt()?->format(\DateTimeInterface::ATOM),
                     'treatedByType'        => $status?->getTreatedByType(),
+                    'downloadCount'        => $status?->getDownloadCount() ?? 0,
+                    'lastGeneratedAt'      => $status?->getLastGeneratedAt()?->format(\DateTimeInterface::ATOM),
                 ];
             }
 
@@ -153,6 +167,7 @@ class StaffPlannerMonthsService
 
     /**
      * Upsert treated status for a (yearsResident, month, calendarYear) triplet.
+     * Does NOT increment downloadCount — only generation does.
      */
     public function setItemTreated(
         YearsResident $yr,
@@ -189,6 +204,7 @@ class StaffPlannerMonthsService
 
     /**
      * Marks all exported items as treated after a successful Staff Planner generation.
+     * Also increments downloadCount and records lastGeneratedAt for each item.
      *
      * @param list<array{yearResidentId: int, month: int, calendarYear: int}> $items
      */
@@ -216,11 +232,15 @@ class StaffPlannerMonthsService
                 $this->em->persist($status);
             }
 
+            // Mark as treated
             if ($type !== null && $id !== null) {
                 $status->markTreated($type, $id);
             } else {
                 $status->setTreated(true)->setTreatedAt($now)->touch();
             }
+
+            // Record the generation (increments downloadCount + updates lastGeneratedAt)
+            $status->recordGeneration();
         }
 
         $this->em->flush();

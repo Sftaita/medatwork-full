@@ -13,6 +13,9 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * treatedByType is polymorphic: 'manager' | 'hospital_admin' | 'app_admin'.
  * No FK constraint on treatedBy — avoids multi-table FK complexity.
+ *
+ * downloadCount increments each time this item is included in a Staff Planner generation.
+ * lastGeneratedAt is updated on each generation (not on manual toggle).
  */
 #[ORM\Entity(repositoryClass: StaffPlannerExportStatusRepository::class)]
 #[ORM\UniqueConstraint(name: 'uq_sp_export', columns: ['years_resident_id', 'month', 'calendar_year'])]
@@ -48,12 +51,25 @@ class StaffPlannerExportStatus
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $treatedById = null;
 
+    /** Number of times this item was included in a Staff Planner export generation. */
+    #[ORM\Column(type: 'smallint', options: ['default' => 0])]
+    private int $downloadCount = 0;
+
+    /** Timestamp of the last Staff Planner generation including this item. */
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $lastGeneratedAt = null;
+
+    #[ORM\Column(type: 'datetime')]
+    private \DateTimeInterface $createdAt;
+
     #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $updatedAt;
 
     public function __construct()
     {
-        $this->updatedAt = new \DateTime();
+        $now             = new \DateTime();
+        $this->createdAt = $now;
+        $this->updatedAt = $now;
     }
 
     public function getId(): ?int { return $this->id; }
@@ -73,6 +89,10 @@ class StaffPlannerExportStatus
     public function setTreatedAt(?\DateTimeInterface $at): self { $this->treatedAt = $at; return $this; }
     public function getTreatedByType(): ?string { return $this->treatedByType; }
     public function getTreatedById(): ?int { return $this->treatedById; }
+
+    public function getDownloadCount(): int { return $this->downloadCount; }
+    public function getLastGeneratedAt(): ?\DateTimeInterface { return $this->lastGeneratedAt; }
+    public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeInterface { return $this->updatedAt; }
 
     public function touch(): self { $this->updatedAt = new \DateTime(); return $this; }
@@ -92,6 +112,19 @@ class StaffPlannerExportStatus
         $this->treatedAt     = null;
         $this->treatedByType = null;
         $this->treatedById   = null;
+        return $this->touch();
+    }
+
+    /**
+     * Called when this item is included in an actual Staff Planner export.
+     * Increments downloadCount and records the generation timestamp.
+     * Independent from markTreated — an export always records generation,
+     * but manual toggles do not.
+     */
+    public function recordGeneration(): self
+    {
+        $this->downloadCount++;
+        $this->lastGeneratedAt = new \DateTime();
         return $this->touch();
     }
 }

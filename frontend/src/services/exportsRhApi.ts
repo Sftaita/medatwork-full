@@ -1,11 +1,12 @@
 import { axiosPrivate } from "./Axios";
-import type { MaccsRow } from "./hospitalAdminApi";
 
 // ── Types Staff Planner ───────────────────────────────────────────────────────
 
 /** Un MACCS pour un mois donné — toujours présent même sans ResidentValidation */
 export interface StaffPlannerItem {
   yearResidentId: number;
+  /** true si une ResidentValidation existe pour ce MACCS × mois */
+  hasResidentValidation: boolean;
   /** null si aucune ResidentValidation n'existe pour ce MACCS × mois */
   residentValidationId: number | null;
   residentId: number | null;
@@ -18,6 +19,10 @@ export interface StaffPlannerItem {
   treated: boolean;
   treatedAt: string | null;
   treatedByType: string | null;
+  /** Nombre de fois que cet item a été inclus dans un export Staff Planner */
+  downloadCount: number;
+  /** Date du dernier export Staff Planner incluant cet item (null si jamais exporté) */
+  lastGeneratedAt: string | null;
 }
 
 export interface StaffPlannerMonthGroup {
@@ -39,6 +44,8 @@ export interface PatchItemTreatedResult {
   treated: boolean;
   treatedAt: string | null;
   treatedByType: string | null;
+  downloadCount: number;
+  lastGeneratedAt: string | null;
 }
 
 export interface SpImportItem {

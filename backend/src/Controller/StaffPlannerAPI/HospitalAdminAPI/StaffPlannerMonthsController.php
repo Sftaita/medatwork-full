@@ -87,12 +87,14 @@ class StaffPlannerMonthsController extends AbstractController
         $status = $this->monthsService->setItemTreated($yr, $month, $calendarYear, (bool) $data['treated'], $this->getUser());
 
         return $this->json([
-            'yearResidentId' => $yearResidentId,
-            'month'          => $month,
-            'calendarYear'   => $calendarYear,
-            'treated'        => $status->isTreated(),
-            'treatedAt'      => $status->getTreatedAt()?->format(\DateTimeInterface::ATOM),
-            'treatedByType'  => $status->getTreatedByType(),
+            'yearResidentId'  => $yearResidentId,
+            'month'           => $month,
+            'calendarYear'    => $calendarYear,
+            'treated'         => $status->isTreated(),
+            'treatedAt'       => $status->getTreatedAt()?->format(\DateTimeInterface::ATOM),
+            'treatedByType'   => $status->getTreatedByType(),
+            'downloadCount'   => $status->getDownloadCount(),
+            'lastGeneratedAt' => $status->getLastGeneratedAt()?->format(\DateTimeInterface::ATOM),
         ]);
     }
 
