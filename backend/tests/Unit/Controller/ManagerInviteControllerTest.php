@@ -8,6 +8,7 @@ use App\Controller\MailerController;
 use App\Controller\ManagerInviteController;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
+use App\Repository\HospitalAdminRepository;
 use App\Repository\ManagerRepository;
 use App\Services\AvatarUploadHelper;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -50,13 +51,15 @@ final class ManagerInviteControllerTest extends TestCase
     private EntityManagerInterface $em;
     private UserPasswordHasherInterface $hasher;
     private AvatarUploadHelper $avatarHelper;
+    private HospitalAdminRepository $hospitalAdminRepo;
 
     protected function setUp(): void
     {
-        $this->repo         = $this->createMock(ManagerRepository::class);
-        $this->em           = $this->createMock(EntityManagerInterface::class);
-        $this->hasher       = $this->createMock(UserPasswordHasherInterface::class);
-        $this->avatarHelper = $this->createMock(AvatarUploadHelper::class);
+        $this->repo              = $this->createMock(ManagerRepository::class);
+        $this->em                = $this->createMock(EntityManagerInterface::class);
+        $this->hasher            = $this->createMock(UserPasswordHasherInterface::class);
+        $this->avatarHelper      = $this->createMock(AvatarUploadHelper::class);
+        $this->hospitalAdminRepo = $this->createMock(HospitalAdminRepository::class);
     }
 
     private function buildController(): ManagerInviteController
@@ -482,7 +485,7 @@ final class ManagerInviteControllerTest extends TestCase
         $this->repo->method('findOneBy')->willReturn($manager);
         $this->em->expects($this->once())->method('remove')->with($pendingMy);
 
-        $response = $this->buildController()->refuseYearInvite('validtoken', $this->repo, $this->em);
+        $response = $this->buildController()->refuseYearInvite('validtoken', $this->repo, $this->hospitalAdminRepo, $this->em);
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertStringContainsString('Invitation refusée', (string) $response->getContent());
@@ -500,7 +503,7 @@ final class ManagerInviteControllerTest extends TestCase
             $removeArgs[] = $entity;
         });
 
-        $this->buildController()->refuseYearInvite('validtoken', $this->repo, $this->em);
+        $this->buildController()->refuseYearInvite('validtoken', $this->repo, $this->hospitalAdminRepo, $this->em);
 
         // Both the ManagerYears row and the Manager itself must be removed
         $this->assertContains($pendingMy, $removeArgs);
@@ -511,7 +514,7 @@ final class ManagerInviteControllerTest extends TestCase
     {
         $this->repo->method('findOneBy')->willReturn(null);
 
-        $response = $this->buildController()->refuseYearInvite('badtoken', $this->repo, $this->em);
+        $response = $this->buildController()->refuseYearInvite('badtoken', $this->repo, $this->hospitalAdminRepo, $this->em);
 
         $this->assertSame(410, $response->getStatusCode());
     }
