@@ -7,19 +7,24 @@
  * - Year count badge is correct
  * - Status chips (active / pending / not_registered)
  * - Search by name, email, function
+ * - Filter by fonction (job select)
  * - Empty state "Aucun manager"
  * - No-results state after search
- * - Click row / "Gérer" button opens drawer
+ * - Click row opens drawer
+ * - 3-dot menu: "Voir le détail" opens drawer
+ * - 3-dot menu: "Renvoyer l'invitation" visible for pending managers
+ * - 3-dot menu: "Renvoyer l'invitation" calls resendManagerInvite
+ * - 3-dot menu: "Supprimer de l'hôpital" opens delete dialog
  * - Drawer header shows manager name + email
  * - Drawer shows correct year list
  * - Drawer shows "Aucune année attribuée" for manager with 0 years
  * - "Retirer de l'année" prompts confirmation, calls removeManagerYear
  * - Removing year does NOT call deleteManager
- * - "Supprimer de l'hôpital" shows spec confirmation dialog
+ * - "Supprimer de l'hôpital" shows confirmation dialog
  * - Delete calls deleteManager (not removeManagerYear)
  * - "Ajouter à une année" modal shows "Déjà attribué" for assigned years
- * - "Renvoyer l'invitation" button appears for pending years
  * - "Ajouter un manager" (header) opens AddManagerDialog
+ * - Sortable columns: default asc by Nom, reverse on second click, sort by Années
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -249,11 +254,14 @@ describe("HospitalAdminManagersPage", () => {
     await waitFor(() => expect(screen.getAllByText("alice@chu.be").length).toBeGreaterThanOrEqual(2));
   });
 
-  it("opens the drawer when clicking the 'Gérer' button", async () => {
+  it("opens the drawer when clicking the 3-dot menu → 'Voir le détail'", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    const buttons = screen.getAllByRole("button", { name: "Gérer" });
-    fireEvent.click(buttons[0]);
+    // Each row has a MoreVert icon button
+    const menuButtons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(menuButtons[0].closest("button")!);
+    await waitFor(() => expect(screen.getByText("Voir le détail")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Voir le détail"));
     await waitFor(() => expect(screen.getAllByText("alice@chu.be").length).toBeGreaterThanOrEqual(2));
   });
 
@@ -374,18 +382,45 @@ describe("HospitalAdminManagersPage", () => {
     expect(screen.getAllByRole("button", { name: "Ajouter" })).toHaveLength(2);
   });
 
-  // ── Sort by last name ─────────────────────────────────────────────────────
+  // ── Sort ──────────────────────────────────────────────────────────────────
 
-  it("sorts managers alphabetically by last name", async () => {
-    // MOCK_ROWS: Alice Dupont, Bob Martin, Carla Rossi → D, M, R → alphabetical ✓
+  it("sorts by Nom ascending by default (D < M < R)", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
     const rows = screen.getAllByRole("row").slice(1);
     const names = rows.map((r) => r.querySelector("td")?.textContent ?? "");
-    // "Dupont" < "Martin" < "Rossi" in French alphabetical order
     expect(names[0]).toContain("Dupont");
     expect(names[1]).toContain("Martin");
     expect(names[2]).toContain("Rossi");
+  });
+
+  it("reverses sort on second click on same column header", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const nomHeader = screen.getAllByRole("columnheader").find((th) => th.textContent?.includes("Nom"))!;
+    fireEvent.click(nomHeader); // desc
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows[0].querySelector("td")?.textContent).toContain("Rossi");
+      expect(rows[2].querySelector("td")?.textContent).toContain("Dupont");
+    });
+    fireEvent.click(nomHeader); // back to asc
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows[0].querySelector("td")?.textContent).toContain("Dupont");
+    });
+  });
+
+  it("sorts by Années (year count) ascending", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const anneesHeader = screen.getAllByRole("columnheader").find((th) => th.textContent?.includes("Années"))!;
+    fireEvent.click(anneesHeader); // asc: 1,1,2 → Bob or Carla first, Alice last
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      // Alice (2 years) should be last
+      expect(rows[2].querySelector("td")?.textContent).toContain("Dupont");
+    });
   });
 
   // ── Job translation ────────────────────────────────────────────────────────
@@ -408,10 +443,16 @@ describe("HospitalAdminManagersPage", () => {
 
   // ── Column headers ─────────────────────────────────────────────────────────
 
-  it("shows 'ANNÉES' and 'GESTION' column headers", async () => {
+  it("shows column headers: Nom, Email, Fonction, Années, Statut", async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText("ANNÉES")).toBeInTheDocument());
-    expect(screen.getByText("GESTION")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByRole("columnheader").length).toBeGreaterThan(0));
+    const headers = screen.getAllByRole("columnheader").map((th) => th.textContent ?? "");
+    // Headers contain sort icon text too, so use includes
+    expect(headers.some((h) => h.includes("Nom"))).toBe(true);
+    expect(headers.some((h) => h.includes("Email"))).toBe(true);
+    expect(headers.some((h) => h.includes("Fonction"))).toBe(true);
+    expect(headers.some((h) => h.includes("Années"))).toBe(true);
+    expect(headers.some((h) => h.includes("Statut"))).toBe(true);
   });
 
   // ── Drawer tabs ────────────────────────────────────────────────────────────
@@ -448,17 +489,16 @@ describe("HospitalAdminManagersPage", () => {
     expect(screen.getByRole("heading", { name: "Ajouter un manager" })).toBeInTheDocument();
   });
 
-  // ── Resend ─────────────────────────────────────────────────────────────────
+  // ── Resend (drawer) ────────────────────────────────────────────────────────
 
   it("shows resend button only for pending year attributions in the drawer", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Martin Bob"));
-    // Bob has yearPending=true → resend icon should appear
     await waitFor(() => expect(screen.getByTestId("SendIcon")).toBeInTheDocument());
   });
 
-  it("calls resendManagerInvite when resend button is clicked", async () => {
+  it("calls resendManagerInvite when resend button is clicked in drawer", async () => {
     vi.mocked(hospitalAdminApi.resendManagerInvite).mockResolvedValue(undefined as any);
     renderPage();
     await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
@@ -466,5 +506,74 @@ describe("HospitalAdminManagersPage", () => {
     await waitFor(() => expect(screen.getByTestId("SendIcon")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("SendIcon").closest("button")!);
     await waitFor(() => expect(hospitalAdminApi.resendManagerInvite).toHaveBeenCalledWith(20));
+  });
+
+  // ── 3-dot row menu ────────────────────────────────────────────────────────
+
+  it("3-dot menu shows 'Renvoyer l'invitation' only for pending managers", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
+    const menuButtons = screen.getAllByTestId("MoreVertIcon");
+    // Bob is index 1 (sorted: Dupont, Martin, Rossi)
+    fireEvent.click(menuButtons[1].closest("button")!);
+    await waitFor(() => expect(screen.getByText("Renvoyer l'invitation")).toBeInTheDocument());
+  });
+
+  it("3-dot menu 'Renvoyer l'invitation' calls resendManagerInvite", async () => {
+    vi.mocked(hospitalAdminApi.resendManagerInvite).mockResolvedValue(undefined as any);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
+    const menuButtons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(menuButtons[1].closest("button")!);
+    await waitFor(() => expect(screen.getByText("Renvoyer l'invitation")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Renvoyer l'invitation"));
+    await waitFor(() => expect(hospitalAdminApi.resendManagerInvite).toHaveBeenCalled());
+  });
+
+  it("3-dot menu 'Supprimer de l'hôpital' opens the delete confirmation dialog", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const menuButtons = screen.getAllByTestId("MoreVertIcon");
+    fireEvent.click(menuButtons[0].closest("button")!);
+    await waitFor(() => expect(screen.getByText("Supprimer de l'hôpital")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Supprimer de l'hôpital"));
+    await waitFor(() =>
+      expect(screen.getByText("Supprimer ce manager de l'hôpital")).toBeInTheDocument()
+    );
+  });
+
+  // ── Filtre Fonction ────────────────────────────────────────────────────────
+
+  it("filtre par fonction — n'affiche que les managers avec ce job", async () => {
+    // Alice: "Chef de service", Bob: "Médecin", Carla: "Spécialiste"
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    // Open the Fonction select
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Chef de service" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("option", { name: "Chef de service" }));
+    await waitFor(() => {
+      expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
+      expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument();
+      expect(screen.queryByText("Rossi Carla")).not.toBeInTheDocument();
+    });
+  });
+
+  it("filtre Fonction 'Toutes' réaffiche tous les managers", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    // Filter to Chef de service
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Chef de service" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("option", { name: "Chef de service" }));
+    await waitFor(() => expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument());
+    // Reset to "Toutes"
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Toutes" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("option", { name: "Toutes" }));
+    await waitFor(() => {
+      expect(screen.getByText("Martin Bob")).toBeInTheDocument();
+      expect(screen.getByText("Rossi Carla")).toBeInTheDocument();
+    });
   });
 });

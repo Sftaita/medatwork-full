@@ -1,4 +1,7 @@
 import { useState, useMemo } from "react";
+import { T, C, statusBadgeSx, yearPillSx, bodyRowSx } from "../../styles/tableStyles";
+import { useTableDensity } from "../../hooks/useTableDensity";
+import { DensityToggleButton } from "../../components/DensityToggleButton";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
@@ -12,6 +15,11 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
 import Divider from "@mui/material/Divider";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -39,6 +47,10 @@ import Badge from "@mui/material/Badge";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import SendIcon from "@mui/icons-material/Send";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -180,6 +192,66 @@ function yearAttributionLabel(row: ManagerRow): { label: string; color: "success
     return { label: "Invitation non acceptée", color: "info" };
   return { label: "Compte non activé", color: "warning" };
 }
+
+// ── Row actions menu (3-dot) ──────────────────────────────────────────────────
+
+interface ManagerActionsMenuProps {
+  group: ManagerGroup;
+  onOpenDrawer: () => void;
+  onAddYear: () => void;
+  onResend: (myId: number) => void;
+  onDelete: () => void;
+}
+
+const ManagerActionsMenu = ({ group, onOpenDrawer, onAddYear, onResend, onDelete }: ManagerActionsMenuProps) => {
+  const [anchor, setAnchor] = useState<null | HTMLElement>(null);
+  const close = () => setAnchor(null);
+
+  const firstPendingYear = group.years.find(
+    (r) => r.status !== "active" || r.yearPending,
+  );
+
+  return (
+    <>
+      <IconButton
+        size="small"
+        onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}
+        sx={{ color: C.ink3, "&:hover": { bgcolor: C.surface2 } }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={close}
+        onClick={(e) => e.stopPropagation()}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        PaperProps={{ sx: { minWidth: 190, borderRadius: "10px", boxShadow: C.shadow, border: `1px solid ${C.line}` } }}
+      >
+        <MenuItem onClick={() => { close(); onOpenDrawer(); }} sx={{ fontSize: 13 }}>
+          Voir le détail
+        </MenuItem>
+        <MenuItem onClick={() => { close(); onAddYear(); }} sx={{ fontSize: 13 }}>
+          Ajouter à une année
+        </MenuItem>
+        {firstPendingYear && (
+          <MenuItem onClick={() => { close(); onResend(firstPendingYear.myId); }} sx={{ fontSize: 13 }}>
+            Renvoyer l'invitation
+          </MenuItem>
+        )}
+        <Divider />
+        <MenuItem
+          onClick={() => { close(); onDelete(); }}
+          disabled={group.managerId === null}
+          sx={{ fontSize: 13, color: "error.main" }}
+        >
+          Supprimer de l'hôpital
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
 
 // ── Add manager dialog (header button) ───────────────────────────────────────
 
@@ -615,8 +687,12 @@ const ManagerDrawer = ({
 const HospitalAdminManagersPage = () => {
   useAxiosPrivate();
   const qc = useQueryClient();
+  const { density, cycleDensity } = useTableDensity();
 
   const [search, setSearch] = useState("");
+  const [jobFilter, setJobFilter] = useState("");
+  const [sortCol, setSortCol] = useState<"nom" | "email" | "fonction" | "annees" | "statut" | null>("nom");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [drawerManagerId, setDrawerManagerId] = useState<number | "anon" | null>(null);
   const [addManagerOpen, setAddManagerOpen] = useState(false);
   const [addYearOpen, setAddYearOpen] = useState(false);
@@ -660,24 +736,61 @@ const HospitalAdminManagersPage = () => {
     [drawerManagerId, groups],
   );
 
-  // ── Filter + sort by last name ─────────────────────────────────────────────
+  // ── Fonction options (valeurs uniques dans les données) ───────────────────
+  const jobOptions = useMemo(() => {
+    const seen = new Set<string>();
+    groups.forEach((g) => { if (g.job) seen.add(g.job); });
+    return Array.from(seen).sort((a, b) =>
+      translateJob(a).localeCompare(translateJob(b), "fr", { sensitivity: "base" })
+    );
+  }, [groups]);
+
+  // ── Sort handler ───────────────────────────────────────────────────────────
+  type SortCol = "nom" | "email" | "fonction" | "annees" | "statut";
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  // ── Filter + sort ──────────────────────────────────────────────────────────
   const q = search.toLowerCase();
-  const filtered = useMemo(
-    () =>
-      groups
-        .filter(
-          (g) =>
-            (g.firstname ?? "").toLowerCase().includes(q) ||
-            (g.lastname ?? "").toLowerCase().includes(q) ||
-            (g.email ?? "").toLowerCase().includes(q) ||
-            (g.job ?? "").toLowerCase().includes(q) ||
-            translateJob(g.job).toLowerCase().includes(q),
-        )
-        .sort((a, b) =>
-          (a.lastname ?? "").localeCompare(b.lastname ?? "", "fr", { sensitivity: "base" }),
-        ),
-    [groups, q],
-  );
+  const filtered = useMemo(() => {
+    const base = groups.filter((g) => {
+      if (jobFilter && g.job !== jobFilter) return false;
+      return (
+        (g.firstname ?? "").toLowerCase().includes(q) ||
+        (g.lastname ?? "").toLowerCase().includes(q) ||
+        (g.email ?? "").toLowerCase().includes(q) ||
+        (g.job ?? "").toLowerCase().includes(q) ||
+        translateJob(g.job).toLowerCase().includes(q)
+      );
+    });
+
+    return [...base].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case "nom":
+          cmp = (a.lastname ?? "").localeCompare(b.lastname ?? "", "fr", { sensitivity: "base" });
+          if (cmp === 0) cmp = (a.firstname ?? "").localeCompare(b.firstname ?? "", "fr");
+          break;
+        case "email":
+          cmp = (a.email ?? "").localeCompare(b.email ?? "");
+          break;
+        case "fonction":
+          cmp = translateJob(a.job).localeCompare(translateJob(b.job), "fr", { sensitivity: "base" });
+          break;
+        case "annees":
+          cmp = a.years.length - b.years.length;
+          break;
+        case "statut":
+          cmp = (a.status ?? "").localeCompare(b.status ?? "");
+          break;
+        default:
+          cmp = (a.lastname ?? "").localeCompare(b.lastname ?? "", "fr", { sensitivity: "base" });
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [groups, q, jobFilter, sortCol, sortDir]);
 
   // ── Invalidate ─────────────────────────────────────────────────────────────
   const invalidate = () => {
@@ -763,109 +876,203 @@ const HospitalAdminManagersPage = () => {
     <Box p={3} maxWidth={1200} mx="auto">
 
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3} flexWrap="wrap" gap={2}>
+      <Box sx={T.pageHead}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Gestion des managers</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Responsables de stage rattachés à votre hôpital — classés par nom
+          <Typography sx={T.pageTitle}>Gestion des managers</Typography>
+          <Typography sx={T.pageSub}>
+            Responsables de stage rattachés à votre hôpital
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddManagerOpen(true)}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddManagerOpen(true)}
+          sx={{ bgcolor: C.brand600, "&:hover": { bgcolor: C.brand700 }, borderRadius: "8px", height: 36, fontSize: 13 }}>
           Ajouter un manager
         </Button>
       </Box>
 
-      {/* Search */}
-      <Box mb={2}>
+      {/* Toolbar */}
+      <Box sx={T.toolbar}>
         <TextField
           size="small"
           placeholder="Rechercher par nom, email ou fonction…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: { xs: "100%", sm: 360 } }}
+          sx={{ ...T.search }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
+                <SearchIcon fontSize="small" sx={{ color: C.ink4 }} />
               </InputAdornment>
             ),
           }}
         />
+
+        {/* Filtre fonction */}
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel sx={{ fontSize: 13 }}>Fonction</InputLabel>
+          <Select
+            value={jobFilter}
+            label="Fonction"
+            onChange={(e) => setJobFilter(e.target.value)}
+            sx={{ fontSize: 13, height: 38, borderRadius: "8px" }}
+          >
+            <MenuItem value="" sx={{ fontSize: 13 }}>Toutes</MenuItem>
+            {jobOptions.map((job) => (
+              <MenuItem key={job} value={job} sx={{ fontSize: 13 }}>
+                {translateJob(job)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <DensityToggleButton density={density} onCycle={cycleDensity} />
+
+        <Typography variant="caption" sx={{ color: C.ink3, ml: "auto" }}>
+          {filtered.length} manager{filtered.length !== 1 ? "s" : ""}
+        </Typography>
       </Box>
 
       {/* Table */}
       {isLoading ? (
-        <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
+        <Box display="flex" justifyContent="center" mt={4}><CircularProgress sx={{ color: C.brand600 }} /></Box>
       ) : filtered.length === 0 ? (
-        <Alert severity="info">
+        <Alert severity="info" sx={{ borderRadius: "10px" }}>
           {groups.length === 0 ? "Aucun manager pour cet hôpital." : "Aucun résultat pour cette recherche."}
         </Alert>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: "grey.50" }}>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">NOM</Typography></TableCell>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">EMAIL</Typography></TableCell>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">FONCTION</Typography></TableCell>
-                <TableCell align="center"><Typography variant="caption" fontWeight={700} color="text.secondary">ANNÉES</Typography></TableCell>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
-                <TableCell align="right"><Typography variant="caption" fontWeight={700} color="text.secondary">GESTION</Typography></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.map((g) => {
-                const key = g.managerId !== null ? String(g.managerId) : `anon:${g.email}`;
-                return (
-                  <TableRow
-                    key={key}
-                    hover
-                    sx={{ cursor: "pointer" }}
-                    onClick={() => openDrawer(g)}
+        <Box sx={T.card}>
+          <Box sx={T.wrap}>
+            <Table sx={T.table}>
+              <TableHead>
+                <TableRow sx={T.headRow}>
+                  {(["nom", "email", "fonction"] as const).map((col) => {
+                    const labels: Record<string, string> = { nom: "Nom", email: "Email", fonction: "Fonction" };
+                    const active = sortCol === col;
+                    return (
+                      <TableCell
+                        key={col}
+                        onClick={() => handleSort(col)}
+                        sx={{ cursor: "pointer", "&:hover": { color: C.ink } }}
+                      >
+                        <Box display="inline-flex" alignItems="center" gap="4px">
+                          {labels[col]}
+                          {active
+                            ? sortDir === "asc"
+                              ? <ArrowUpwardIcon sx={{ fontSize: 11 }} />
+                              : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
+                            : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
+                          }
+                        </Box>
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell
+                    align="center"
+                    onClick={() => handleSort("annees")}
+                    sx={{ width: 90, cursor: "pointer", "&:hover": { color: C.ink } }}
                   >
-                    <TableCell>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Avatar
-                          src={g.avatarUrl ?? undefined}
-                          alt={fullName(g)}
-                          sx={{ width: 30, height: 30, fontSize: "0.75rem" }}
-                        >
-                          {!g.avatarUrl && (g.firstname?.[0] ?? "?").toUpperCase()}
-                        </Avatar>
-                        <Typography variant="body2" fontWeight={600}>{fullName(g)}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">{g.email ?? "—"}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">{translateJob(g.job)}</Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={g.years.length}
-                        size="small"
-                        color={g.years.length > 0 ? "primary" : "default"}
-                        variant={g.years.length > 0 ? "filled" : "outlined"}
-                        sx={{ minWidth: 32, fontWeight: 700 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title={STATUS_TOOLTIP[g.status]} arrow>
-                        <Chip label={STATUS_LABEL[g.status]} color={STATUS_COLOR[g.status]} size="small" />
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                      <Button size="small" variant="outlined" onClick={() => openDrawer(g)}>
-                        Gérer
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                    <Box display="inline-flex" alignItems="center" gap="4px">
+                      Années
+                      {sortCol === "annees"
+                        ? sortDir === "asc" ? <ArrowUpwardIcon sx={{ fontSize: 11 }} /> : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
+                        : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
+                      }
+                    </Box>
+                  </TableCell>
+                  <TableCell
+                    onClick={() => handleSort("statut")}
+                    sx={{ width: 120, cursor: "pointer", "&:hover": { color: C.ink } }}
+                  >
+                    <Box display="inline-flex" alignItems="center" gap="4px">
+                      Statut
+                      {sortCol === "statut"
+                        ? sortDir === "asc" ? <ArrowUpwardIcon sx={{ fontSize: 11 }} /> : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
+                        : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
+                      }
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right" sx={{ width: 60 }} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map((g) => {
+                  const key = g.managerId !== null ? String(g.managerId) : `anon:${g.email}`;
+                  const initials = ((g.firstname?.[0] ?? "") + (g.lastname?.[0] ?? "")).toUpperCase() || "?";
+                  const badgeVariant =
+                    g.status === "active"  ? "active"  :
+                    g.status === "pending" ? "pending" : "default";
+                  return (
+                    <TableRow key={key} sx={bodyRowSx(density)} onClick={() => openDrawer(g)}>
+
+                      {/* Nom */}
+                      <TableCell>
+                        <Box sx={T.person}>
+                          <Avatar src={g.avatarUrl ?? undefined} alt={fullName(g)} sx={T.avatar}>
+                            {!g.avatarUrl && initials}
+                          </Avatar>
+                          <Box>
+                            <Box sx={T.name}>{fullName(g)}</Box>
+                            <Box sx={T.sub}>@{(g.email ?? "").split("@")[0]}</Box>
+                          </Box>
+                        </Box>
+                      </TableCell>
+
+                      {/* Email */}
+                      <TableCell sx={{ color: C.ink2 }}>{g.email ?? "—"}</TableCell>
+
+                      {/* Fonction */}
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap="7px">
+                          <Box sx={{
+                            width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                            bgcolor: g.job === "human resources" ? "#2c8475" :
+                                     g.job === "doctor"          ? "#623e87" : "#a16207",
+                          }} />
+                          <Typography sx={{ fontSize: 13, color: C.ink2 }}>
+                            {translateJob(g.job)}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+
+                      {/* Années */}
+                      <TableCell align="center">
+                        <Box component="span" sx={yearPillSx(g.years.length)}>
+                          {g.years.length}
+                        </Box>
+                      </TableCell>
+
+                      {/* Statut */}
+                      <TableCell>
+                        <Tooltip title={STATUS_TOOLTIP[g.status]} arrow>
+                          <Box component="span" sx={statusBadgeSx(badgeVariant)}>
+                            {STATUS_LABEL[g.status]}
+                          </Box>
+                        </Tooltip>
+                      </TableCell>
+
+                      {/* Action */}
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <ManagerActionsMenu
+                          group={g}
+                          onOpenDrawer={() => openDrawer(g)}
+                          onAddYear={() => { openDrawer(g); setAddYearOpen(true); }}
+                          onResend={(myId) => resendMutation.mutate(myId)}
+                          onDelete={() => { openDrawer(g); setDeleteManagerOpen(true); }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+
+          {/* Footer */}
+          <Box sx={T.footer}>
+            <Typography variant="caption">
+              {filtered.length} sur {groups.length} manager{groups.length !== 1 ? "s" : ""}
+            </Typography>
+          </Box>
+        </Box>
       )}
 
       {/* Manager drawer */}

@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
+import { T, C, statusBadgeSx, bodyRowSx } from "../../styles/tableStyles";
+import { useTableDensity } from "../../hooks/useTableDensity";
+import { DensityToggleButton } from "../../components/DensityToggleButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -38,6 +41,9 @@ import ToggleButton from "@mui/material/ToggleButton";
 import Stack from "@mui/material/Stack";
 import SearchIcon from "@mui/icons-material/Search";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import Tooltip from "@mui/material/Tooltip";
@@ -693,11 +699,14 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
 const HospitalAdminResidentsPage = () => {
   useAxiosPrivate();
   const queryClient = useQueryClient();
+  const { density, cycleDensity } = useTableDensity();
 
   const [mode, setMode] = useState<"current" | "history">("current");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MaccsStatus | "">("");
   const [yearFilter, setYearFilter] = useState<number | "">("");
+  const [sortCol, setSortCol] = useState<"nom" | "email" | "annee" | "optingout" | "statut" | null>("nom");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selected, setSelected] = useState<number[]>([]);
 
   // Dialogs / drawers
@@ -815,18 +824,52 @@ const HospitalAdminResidentsPage = () => {
     }
   };
 
-  // Filter
+  // ── Sort handler ───────────────────────────────────────────────────────────
+  type SortCol = "nom" | "email" | "annee" | "optingout" | "statut";
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  // ── Filter + sort ──────────────────────────────────────────────────────────
   const q = search.toLowerCase();
-  const filtered = rows.filter((r) => {
-    if (statusFilter && r.status !== statusFilter) return false;
-    if (yearFilter !== "" && r.yearId !== yearFilter) return false;
-    return (
-      (r.firstname ?? "").toLowerCase().includes(q) ||
-      (r.lastname ?? "").toLowerCase().includes(q) ||
-      (r.email ?? "").toLowerCase().includes(q) ||
-      (r.yearTitle ?? "").toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    const base = rows.filter((r) => {
+      if (statusFilter && r.status !== statusFilter) return false;
+      if (yearFilter !== "" && r.yearId !== yearFilter) return false;
+      return (
+        (r.firstname ?? "").toLowerCase().includes(q) ||
+        (r.lastname ?? "").toLowerCase().includes(q) ||
+        (r.email ?? "").toLowerCase().includes(q) ||
+        (r.yearTitle ?? "").toLowerCase().includes(q)
+      );
+    });
+
+    return [...base].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case "nom":
+          cmp = (a.lastname ?? "").localeCompare(b.lastname ?? "", "fr", { sensitivity: "base" });
+          if (cmp === 0) cmp = (a.firstname ?? "").localeCompare(b.firstname ?? "", "fr");
+          break;
+        case "email":
+          cmp = (a.email ?? "").localeCompare(b.email ?? "");
+          break;
+        case "annee":
+          cmp = (a.yearTitle ?? "").localeCompare(b.yearTitle ?? "", "fr", { sensitivity: "base" });
+          break;
+        case "optingout":
+          cmp = Number(a.optingOut) - Number(b.optingOut);
+          break;
+        case "statut":
+          cmp = (a.status ?? "").localeCompare(b.status ?? "");
+          break;
+        default:
+          cmp = (a.lastname ?? "").localeCompare(b.lastname ?? "", "fr", { sensitivity: "base" });
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [rows, q, statusFilter, yearFilter, sortCol, sortDir]);
 
   const allSelected = filtered.length > 0 && filtered.every((r) => selected.includes(r.yrId));
   const toggleAll = () => setSelected(allSelected ? [] : filtered.map((r) => r.yrId));
@@ -844,19 +887,10 @@ const HospitalAdminResidentsPage = () => {
   return (
     <Box p={3} maxWidth={1200} mx="auto">
       {/* Header */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="flex-start"
-        mb={3}
-        flexWrap="wrap"
-        gap={2}
-      >
+      <Box sx={T.pageHead}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>
-            Gestion des MACCS
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography sx={T.pageTitle}>Gestion des MACCS</Typography>
+          <Typography sx={T.pageSub}>
             Médecins en formation clinique et scientifique de votre hôpital
           </Typography>
         </Box>
@@ -865,17 +899,23 @@ const HospitalAdminResidentsPage = () => {
             variant="outlined"
             startIcon={<UploadFileIcon />}
             onClick={() => setCsvOpen(true)}
+            sx={{ borderRadius: "8px", height: 36, fontSize: 13 }}
           >
             Importer CSV
           </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setAddOpen(true)}
+            sx={{ bgcolor: C.brand600, "&:hover": { bgcolor: C.brand700 }, borderRadius: "8px", height: 36, fontSize: 13 }}
+          >
             Ajouter un MACCS
           </Button>
         </Box>
       </Box>
 
       {/* Filters */}
-      <Box display="flex" flexWrap="wrap" gap={1.5} alignItems="center" mb={2}>
+      <Box sx={{ ...T.toolbar, mb: 2 }}>
         <ToggleButtonGroup
           value={mode}
           exclusive
@@ -891,8 +931,8 @@ const HospitalAdminResidentsPage = () => {
           placeholder="Nom, email, année…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 240 }}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+          sx={{ ...T.search, minWidth: 200, maxWidth: 280 }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: C.ink4 }} /></InputAdornment> }}
         />
 
         <FormControl size="small" sx={{ minWidth: 130 }}>
@@ -951,6 +991,7 @@ const HospitalAdminResidentsPage = () => {
         <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
           Exporter CSV
         </Button>
+        <DensityToggleButton density={density} onCycle={cycleDensity} />
       </Box>
 
       {/* Table */}
@@ -965,107 +1006,133 @@ const HospitalAdminResidentsPage = () => {
             : "Aucun résultat pour cette recherche."}
         </Alert>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    size="small"
-                    checked={allSelected}
-                    indeterminate={selected.length > 0 && !allSelected}
-                    onChange={toggleAll}
-                  />
-                </TableCell>
-                <TableCell>
-                  <strong>Nom Prénom</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Email</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Année académique</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Opting-out</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Statut</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>Actions</strong>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.map((row) => (
-                <TableRow
-                  key={row.yrId}
-                  hover
-                  selected={selected.includes(row.yrId)}
-                  onClick={() => toggleOne(row.yrId)}
-                  sx={{ cursor: "pointer" }}
-                >
-                  <TableCell padding="checkbox">
+        <Box sx={T.card}>
+          <Box sx={T.wrap}>
+            <Table sx={T.table}>
+              <TableHead>
+                <TableRow sx={T.headRow}>
+                  <TableCell padding="checkbox" sx={{ pl: "18px !important" }}>
                     <Checkbox
                       size="small"
-                      checked={selected.includes(row.yrId)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleOne(row.yrId)}
+                      checked={allSelected}
+                      indeterminate={selected.length > 0 && !allSelected}
+                      onChange={toggleAll}
+                      sx={{ color: C.ink4 }}
                     />
                   </TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Avatar
-                        src={row.avatarUrl ?? undefined}
-                        alt={`${row.firstname ?? ""} ${row.lastname ?? ""}`}
-                        sx={{ width: 28, height: 28, fontSize: "0.75rem" }}
-                      >
-                        {!row.avatarUrl && (row.firstname?.[0] ?? "?").toUpperCase()}
-                      </Avatar>
-                      {row.lastname ?? "—"} {row.firstname ?? ""}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{row.email ?? "—"}</TableCell>
-                  <TableCell>{row.yearTitle ?? "—"}</TableCell>
-                  <TableCell>
-                    {row.optingOut ? (
-                      <Chip label="Oui" size="small" color="primary" variant="outlined" />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        —
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title={STATUS_TOOLTIP[row.status]} arrow>
-                      <Chip
-                        label={STATUS_LABEL[row.status]}
-                        color={STATUS_COLOR[row.status]}
-                        variant="outlined"
-                        size="small"
-      
-                      />
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <ActionsMenu
-                      row={row}
-                      years={years}
-                      isPending={anyMutationPending}
-                      onView={() => setViewRow(row)}
-                      onEdit={() => setEditRow(row)}
-                      onRetire={() => setRetireTarget(row)}
-                      onChangeYear={() => setChangeYearRow(row)}
-                      onResend={() => resendMutation.mutate(row.yrId)}
-                      onDelete={() => setDeleteTarget(row)}
-                    />
-                  </TableCell>
+                  {(
+                    [
+                      { col: "nom",       label: "Nom" },
+                      { col: "email",     label: "Email" },
+                      { col: "annee",     label: "Année académique" },
+                      { col: "optingout", label: "Opting-out", width: 110 },
+                      { col: "statut",    label: "Statut",     width: 120 },
+                    ] as { col: SortCol; label: string; width?: number }[]
+                  ).map(({ col, label, width }) => (
+                    <TableCell
+                      key={col}
+                      onClick={() => handleSort(col)}
+                      sx={{ width, cursor: "pointer", "&:hover": { color: C.ink } }}
+                    >
+                      <Box display="inline-flex" alignItems="center" gap="4px">
+                        {label}
+                        {sortCol === col
+                          ? sortDir === "asc"
+                            ? <ArrowUpwardIcon sx={{ fontSize: 11 }} />
+                            : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
+                          : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
+                        }
+                      </Box>
+                    </TableCell>
+                  ))}
+                  <TableCell align="right" sx={{ width: 60 }} />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {filtered.map((row) => {
+                  const initials = ((row.firstname?.[0] ?? "") + (row.lastname?.[0] ?? "")).toUpperCase() || "?";
+                  const badgeVariant =
+                    row.status === "active"  ? "active"  :
+                    row.status === "pending" ? "pending" : "default";
+                  return (
+                    <TableRow
+                      key={row.yrId}
+                      sx={{ ...bodyRowSx(density), ...(selected.includes(row.yrId) ? { bgcolor: `${C.brand50} !important` } : {}) }}
+                      selected={selected.includes(row.yrId)}
+                      onClick={() => toggleOne(row.yrId)}
+                    >
+                      <TableCell padding="checkbox" sx={{ pl: "18px !important" }}>
+                        <Checkbox
+                          size="small"
+                          checked={selected.includes(row.yrId)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => toggleOne(row.yrId)}
+                          sx={{ color: C.ink4 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={T.person}>
+                          <Avatar
+                            src={row.avatarUrl ?? undefined}
+                            alt={`${row.firstname ?? ""} ${row.lastname ?? ""}`}
+                            sx={T.avatar}
+                          >
+                            {!row.avatarUrl && initials}
+                          </Avatar>
+                          <Box>
+                            <Box sx={T.name}>{row.lastname ?? "—"} {row.firstname ?? ""}</Box>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ color: C.ink2 }}>{row.email ?? "—"}</TableCell>
+                      <TableCell sx={{ color: C.ink2 }}>{row.yearTitle ?? "—"}</TableCell>
+                      <TableCell>
+                        {row.optingOut ? (
+                          <Box component="span" sx={{
+                            display: "inline-flex", alignItems: "center", gap: "5px",
+                            px: "10px", py: "3px", borderRadius: "999px", fontSize: 11, fontWeight: 600,
+                            bgcolor: "#fdf3d8", color: C.warn,
+                          }}>
+                            Oui
+                          </Box>
+                        ) : (
+                          <Typography sx={{ fontSize: 13, color: C.ink4 }}>—</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={STATUS_TOOLTIP[row.status]} arrow>
+                          <Box component="span" sx={statusBadgeSx(badgeVariant)}>
+                            {STATUS_LABEL[row.status]}
+                          </Box>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <ActionsMenu
+                          row={row}
+                          years={years}
+                          isPending={anyMutationPending}
+                          onView={() => setViewRow(row)}
+                          onEdit={() => setEditRow(row)}
+                          onRetire={() => setRetireTarget(row)}
+                          onChangeYear={() => setChangeYearRow(row)}
+                          onResend={() => resendMutation.mutate(row.yrId)}
+                          onDelete={() => setDeleteTarget(row)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+
+          {/* Footer */}
+          <Box sx={T.footer}>
+            <Typography variant="caption">
+              {filtered.length} sur {rows.length} MACCS
+            </Typography>
+          </Box>
+        </Box>
       )}
 
       {/* View drawer */}

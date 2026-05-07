@@ -2,15 +2,15 @@
  * Tests for AdminResidentsPage.
  *
  * Covers:
- * - Shows loading spinner while fetching
- * - Renders residents in a table (nom prénom order)
- * - Residents sorted by lastname
- * - Shows status chip (Actif / En attente) based on validatedAt
- * - Search filters by name, email, and status label
- * - Shows "Aucun résident" alert when list is empty
- * - Shows "Aucun résultat" when search yields nothing
- * - Actions menu: activate manually, reset password
- * - "Activer manuellement" only for non-activated residents
+ * - Loading spinner
+ * - Rendu : nom, email, statut (Actif / Non activé)
+ * - Tri par nom asc par défaut
+ * - Recherche par nom, email
+ * - Filter chips : Actifs / Non activés
+ * - État vide "Aucun résident"
+ * - "Aucun résultat" après recherche sans résultat
+ * - Menu 3-points : activer manuellement, reset password
+ * - "Activer manuellement" visible uniquement pour non-activés
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -78,10 +78,10 @@ describe("AdminResidentsPage", () => {
     expect(dupont).toBeLessThan(martin);
   });
 
-  it("shows correct status chips", async () => {
+  it("affiche les badges de statut : Actif et Non activé", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Actif")).toBeInTheDocument());
-    expect(screen.getByText("En attente")).toBeInTheDocument();
+    expect(screen.getByText("Non activé")).toBeInTheDocument();
   });
 
   it("filters by name via search input", async () => {
@@ -94,14 +94,20 @@ describe("AdminResidentsPage", () => {
     expect(screen.getByText("Martin Bob")).toBeInTheDocument();
   });
 
-  it("filters by status label", async () => {
+  it("chip 'Non activés' filtre uniquement Bob", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom ou email…"), {
-      target: { value: "en attente" },
-    });
-    expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Non activés/i }));
+    await waitFor(() => expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument());
     expect(screen.getByText("Martin Bob")).toBeInTheDocument();
+  });
+
+  it("chip 'Actifs' filtre uniquement Alice", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^Actifs/ }));
+    await waitFor(() => expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument());
+    expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
   });
 
   it("shows 'Aucun résultat' when search yields nothing", async () => {

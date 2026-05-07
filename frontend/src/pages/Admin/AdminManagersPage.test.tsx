@@ -2,16 +2,19 @@
  * Tests for AdminManagersPage.
  *
  * Covers:
- * - Shows loading spinner while fetching
- * - Renders managers in a table (name, email, status, hospitals)
- * - Search filters by name, email, hospital
- * - Shows "Aucun manager" alert when list is empty
- * - Shows "Aucun résultat" when search yields nothing
- * - Stats cards render with correct values
- * - Actions menu: toggle, reset password, delete, activate, resend activation
- * - Delete confirmation dialog
- * - "Renvoyer l'email d'activation" only visible for non-activated managers
- * - Calls resendManagerActivation with correct id
+ * - Loading spinner
+ * - KPI cards : labels et valeurs
+ * - Tableau : nom, email, statut, hôpitaux
+ * - Tri par nom asc par défaut
+ * - Recherche par nom, email, hôpital
+ * - Filter chips : Actifs, Non activés filtrent le tableau
+ * - État vide "Aucun manager"
+ * - "Aucun résultat" après recherche sans résultat
+ * - Menu 3-points : Activer / Désactiver, Supprimer, Activer manuellement
+ * - Dialog de confirmation de suppression
+ * - "Activer manuellement" visible uniquement pour non-activés
+ * - "Renvoyer l'email d'activation" visible uniquement pour non-activés
+ * - Appelle resendManagerActivation avec le bon id
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -83,12 +86,15 @@ describe("AdminManagersPage", () => {
     expect(screen.getAllByRole("progressbar").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders stats cards", async () => {
+  it("renders KPI cards with correct labels and values", async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText("Total")).toBeInTheDocument());
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("Non activés")).toBeInTheDocument();
-    expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(1);
+    await waitFor(() => expect(screen.getByText("Total managers")).toBeInTheDocument());
+    // "Actifs" / "Non activés" appear in both KPI card and filter chip — at least 1 each
+    expect(screen.getAllByText("Actifs").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Non activés").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Inactifs").length).toBeGreaterThanOrEqual(1);
+    // total = 3 (KPI card + filter chip count)
+    expect(screen.getAllByText("3").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders managers in table rows", async () => {
@@ -101,10 +107,11 @@ describe("AdminManagersPage", () => {
     expect(screen.getAllByText("CHU Liège").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows status chips including 'Non activé'", async () => {
+  it("affiche les badges de statut dans le tableau", async () => {
     renderPage();
+    // Alice (validatedAt set, active) → "Actif"
     await waitFor(() => expect(screen.getByText("Actif")).toBeInTheDocument());
-    expect(screen.getAllByText("En attente").length).toBeGreaterThanOrEqual(1);
+    // Bob et Carla (validatedAt=null) → "Non activé" × 2
     expect(screen.getAllByText("Non activé").length).toBe(2);
   });
 
@@ -216,15 +223,23 @@ describe("AdminManagersPage", () => {
     await waitFor(() => expect(adminApi.activateManager).toHaveBeenCalledWith(2));
   });
 
-  it("filters by 'Non activé' status label", async () => {
+  it("filter chip 'Non activés' n'affiche que Bob et Carla", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom, email, hôpital…"), {
-      target: { value: "non activé" },
-    });
-    expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();
+    // Cliquer sur le chip "Non activés"
+    fireEvent.click(screen.getByRole("button", { name: /Non activés/i }));
+    await waitFor(() => expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument());
     expect(screen.getByText("Martin Bob")).toBeInTheDocument();
     expect(screen.getByText("Rossi Carla")).toBeInTheDocument();
+  });
+
+  it("filter chip 'Actifs' n'affiche que Alice", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^Actifs/ }));
+    await waitFor(() => expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument());
+    expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
+    expect(screen.queryByText("Rossi Carla")).not.toBeInTheDocument();
   });
 
   // ── Resend activation ────────────────────────────────────────────────────────

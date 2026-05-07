@@ -15,6 +15,7 @@ export interface AdminManager {
   status: string;
   validatedAt: string | null;
   hospitals: { id: number; name: string }[];
+  avatarUrl?: string | null;
 }
 
 export interface Hospital {

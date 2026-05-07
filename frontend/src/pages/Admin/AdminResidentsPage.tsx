@@ -1,69 +1,81 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
+import { T, C, statusBadgeSx, bodyRowSx } from "../../styles/tableStyles";
+import { useTableDensity } from "../../hooks/useTableDensity";
+import { DensityToggleButton } from "../../components/DensityToggleButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Avatar from "@mui/material/Avatar";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Divider from "@mui/material/Divider";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import adminApi from "../../services/adminApi";
 import type { AdminResident } from "../../types/entities";
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const statusLabel  = (r: AdminResident) => r.validatedAt !== null ? "Actif" : "Non activé";
+const statusVariant = (r: AdminResident): "active" | "error" =>
+  r.validatedAt !== null ? "active" : "error";
+
 // ── Actions menu ──────────────────────────────────────────────────────────────
 
-interface ResidentActionsMenuProps {
+const ResidentActionsMenu = ({
+  resident, onActivate, onResetPassword, isPending,
+}: {
   resident: AdminResident;
   onActivate: () => void;
   onResetPassword: () => void;
   isPending: boolean;
-}
-
-const ResidentActionsMenu = ({
-  resident,
-  onActivate,
-  onResetPassword,
-  isPending,
-}: ResidentActionsMenuProps) => {
+}) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchor);
-
   return (
     <>
-      <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)} disabled={isPending}>
+      <IconButton
+        size="small"
+        onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}
+        disabled={isPending}
+        sx={{ color: C.ink3, "&:hover": { bgcolor: C.surface2 } }}
+      >
         <MoreVertIcon fontSize="small" />
       </IconButton>
-      <Menu anchorEl={anchor} open={open} onClose={() => setAnchor(null)}>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={() => setAnchor(null)}
+        onClick={(e) => e.stopPropagation()}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        PaperProps={{ sx: { minWidth: 210, borderRadius: "10px", boxShadow: C.shadow, border: `1px solid ${C.line}` } }}
+      >
         {resident.validatedAt === null && (
           <MenuItem
-            onClick={() => {
-              setAnchor(null);
-              onActivate();
-            }}
-            sx={{ color: "success.main", fontWeight: 600 }}
+            onClick={() => { setAnchor(null); onActivate(); }}
+            sx={{ fontSize: 13, color: "success.main", fontWeight: 600 }}
           >
             Activer manuellement
           </MenuItem>
         )}
         <MenuItem
-          onClick={() => {
-            setAnchor(null);
-            onResetPassword();
-          }}
+          onClick={() => { setAnchor(null); onResetPassword(); }}
+          sx={{ fontSize: 13 }}
         >
           Réinitialiser le mot de passe
         </MenuItem>
@@ -74,9 +86,17 @@ const ResidentActionsMenu = ({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+type SortCol = "nom" | "email" | "statut";
+
 const AdminResidentsPage = () => {
   useAxiosPrivate();
   const qc = useQueryClient();
+  const { density, cycleDensity } = useTableDensity();
+
+  const [search, setSearch]       = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "not_activated">("all");
+  const [sortCol, setSortCol]     = useState<SortCol | null>("nom");
+  const [sortDir, setSortDir]     = useState<"asc" | "desc">("asc");
 
   const { data: residents = [], isLoading } = useQuery({
     queryKey: ["admin-residents"],
@@ -94,106 +114,200 @@ const AdminResidentsPage = () => {
   });
 
   const resetPasswordMutation = useMutation({
-    mutationFn: (resident: AdminResident) => adminApi.resetResidentPassword(resident.id),
-    onSuccess: (_data, resident) =>
-      toast.success(`Email de réinitialisation envoyé à ${resident.email}`),
+    mutationFn: (r: AdminResident) => adminApi.resetResidentPassword(r.id),
+    onSuccess: (_data, r) =>
+      toast.success(`Email de réinitialisation envoyé à ${r.email}`),
     onError: (err: any) =>
-      toast.error(err?.response?.data?.message ?? "Erreur lors de l'envoi de l'email"),
+      toast.error(err?.response?.data?.message ?? "Erreur lors de l'envoi"),
   });
-
-  const [search, setSearch] = useState("");
 
   const isPending = activateMutation.isPending || resetPasswordMutation.isPending;
 
+  // ── Counts pour les chips ──────────────────────────────────────────────────
+  const counts = useMemo(() => ({
+    all:           (residents as AdminResident[]).length,
+    active:        (residents as AdminResident[]).filter((r) => r.validatedAt !== null).length,
+    not_activated: (residents as AdminResident[]).filter((r) => r.validatedAt === null).length,
+  }), [residents]);
+
+  // ── Sort handler ──────────────────────────────────────────────────────────
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  // ── Filter + sort ─────────────────────────────────────────────────────────
   const q = search.toLowerCase();
-  const filtered = residents
-    .filter(
-      (r: AdminResident) =>
+  const filtered = useMemo(() => {
+    const base = (residents as AdminResident[]).filter((r) => {
+      if (statusFilter === "active"        && r.validatedAt === null)  return false;
+      if (statusFilter === "not_activated" && r.validatedAt !== null)  return false;
+      return (
         r.firstname.toLowerCase().includes(q) ||
         r.lastname.toLowerCase().includes(q) ||
-        r.email.toLowerCase().includes(q) ||
-        (r.validatedAt !== null ? "actif" : "en attente").includes(q)
-    )
-    .sort((a: AdminResident, b: AdminResident) =>
-      a.lastname.localeCompare(b.lastname, "fr", { sensitivity: "base" })
-    );
+        r.email.toLowerCase().includes(q)
+      );
+    });
 
+    return [...base].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case "nom":
+          cmp = a.lastname.localeCompare(b.lastname, "fr", { sensitivity: "base" });
+          if (cmp === 0) cmp = a.firstname.localeCompare(b.firstname, "fr");
+          break;
+        case "email":
+          cmp = a.email.localeCompare(b.email);
+          break;
+        case "statut":
+          cmp = statusLabel(a).localeCompare(statusLabel(b), "fr");
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [residents, q, statusFilter, sortCol, sortDir]);
+
+  // ── Sort header helper ─────────────────────────────────────────────────────
+  const SortHead = ({ col, label, width }: { col: SortCol; label: string; width?: number }) => (
+    <TableCell
+      onClick={() => handleSort(col)}
+      sx={{ width, cursor: "pointer", "&:hover": { color: C.ink } }}
+    >
+      <Box display="inline-flex" alignItems="center" gap="4px">
+        {label}
+        {sortCol === col
+          ? sortDir === "asc" ? <ArrowUpwardIcon sx={{ fontSize: 11 }} /> : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
+          : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
+        }
+      </Box>
+    </TableCell>
+  );
+
+  // ── Filter chip ────────────────────────────────────────────────────────────
+  const Chip = ({ label, count, active, onClick }: {
+    label: string; count: number; active: boolean; onClick: () => void;
+  }) => (
+    <Box
+      component="button"
+      onClick={onClick}
+      sx={{
+        height: 32, px: "12px", borderRadius: "999px",
+        border: `1px solid ${active ? C.brand700 : C.line2}`,
+        bgcolor: active ? C.brand600 : C.surface,
+        color: active ? "#fff" : C.ink2,
+        fontSize: 12, fontWeight: 500, cursor: "pointer",
+        display: "inline-flex", alignItems: "center", gap: "6px",
+        fontFamily: "inherit",
+        transition: "all 0.15s",
+        "&:hover": { bgcolor: active ? C.brand700 : C.surface2, color: active ? "#fff" : C.ink },
+      }}
+    >
+      {label}
+      <Box component="span" sx={{
+        fontSize: 11,
+        bgcolor: active ? "rgba(255,255,255,0.22)" : C.surface2,
+        color: active ? "#fff" : C.ink3,
+        px: "6px", borderRadius: "4px", lineHeight: "18px",
+        fontVariantNumeric: "tabular-nums",
+      }}>
+        {count}
+      </Box>
+    </Box>
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Box p={3} maxWidth={1200} mx="auto">
-      <Box mb={3}>
-        <Typography variant="h5" fontWeight={700}>
-          MACCS
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Médecins en formation clinique et scientifique
-        </Typography>
+
+      {/* Header */}
+      <Box sx={T.pageHead}>
+        <Box>
+          <Typography sx={T.pageTitle}>MACCS</Typography>
+          <Typography sx={T.pageSub}>Médecins en formation clinique et scientifique</Typography>
+        </Box>
       </Box>
 
-      {isLoading && <CircularProgress size={24} />}
+      {/* Toolbar */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: "10px", mb: "10px", flexWrap: "wrap" }}>
+        <TextField
+          size="small"
+          placeholder="Rechercher par nom ou email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={T.search}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: C.ink4 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
 
-      {!isLoading && (
-        <>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
-            <Typography variant="h6" fontWeight={600}>
-              Résidents ({filtered.length}
-              {search ? `/${residents.length}` : ""})
-            </Typography>
-            <TextField
-              size="small"
-              placeholder="Rechercher par nom ou email…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              sx={{ width: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
+        <Box sx={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <Chip label="Tous"         count={counts.all}           active={statusFilter === "all"}           onClick={() => setStatusFilter("all")} />
+          <Chip label="Actifs"       count={counts.active}        active={statusFilter === "active"}        onClick={() => setStatusFilter("active")} />
+          <Chip label="Non activés"  count={counts.not_activated} active={statusFilter === "not_activated"} onClick={() => setStatusFilter("not_activated")} />
+        </Box>
 
-          {filtered.length === 0 ? (
-            <Alert severity="info">
-              {residents.length === 0
-                ? "Aucun résident enregistré."
-                : "Aucun résultat pour cette recherche."}
-            </Alert>
-          ) : (
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <strong>Nom</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Email</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Statut</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Actions</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filtered.map((r: AdminResident) => (
-                    <TableRow key={r.id} hover>
+        <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+          <Typography variant="caption" sx={{ color: C.ink3 }}>
+            {filtered.length} résident{filtered.length !== 1 ? "s" : ""}
+          </Typography>
+          <DensityToggleButton density={density} onCycle={cycleDensity} />
+        </Box>
+      </Box>
+
+      {/* Table */}
+      {isLoading ? (
+        <Box display="flex" justifyContent="center" mt={4}>
+          <CircularProgress sx={{ color: C.brand600 }} />
+        </Box>
+      ) : filtered.length === 0 ? (
+        <Alert severity="info" sx={{ borderRadius: "10px" }}>
+          {residents.length === 0 ? "Aucun résident enregistré." : "Aucun résultat pour cette recherche."}
+        </Alert>
+      ) : (
+        <Box sx={T.card}>
+          <Box sx={T.wrap}>
+            <Table sx={T.table}>
+              <TableHead>
+                <TableRow sx={T.headRow}>
+                  <SortHead col="nom"    label="Nom" />
+                  <SortHead col="email"  label="Email" />
+                  <SortHead col="statut" label="Statut" width={130} />
+                  <TableCell align="right" sx={{ width: 60 }} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map((r: AdminResident) => {
+                  const initials = (r.firstname[0] + r.lastname[0]).toUpperCase();
+                  return (
+                    <TableRow key={r.id} sx={bodyRowSx(density)}>
+
+                      {/* Nom */}
                       <TableCell>
-                        {r.lastname} {r.firstname}
+                        <Box sx={T.person}>
+                          <Avatar sx={T.avatar}>{initials}</Avatar>
+                          <Box>
+                            <Box sx={T.name}>{r.lastname} {r.firstname}</Box>
+                            <Box sx={T.sub}>@{r.email.split("@")[0]}</Box>
+                          </Box>
+                        </Box>
                       </TableCell>
-                      <TableCell>{r.email}</TableCell>
+
+                      {/* Email */}
+                      <TableCell sx={{ color: C.ink2 }}>{r.email}</TableCell>
+
+                      {/* Statut */}
                       <TableCell>
-                        <Chip
-                          label={r.validatedAt !== null ? "Actif" : "En attente"}
-                          color={r.validatedAt !== null ? "success" : "info"}
-                          size="small"
-                        />
+                        <Box component="span" sx={statusBadgeSx(statusVariant(r))}>
+                          {statusLabel(r)}
+                        </Box>
                       </TableCell>
-                      <TableCell align="right">
+
+                      {/* Actions */}
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                         <ResidentActionsMenu
                           resident={r}
                           onActivate={() => activateMutation.mutate(r.id)}
@@ -202,12 +316,19 @@ const AdminResidentsPage = () => {
                         />
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+
+          {/* Footer */}
+          <Box sx={T.footer}>
+            <Typography variant="caption">
+              {filtered.length} sur {residents.length} résident{residents.length !== 1 ? "s" : ""}
+            </Typography>
+          </Box>
+        </Box>
       )}
     </Box>
   );
