@@ -92,8 +92,8 @@ class Resident implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(enumType: Sexe::class)]
     private Sexe $sexe;
 
-    #[ORM\Column(type: 'date')]
-    private \DateTimeInterface $dateOfMaster;
+    #[ORM\Column(type: 'date', nullable: true)]
+    private ?\DateTimeInterface $dateOfMaster = null;
 
 
 
@@ -378,7 +378,7 @@ class Resident implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->dateOfMaster;
     }
 
-    public function setDateOfMaster(\DateTimeInterface $dateOfMaster): self
+    public function setDateOfMaster(?\DateTimeInterface $dateOfMaster): self
     {
         $this->dateOfMaster = $dateOfMaster;
 

@@ -340,7 +340,7 @@ class HospitalAdminController extends AbstractController
                 ->setRole('resident')
                 ->setRoles(['ROLE_RESIDENT'])
                 ->setSexe(Sexe::Male)
-                ->setDateOfMaster(new \DateTime('1900-01-01'))
+                ->setDateOfMaster(null)
                 ->setPassword($passwordHasher->hashPassword(new Resident(), bin2hex(random_bytes(16))))
                 ->setCreatedAt(new \DateTime());
             $em->persist($resident);
@@ -674,7 +674,7 @@ class HospitalAdminController extends AbstractController
                     ->setRole('resident')
                     ->setRoles(['ROLE_RESIDENT'])
                     ->setSexe(Sexe::Male)
-                    ->setDateOfMaster(new \DateTime('1900-01-01'))
+                    ->setDateOfMaster(null)
                     ->setPassword($passwordHasher->hashPassword(new Resident(), bin2hex(random_bytes(16))))
                     ->setCreatedAt(new \DateTime());
                 $em->persist($resident);
