@@ -200,6 +200,53 @@ describe("Timer — gestion d'erreur (régression double toast)", () => {
   });
 });
 
+describe("Timer — garde appelable (called=true)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPost.mockResolvedValueOnce({ data: { message: "ok" } });
+  });
+
+  it("envoie called=true dans le payload quand le switch est activé", async () => {
+    renderTimer();
+
+    const switchEl = screen.getByRole("checkbox");
+    fireEvent.click(switchEl);
+    fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalledOnce());
+    const [, payload] = mockPost.mock.calls[0] as [string, Record<string, any>];
+    expect(payload.called).toBe(true);
+  });
+
+  it("envoie pause=0 et scientific=0 quand called=true", async () => {
+    renderTimer();
+
+    const switchEl = screen.getByRole("checkbox");
+    fireEvent.click(switchEl);
+    fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalledOnce());
+    const [, payload] = mockPost.mock.calls[0] as [string, Record<string, any>];
+    expect(payload.pause).toBe(0);
+    expect(payload.scientific).toBe(0);
+  });
+
+  it("affiche le message d'info garde appelable quand called=true", () => {
+    renderTimer();
+    const switchEl = screen.getByRole("checkbox");
+    fireEvent.click(switchEl);
+    expect(screen.getByText(/garde appelable — vous avez été rappelé/i)).toBeInTheDocument();
+  });
+
+  it("cache les champs pause et scientifique quand called=true", () => {
+    renderTimer();
+    const switchEl = screen.getByRole("checkbox");
+    fireEvent.click(switchEl);
+    expect(screen.queryByLabelText(/pause/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/scientifique/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("Timer — mode mise à jour (update)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -248,6 +295,40 @@ describe("Timer — mode mise à jour (update)", () => {
     await waitFor(() => expect(mockGet).toHaveBeenCalledOnce());
     const [url] = mockGet.mock.calls[0] as [string];
     expect(url).toContain("find/42");
+  });
+
+  it("utilise called=false quand l'API retourne called=null (anciens timesheets)", async () => {
+    mockGet.mockReset();
+    mockGet.mockResolvedValueOnce({
+      data: {
+        yearId: 2,
+        dateOfStart: "2025-03-10 08:00",
+        dateOfEnd: "2025-03-10 17:00",
+        pause: 30,
+        scientific: 15,
+        called: null, // legacy DB value
+      },
+    });
+    mockPut.mockResolvedValueOnce({ data: { message: "ok" } });
+
+    render(
+      <MemoryRouter initialEntries={["/edit/timer/99"]}>
+        <Routes>
+          <Route
+            path="/edit/:type/:id"
+            element={<Timer years={YEARS} yearsLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => screen.getByRole("button", { name: /modifier/i }));
+    fireEvent.click(screen.getByRole("button", { name: /modifier/i }));
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalledOnce());
+    const [, payload] = mockPut.mock.calls[0] as [string, Record<string, any>];
+    // called=null doit être converti en false — le DTO backend exige un boolean
+    expect(payload.called).toBe(false);
   });
 
   it("appelle PUT avec l'id sur soumission", async () => {

@@ -88,8 +88,8 @@ class Manager implements UserInterface, PasswordAuthenticatedUserInterface
 
 
 
-    #[ORM\Column(enumType: ManagerJob::class, nullable: true)]
-    private ?ManagerJob $job = null;
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $job = null;
 
 
 
@@ -372,12 +372,12 @@ class Manager implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getJob(): ?ManagerJob
     {
-        return $this->job;
+        return $this->job !== null ? ManagerJob::tryFrom($this->job) : null;
     }
 
     public function setJob(?ManagerJob $job): self
     {
-        $this->job = $job;
+        $this->job = $job?->value;
 
         return $this;
     }

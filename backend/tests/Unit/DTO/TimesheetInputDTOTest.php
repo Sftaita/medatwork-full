@@ -211,4 +211,17 @@ class TimesheetInputDTOTest extends TestCase
         $this->expectExceptionMessage('called must be a boolean');
         TimesheetInputDTO::fromRequest($this->makeRequest($body));
     }
+
+    public function testCalledNullThrows(): void
+    {
+        // Régression : le frontend envoyait called=null pour les anciens timesheets
+        // (DB: called TINYINT DEFAULT NULL). Le DTO doit rejeter null.
+        // Fix côté frontend : called ?? false dans handleFindTimesheet.
+        $body = $this->validBody();
+        $body['called'] = null;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('called must be a boolean');
+        TimesheetInputDTO::fromRequest($this->makeRequest($body));
+    }
 }

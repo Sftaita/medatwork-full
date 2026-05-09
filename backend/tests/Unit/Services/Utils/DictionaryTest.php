@@ -33,6 +33,11 @@ class DictionaryTest extends TestCase
         $this->assertSame('', $this->dictionary->translateSpeciality('CARDIO')); // case-sensitive
     }
 
+    public function testNullSpecialityReturnsEmptyString(): void
+    {
+        $this->assertSame('', $this->dictionary->translateSpeciality(null));
+    }
+
     /** @dataProvider specialityProvider */
     public function testAllDefinedSpecialitiesReturnNonEmptyString(string $key): void
     {

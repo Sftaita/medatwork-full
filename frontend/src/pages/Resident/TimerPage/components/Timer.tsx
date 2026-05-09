@@ -113,7 +113,7 @@ const Timer = ({
         dateOfEnd: dayjs(request.data.dateOfEnd),
         pause: request.data.pause,
         scientific: request.data.scientific,
-        called: request.data.called,
+        called: request.data.called ?? false,
       });
     } catch (error) {
       handleApiError(error);

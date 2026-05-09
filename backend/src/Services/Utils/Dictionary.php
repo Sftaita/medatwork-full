@@ -12,7 +12,7 @@ class Dictionary
      * @param string $speciality abreviation
      * @return string Complete french name
      */
-    public function translateSpeciality(string $speciality): string
+    public function translateSpeciality(?string $speciality): string
     {
         $list = [
             'anesthesiology' => 'Anesthésiologie',
@@ -52,11 +52,11 @@ class Dictionary
         ];
 
 
-        if (isset($list[$speciality])) {
-            return $list[$speciality];
-        } else {
+        if ($speciality === null) {
             return '';
         }
+
+        return $list[$speciality] ?? '';
 
     }
 }

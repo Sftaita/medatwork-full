@@ -51,7 +51,7 @@ class ValidationController extends AbstractController
      * @return JsonResponse A JSON response indicating the success or failure of the operation.
      */
     #[Route('/api/managers/validation/{periodId}', name: 'update_resident_validation_status', methods: ['PUT'])]
-    public function updateResidentValidationStatus($periodId, Request $request, UpdateMonthValidation $updateMonthValidation, UpdateYearResidentNotifications $notification, TimesheetRepository $timesheetRepository, GardeRepository $gardeRepository, AbsenceRepository $absenceRepository, LoggerInterface $logger): JsonResponse
+    public function updateResidentValidationStatus(int $periodId, Request $request, UpdateMonthValidation $updateMonthValidation, UpdateYearResidentNotifications $notification, TimesheetRepository $timesheetRepository, GardeRepository $gardeRepository, AbsenceRepository $absenceRepository, LoggerInterface $logger): JsonResponse
     {
         try {
             $dto = ValidationListInputDTO::fromRequest($request);
