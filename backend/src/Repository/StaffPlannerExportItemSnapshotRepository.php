@@ -21,19 +21,56 @@ class StaffPlannerExportItemSnapshotRepository extends ServiceEntityRepository
     }
 
     /**
-     * Returns all snapshots for a batch, ordered by (calendarYear, month, yearsResident).
+     * Returns snapshots for a batch WITHOUT payloadLines (light list for UI).
+     * Uses JOIN FETCH to avoid N+1 on yearsResident → resident.
+     *
+     * Note: DQL cannot select a subset of fields on an entity with associations;
+     * we fetch the full entities but keep payloadLines in DB (not excluded at query level).
+     * The controller is responsible for NOT serializing payloadLines in list responses.
+     *
+     * @return StaffPlannerExportItemSnapshot[]
+     */
+    public function findByBatchWithResident(StaffPlannerExportBatch $batch): array
+    {
+        return $this->createQueryBuilder('s')
+            ->addSelect('yr', 'r')
+            ->join('s.yearsResident', 'yr')
+            ->join('yr.resident', 'r')
+            ->where('s.batch = :batch')
+            ->setParameter('batch', $batch)
+            ->orderBy('s.calendarYear', 'ASC')
+            ->addOrderBy('s.month', 'ASC')
+            ->addOrderBy('r.lastname', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Returns all snapshots for a batch (legacy, no JOIN FETCH).
+     * Kept for backward compatibility — prefer findByBatchWithResident() for new code.
      *
      * @return StaffPlannerExportItemSnapshot[]
      */
     public function findByBatch(StaffPlannerExportBatch $batch): array
     {
+        return $this->findByBatchWithResident($batch);
+    }
+
+    /**
+     * Returns a single snapshot with its batch, yearsResident and resident eagerly loaded.
+     * Used for the detail endpoint (includes payloadLines).
+     */
+    public function findByIdWithDetails(int $id): ?StaffPlannerExportItemSnapshot
+    {
         return $this->createQueryBuilder('s')
-            ->where('s.batch = :batch')
-            ->setParameter('batch', $batch)
-            ->orderBy('s.calendarYear', 'ASC')
-            ->addOrderBy('s.month', 'ASC')
+            ->addSelect('b', 'yr', 'r')
+            ->join('s.batch', 'b')
+            ->join('s.yearsResident', 'yr')
+            ->join('yr.resident', 'r')
+            ->where('s.id = :id')
+            ->setParameter('id', $id)
             ->getQuery()
-            ->getResult();
+            ->getOneOrNullResult();
     }
 
     /**
@@ -55,5 +92,18 @@ class StaffPlannerExportItemSnapshotRepository extends ServiceEntityRepository
             ->orderBy('b.batchNumber', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Count of snapshots for a batch — used for pagination metadata.
+     */
+    public function countByBatch(StaffPlannerExportBatch $batch): int
+    {
+        return (int) $this->createQueryBuilder('s')
+            ->select('COUNT(s.id)')
+            ->where('s.batch = :batch')
+            ->setParameter('batch', $batch)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 }

@@ -20,7 +20,8 @@ class StaffPlannerExportBatchRepository extends ServiceEntityRepository
     }
 
     /**
-     * Returns all batches for a year, newest first.
+     * Returns all batches for a year, newest first (no pagination).
+     * Used internally — do NOT expose without pagination on large datasets.
      *
      * @return StaffPlannerExportBatch[]
      */
@@ -35,9 +36,50 @@ class StaffPlannerExportBatchRepository extends ServiceEntityRepository
     }
 
     /**
+     * Paginated batch list for a year with optional filters.
+     *
+     * @param array{
+     *   batchNumber?: int|null,
+     *   generatedByType?: string|null,
+     *   from?: string|null,
+     *   to?: string|null,
+     * } $filters
+     * @return StaffPlannerExportBatch[]
+     */
+    public function findByYearPaginated(Years $year, int $page, int $limit, array $filters = []): array
+    {
+        $qb = $this->createQueryBuilder('b')
+            ->where('b.year = :year')
+            ->setParameter('year', $year)
+            ->orderBy('b.batchNumber', 'DESC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit);
+
+        $this->applyFilters($qb, $filters);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Total count for pagination metadata.
+     *
+     * @param array<string, mixed> $filters
+     */
+    public function countByYear(Years $year, array $filters = []): int
+    {
+        $qb = $this->createQueryBuilder('b')
+            ->select('COUNT(b.id)')
+            ->where('b.year = :year')
+            ->setParameter('year', $year);
+
+        $this->applyFilters($qb, $filters);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
      * Returns the next batch number for a year (MAX + 1, or 1 if none).
-     * This is used as input to INSERT — the unique constraint (year_id, batch_number)
-     * acts as the final safety net against race conditions.
+     * The unique constraint (year_id, batch_number) is the final safety net.
      */
     public function nextBatchNumber(Years $year): int
     {
@@ -47,5 +89,31 @@ class StaffPlannerExportBatchRepository extends ServiceEntityRepository
             [$year->getId()],
         );
         return (int) $result->fetchOne();
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /** @param array<string, mixed> $filters */
+    private function applyFilters(\Doctrine\ORM\QueryBuilder $qb, array $filters): void
+    {
+        if (!empty($filters['batchNumber'])) {
+            $qb->andWhere('b.batchNumber = :batchNumber')
+                ->setParameter('batchNumber', (int) $filters['batchNumber']);
+        }
+
+        if (!empty($filters['generatedByType'])) {
+            $qb->andWhere('b.generatedByType = :generatedByType')
+                ->setParameter('generatedByType', $filters['generatedByType']);
+        }
+
+        if (!empty($filters['from'])) {
+            $qb->andWhere('b.generatedAt >= :from')
+                ->setParameter('from', new \DateTimeImmutable($filters['from']));
+        }
+
+        if (!empty($filters['to'])) {
+            $qb->andWhere('b.generatedAt <= :to')
+                ->setParameter('to', new \DateTimeImmutable($filters['to'] . ' 23:59:59'));
+        }
     }
 }

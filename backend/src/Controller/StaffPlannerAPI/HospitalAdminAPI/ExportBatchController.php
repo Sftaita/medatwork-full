@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controller\StaffPlannerAPI\HospitalAdminAPI;
 
+use App\Entity\AppAdmin;
 use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\StaffPlannerExportBatch;
+use App\Entity\StaffPlannerExportItemSnapshot;
 use App\Entity\Years;
 use App\Enum\ManagerJob;
 use App\Repository\StaffPlannerExportBatchRepository;
@@ -14,38 +16,55 @@ use App\Repository\StaffPlannerExportItemSnapshotRepository;
 use App\Repository\YearsRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Read-only API for export batch audit trail.
+ * Read-only audit API for Staff Planner export history (Phase 3).
+ *
+ * Endpoints:
+ *   GET /years/{yearId}/export-batches              — paginated batch list with filters
+ *   GET /export-batches/{batchId}                   — batch detail
+ *   GET /export-batches/{batchId}/snapshots          — snapshot list (no payloadLines)
+ *   GET /export-snapshots/{snapshotId}               — snapshot detail (with payloadLines)
  *
  * Access: HospitalAdmin, AppAdmin, Manager with admin hospital OR RH job.
- * All endpoints are scoped to the current user's hospital.
- *
- * No diff viewer yet (Phase 3).
+ * All data is scoped to the current user's hospital.
  */
 #[Route('/api/hospital-admin')]
 class ExportBatchController extends AbstractController
 {
+    private const DEFAULT_LIMIT = 20;
+    private const MAX_LIMIT     = 100;
+
     public function __construct(
         private readonly StaffPlannerExportBatchRepository $batchRepo,
         private readonly StaffPlannerExportItemSnapshotRepository $snapshotRepo,
     ) {
     }
 
+    // ── Batch list ────────────────────────────────────────────────────────────
+
     /**
      * GET /api/hospital-admin/years/{yearId}/export-batches
      *
-     * Lists all export batches for a year, newest first.
+     * Paginated list of batches for a year, newest first.
      *
-     * @return JsonResponse array of {
-     *   id, batchNumber, generatedAt, generatedByType, generatedById,
-     *   itemCount, fileHash, fileSizeBytes, notes, createdAt
+     * Query params:
+     *   page            (int, default 1)
+     *   limit           (int, default 20, max 100)
+     *   batchNumber     (int, optional filter)
+     *   generatedByType (string, optional filter: 'manager'|'hospital_admin'|'app_admin')
+     *   from            (date Y-m-d, optional filter on generatedAt)
+     *   to              (date Y-m-d, optional filter on generatedAt)
+     *
+     * @return JsonResponse {
+     *   data: ExportBatch[], total: int, page: int, limit: int
      * }
      */
     #[Route('/years/{yearId}/export-batches', name: 'sp_batch_list', methods: ['GET'])]
-    public function list(int $yearId, YearsRepository $yearsRepo): JsonResponse
+    public function list(int $yearId, Request $request, YearsRepository $yearsRepo): JsonResponse
     {
         $year = $yearsRepo->find($yearId);
         if ($year === null) {
@@ -55,17 +74,28 @@ class ExportBatchController extends AbstractController
             return new JsonResponse(['message' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
-        $batches = $this->batchRepo->findByYearNewestFirst($year);
+        $page    = max(1, (int) $request->query->get('page', 1));
+        $limit   = min(self::MAX_LIMIT, max(1, (int) $request->query->get('limit', self::DEFAULT_LIMIT)));
+        $filters = $this->extractFilters($request);
 
-        return $this->json(array_map([$this, 'serializeBatch'], $batches));
+        $batches = $this->batchRepo->findByYearPaginated($year, $page, $limit, $filters);
+        $total   = $this->batchRepo->countByYear($year, $filters);
+
+        return $this->json([
+            'data'  => array_map([$this, 'serializeBatch'], $batches),
+            'total' => $total,
+            'page'  => $page,
+            'limit' => $limit,
+        ]);
     }
+
+    // ── Batch detail ──────────────────────────────────────────────────────────
 
     /**
      * GET /api/hospital-admin/export-batches/{batchId}
-     *
-     * Returns the detail of a single batch.
      */
-    #[Route('/export-batches/{batchId}', name: 'sp_batch_detail', methods: ['GET'])]
+    #[Route('/export-batches/{batchId}', name: 'sp_batch_detail', methods: ['GET'],
+        requirements: ['batchId' => '\d+'])]
     public function detail(int $batchId): JsonResponse
     {
         $batch = $this->batchRepo->find($batchId);
@@ -79,20 +109,20 @@ class ExportBatchController extends AbstractController
         return $this->json($this->serializeBatch($batch));
     }
 
+    // ── Snapshot list (no payloadLines) ───────────────────────────────────────
+
     /**
      * GET /api/hospital-admin/export-batches/{batchId}/snapshots
      *
-     * Lists all item snapshots for a batch.
+     * Returns snapshot summaries for a batch — payloadLines EXCLUDED.
+     * Uses JOIN FETCH to avoid N+1 on yearsResident → resident.
      *
-     * @return JsonResponse array of {
-     *   id, yearResidentId, month, calendarYear,
-     *   dataFingerprint, validatedByMdsAtExport,
-     *   timesheetCount, gardeHospitalCount, absenceCount, totalMinutes,
-     *   workerHRIDAtExport, sectionHRIDAtExport, payloadLines, createdAt
-     * }
+     * Pagination is optional (snapshots per batch are bounded by MACCS count,
+     * typically < 100). If needed, add ?page and ?limit params.
      */
-    #[Route('/export-batches/{batchId}/snapshots', name: 'sp_batch_snapshots', methods: ['GET'])]
-    public function snapshots(int $batchId): JsonResponse
+    #[Route('/export-batches/{batchId}/snapshots', name: 'sp_batch_snapshots', methods: ['GET'],
+        requirements: ['batchId' => '\d+'])]
+    public function snapshots(int $batchId, Request $request): JsonResponse
     {
         $batch = $this->batchRepo->find($batchId);
         if ($batch === null) {
@@ -102,33 +132,40 @@ class ExportBatchController extends AbstractController
             return new JsonResponse(['message' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
-        $snapshots = $this->snapshotRepo->findByBatch($batch);
+        // JOIN FETCH to prevent N+1 on resident data
+        $snapshots = $this->snapshotRepo->findByBatchWithResident($batch);
+        $total     = count($snapshots);
 
-        return $this->json(array_map(static function ($s): array {
-            $yr       = $s->getYearsResident();
-            $resident = $yr->getResident();
-            return [
-                'id'                      => $s->getId(),
-                'yearResidentId'          => $yr->getId(),
-                'residentFirstname'       => $resident?->getFirstname(),
-                'residentLastname'        => $resident?->getLastname(),
-                'month'                   => $s->getMonth(),
-                'calendarYear'            => $s->getCalendarYear(),
-                'dataFingerprint'         => $s->getDataFingerprint(),
-                'validatedByMdsAtExport'  => $s->isValidatedByMdsAtExport(),
-                'timesheetCount'          => $s->getTimesheetCount(),
-                'gardeHospitalCount'      => $s->getGardeHospitalCount(),
-                'absenceCount'            => $s->getAbsenceCount(),
-                'totalMinutes'            => $s->getTotalMinutes(),
-                'workerHRIDAtExport'      => $s->getWorkerHRIDAtExport(),
-                'sectionHRIDAtExport'     => $s->getSectionHRIDAtExport(),
-                'payloadLines'            => $s->getPayloadLines(),
-                'createdAt'               => $s->getCreatedAt()->format(\DateTimeInterface::ATOM),
-            ];
-        }, $snapshots));
+        return $this->json([
+            'data'  => array_map([$this, 'serializeSnapshotSummary'], $snapshots),
+            'total' => $total,
+        ]);
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // ── Snapshot detail (with payloadLines) ───────────────────────────────────
+
+    /**
+     * GET /api/hospital-admin/export-snapshots/{snapshotId}
+     *
+     * Returns the full snapshot detail including payloadLines.
+     * Access validated against the snapshot's batch year.
+     */
+    #[Route('/export-snapshots/{snapshotId}', name: 'sp_snapshot_detail', methods: ['GET'],
+        requirements: ['snapshotId' => '\d+'])]
+    public function snapshotDetail(int $snapshotId): JsonResponse
+    {
+        $snapshot = $this->snapshotRepo->findByIdWithDetails($snapshotId);
+        if ($snapshot === null) {
+            return new JsonResponse(['message' => 'Snapshot introuvable'], Response::HTTP_NOT_FOUND);
+        }
+        if (!$this->canAccessYear($snapshot->getBatch()->getYear())) {
+            return new JsonResponse(['message' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json($this->serializeSnapshotDetail($snapshot));
+    }
+
+    // ── Serializers ───────────────────────────────────────────────────────────
 
     private function serializeBatch(StaffPlannerExportBatch $batch): array
     {
@@ -147,12 +184,53 @@ class ExportBatchController extends AbstractController
         ];
     }
 
+    /** Summary: no payloadLines. */
+    private function serializeSnapshotSummary(StaffPlannerExportItemSnapshot $s): array
+    {
+        $yr       = $s->getYearsResident();
+        $resident = $yr->getResident();
+        return [
+            'id'                     => $s->getId(),
+            'yearResidentId'         => $yr->getId(),
+            'residentFirstname'      => $resident?->getFirstname(),
+            'residentLastname'       => $resident?->getLastname(),
+            'month'                  => $s->getMonth(),
+            'calendarYear'           => $s->getCalendarYear(),
+            'dataFingerprint'        => $s->getDataFingerprint(),
+            'validatedByMdsAtExport' => $s->isValidatedByMdsAtExport(),
+            'timesheetCount'         => $s->getTimesheetCount(),
+            'gardeHospitalCount'     => $s->getGardeHospitalCount(),
+            'absenceCount'           => $s->getAbsenceCount(),
+            'totalMinutes'           => $s->getTotalMinutes(),
+            'workerHRIDAtExport'     => $s->getWorkerHRIDAtExport(),
+            'sectionHRIDAtExport'    => $s->getSectionHRIDAtExport(),
+            'createdAt'              => $s->getCreatedAt()->format(\DateTimeInterface::ATOM),
+            // payloadLines intentionally excluded
+        ];
+    }
+
+    /** Full detail: includes payloadLines. */
+    private function serializeSnapshotDetail(StaffPlannerExportItemSnapshot $s): array
+    {
+        return array_merge($this->serializeSnapshotSummary($s), [
+            'payloadLines' => $s->getPayloadLines(),
+            'batchId'      => $s->getBatch()->getId(),
+            'batchNumber'  => $s->getBatch()->getBatchNumber(),
+        ]);
+    }
+
+    // ── Security ──────────────────────────────────────────────────────────────
+
     private function canAccessYear(Years $year): bool
     {
         $user     = $this->getUser();
         $hospital = $year->getHospital();
         if ($hospital === null) {
             return false;
+        }
+
+        if ($user instanceof AppAdmin) {
+            return true; // global access
         }
 
         if ($user instanceof HospitalAdmin) {
@@ -173,5 +251,18 @@ class ExportBatchController extends AbstractController
         }
 
         return false;
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /** @return array<string, string|null> */
+    private function extractFilters(Request $request): array
+    {
+        return array_filter([
+            'batchNumber'     => $request->query->get('batchNumber'),
+            'generatedByType' => $request->query->get('generatedByType'),
+            'from'            => $request->query->get('from'),
+            'to'              => $request->query->get('to'),
+        ], static fn($v) => $v !== null && $v !== '');
     }
 }
