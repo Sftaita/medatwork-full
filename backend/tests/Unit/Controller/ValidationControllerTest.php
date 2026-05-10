@@ -6,6 +6,11 @@ namespace App\Tests\Unit\Controller;
 
 use App\Controller\ValidationsAPI\ManagersAPI\ValidationController;
 use App\Entity\Manager;
+use App\Entity\PeriodValidation;
+use App\Entity\Resident;
+use App\Entity\ResidentValidation;
+use App\Entity\Years;
+use App\Exception\PeriodLockedException;
 use App\Repository\AbsenceRepository;
 use App\Repository\GardeRepository;
 use App\Repository\PeriodValidationRepository;
@@ -20,6 +25,7 @@ use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 /**
  * Unit tests for ValidationController::updateResidentValidationStatus().
@@ -102,6 +108,51 @@ final class ValidationControllerTest extends TestCase
         ];
     }
 
+    /**
+     * Construit un contrôleur avec security.authorization_checker mocké (toujours granted).
+     * Nécessaire pour atteindre les lignes après le check isGranted().
+     */
+    private function buildControllerGranted(): ValidationController
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getId')->willReturn(1);
+
+        $token = $this->createMock(TokenInterface::class);
+        $token->method('getUser')->willReturn($manager);
+
+        $tokenStorage = $this->createMock(TokenStorageInterface::class);
+        $tokenStorage->method('getToken')->willReturn($token);
+
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->method('isGranted')->willReturn(true);
+
+        $container = new Container();
+        $container->set('security.token_storage', $tokenStorage);
+        $container->set('security.authorization_checker', $authChecker);
+
+        $controller = new ValidationController(
+            $this->periodRepo,
+            $this->residentRepo,
+            $this->residentValidationRepo,
+        );
+        $controller->setContainer($container);
+
+        return $controller;
+    }
+
+    private function makePeriod(int $month = 11, int $yearNb = 2024): PeriodValidation
+    {
+        $year = $this->createMock(Years::class);
+        $year->method('getId')->willReturn(10);
+
+        $period = $this->createMock(PeriodValidation::class);
+        $period->method('getYear')->willReturn($year);
+        $period->method('getMonth')->willReturn($month);
+        $period->method('getYearNb')->willReturn($yearNb);
+
+        return $period;
+    }
+
     // ── Régression : int $periodId (Bug prod du 2026-05-08) ──────────────────
 
     public function testFindIsCalledWithIntPeriodId(): void
@@ -170,5 +221,76 @@ final class ValidationControllerTest extends TestCase
         );
 
         $this->assertSame(400, $response->getStatusCode());
+    }
+
+    // ── Phase 5 — PeriodLockedException → 422 ────────────────────────────────
+
+    public function testPeriodLockedExceptionReturns422WithLockMessage(): void
+    {
+        $period   = $this->makePeriod(11, 2024);
+        $resident = $this->createMock(Resident::class);
+
+        $existingValidation = $this->createMock(ResidentValidation::class);
+        $existingValidation->method('getValidated')->willReturn(false); // currently not validated → triggers update
+
+        $this->periodRepo->method('find')->willReturn($period);
+        $this->residentRepo->method('find')->willReturn($resident);
+        $this->residentValidationRepo->method('findOneBy')->willReturn($existingValidation);
+
+        $updateMonthValidation = $this->createMock(UpdateMonthValidation::class);
+        $updateMonthValidation->method('updateResidentValidationStatus')
+            ->willThrowException(new PeriodLockedException('Période 11/2024 verrouillée — Clôture RH'));
+
+        $timesheetRepo = $this->createMock(TimesheetRepository::class);
+        $gardeRepo     = $this->createMock(GardeRepository::class);
+        $absenceRepo   = $this->createMock(AbsenceRepository::class);
+
+        $response = $this->buildControllerGranted()->updateResidentValidationStatus(
+            1,
+            $this->makeRequest([['residentId' => 45, 'status' => 'validate']]),
+            $updateMonthValidation,
+            $this->createMock(UpdateYearResidentNotifications::class),
+            $timesheetRepo,
+            $gardeRepo,
+            $absenceRepo,
+            new NullLogger(),
+        );
+
+        $this->assertSame(422, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertArrayHasKey('error', $data);
+        $this->assertStringContainsString('verrouillée', $data['error']);
+    }
+
+    public function testGenericExceptionReturns400NotMaskedByLockCheck(): void
+    {
+        $period   = $this->makePeriod();
+        $resident = $this->createMock(Resident::class);
+
+        $existingValidation = $this->createMock(ResidentValidation::class);
+        $existingValidation->method('getValidated')->willReturn(false);
+
+        $this->periodRepo->method('find')->willReturn($period);
+        $this->residentRepo->method('find')->willReturn($resident);
+        $this->residentValidationRepo->method('findOneBy')->willReturn($existingValidation);
+
+        $updateMonthValidation = $this->createMock(UpdateMonthValidation::class);
+        $updateMonthValidation->method('updateResidentValidationStatus')
+            ->willThrowException(new \RuntimeException('DB connection lost'));
+
+        $response = $this->buildControllerGranted()->updateResidentValidationStatus(
+            1,
+            $this->makeRequest([['residentId' => 45, 'status' => 'validate']]),
+            $updateMonthValidation,
+            $this->createMock(UpdateYearResidentNotifications::class),
+            $this->createMock(TimesheetRepository::class),
+            $this->createMock(GardeRepository::class),
+            $this->createMock(AbsenceRepository::class),
+            new NullLogger(),
+        );
+
+        $this->assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertArrayHasKey('error', $data);
     }
 }

@@ -14,6 +14,7 @@ use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Security\Voter\YearAccessVoter;
 use App\Services\MonthValidation\UpdateMonthValidation;
+use App\Exception\PeriodLockedException;
 use App\Services\Notifications\UpdateYearResidentNotifications;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -126,6 +127,8 @@ class ValidationController extends AbstractController
                     $absenceRepository->updateIsEditableForResidentInPeriod($residentId, $yearId, $firstDayOfMonth, $lastDayOfMonth, $actionIsValidated);
 
 
+                } catch (PeriodLockedException $e) {
+                    return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
                 } catch (\Exception $e) {
                     $logger->error('Validation update failed', ['exception' => $e, 'residentId' => $item->residentId]);
 
