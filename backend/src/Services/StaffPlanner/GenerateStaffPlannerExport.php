@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\StaffPlanner;
 
+use App\Entity\YearsResident;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\YearsResidentRepository;
 use App\Security\Voter\YearAccessVoter;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-use App\Entity\YearsResident;
 
 class GenerateStaffPlannerExport
 {
@@ -17,11 +17,13 @@ class GenerateStaffPlannerExport
         private readonly YearsResidentRepository $yearsResidentRepository,
         private readonly AuthorizationCheckerInterface $authorizationChecker,
         private readonly GetDataByMonth $getDataByMonth,
+        private readonly FingerprintService $fingerprintService,
     ) {
     }
 
     /**
      * Generate a StaffPlanner-compatible TXT file for the given period IDs.
+     * Legacy path — does NOT return capturedItems (no Phase 2 snapshot support).
      *
      * @param  list<int>                                                   $periodIds
      * @return array{filePath: string, alerts: list<array{firstname: string, lastname: string}>}
@@ -40,7 +42,7 @@ class GenerateStaffPlannerExport
 
         fwrite($handle, 'SEPARATOR=|' . "\n");
 
-        $yearIdMemory     = null;
+        $yearIdMemory      = null;
         $hasDownloadAccess = false;
         $alerts            = [];
 
@@ -50,7 +52,6 @@ class GenerateStaffPlannerExport
                 continue;
             }
 
-            // Cache the access check: if the year hasn't changed, reuse the last result.
             $year = $period->getPeriodValidation()->getYear();
             if ($year->getId() !== $yearIdMemory) {
                 $hasDownloadAccess = $this->authorizationChecker->isGranted(YearAccessVoter::DATA_DOWNLOAD, $year);
@@ -90,7 +91,7 @@ class GenerateStaffPlannerExport
             }
 
             $data = $this->getDataByMonth->fetchData($resident, $firstDay, $lastDay);
-            $this->writeEntries($handle, $workerHRID, $sectionHRID, $data);
+            fwrite($handle, $this->buildLines($workerHRID, $sectionHRID, $data));
         }
 
         fclose($handle);
@@ -99,11 +100,30 @@ class GenerateStaffPlannerExport
     }
 
     /**
-     * Generate a StaffPlanner-compatible TXT file from (yearsResident, month, calendarYear) items.
-     * Does NOT require a ResidentValidation to exist — works from raw timesheet/garde/absence data.
+     * Generate a StaffPlanner-compatible TXT file from (yearResidentId, month, calendarYear) items.
+     * Phase 2: returns capturedItems for immutable snapshot persistence.
+     *
+     * Does NOT require a ResidentValidation to exist — export independent of MDS validation.
      *
      * @param  list<array{yearResidentId: int, month: int, calendarYear: int}> $items
-     * @return array{filePath: string, alerts: list<array{firstname: string, lastname: string}>}
+     * @return array{
+     *   filePath: string,
+     *   alerts: list<array{firstname: string, lastname: string}>,
+     *   capturedItems: list<array{
+     *     yearResidentId: int,
+     *     month: int,
+     *     calendarYear: int,
+     *     yearsResident: YearsResident,
+     *     payloadLines: string,
+     *     timesheetCount: int,
+     *     gardeHospitalCount: int,
+     *     absenceCount: int,
+     *     totalMinutes: int,
+     *     dataFingerprint: string,
+     *     workerHRIDAtExport: string|null,
+     *     sectionHRIDAtExport: string|null,
+     *   }>
+     * }
      */
     public function generateFromItems(array $items): array
     {
@@ -119,9 +139,10 @@ class GenerateStaffPlannerExport
 
         fwrite($handle, 'SEPARATOR=|' . "\n");
 
-        $yearIdMemory = null;
-        $hasAccess    = false;
-        $alerts       = [];
+        $yearIdMemory   = null;
+        $hasAccess      = false;
+        $alerts         = [];
+        $capturedItems  = [];
 
         foreach ($items as $item) {
             $yearsResident = $this->yearsResidentRepository->find($item['yearResidentId']);
@@ -139,7 +160,6 @@ class GenerateStaffPlannerExport
                 continue;
             }
 
-            // Cache access check per year
             if ($year->getId() !== $yearIdMemory) {
                 $hasAccess    = $this->authorizationChecker->isGranted(YearAccessVoter::ADMIN, $year)
                              || $this->authorizationChecker->isGranted(YearAccessVoter::DATA_DOWNLOAD, $year);
@@ -163,31 +183,63 @@ class GenerateStaffPlannerExport
                 continue;
             }
 
-            $firstDay = (new \DateTime($item['calendarYear'] . '-' . $item['month'] . '-01'))->format('Y-m-01 00:00:00');
+            $firstDay = (new \DateTime(sprintf('%04d-%02d-01', $item['calendarYear'], $item['month'])))->format('Y-m-01 00:00:00');
             $lastDay  = (new \DateTime($firstDay))->format('Y-m-t 23:59:59');
 
-            $data = $this->getDataByMonth->fetchData($resident, $firstDay, $lastDay);
-            $this->writeEntries($handle, $workerHRID, $sectionHRID, $data);
+            $data  = $this->getDataByMonth->fetchData($resident, $firstDay, $lastDay);
+            $lines = $this->buildLines($workerHRID, $sectionHRID, $data);
+
+            // Write to the shared .txt file
+            fwrite($handle, $lines);
+
+            // Capture per-MACCS data for Phase 2 immutable snapshot
+            $capturedItems[] = [
+                'yearResidentId'     => $item['yearResidentId'],
+                'month'              => $item['month'],
+                'calendarYear'       => $item['calendarYear'],
+                'yearsResident'      => $yearsResident,
+                'payloadLines'       => $lines,
+                'timesheetCount'     => count($data['timesheets'] ?? []),
+                'gardeHospitalCount' => count(array_filter(
+                    $data['gardes'] ?? [],
+                    static fn(array $g): bool => ($g['type'] ?? '') === 'hospital'
+                )),
+                'absenceCount'       => count($data['absences'] ?? []),
+                'totalMinutes'       => $this->computeTotalMinutes($data),
+                'dataFingerprint'    => $this->fingerprintService->hashData($data),
+                'workerHRIDAtExport' => $workerHRID,
+                'sectionHRIDAtExport'=> $sectionHRID,
+            ];
         }
 
         fclose($handle);
 
-        return ['filePath' => $filePath, 'alerts' => $alerts];
+        return [
+            'filePath'      => $filePath,
+            'alerts'        => $alerts,
+            'capturedItems' => $capturedItems,
+        ];
     }
 
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     /**
-     * @param  resource                                  $handle
-     * @param  array<string, list<array<string, mixed>>> $data
+     * Builds the .txt lines for one MACCS.
+     * Returns a string (not written to any handle) so it can be captured for snapshots.
+     *
+     * @param array<string, list<array<string, mixed>>> $data
      */
-    private function writeEntries($handle, string $workerHRID, string $sectionHRID, array $data): void
+    public function buildLines(string $workerHRID, string $sectionHRID, array $data): string
     {
+        $lines = '';
+
         foreach ($data['timesheets'] ?? [] as $shift) {
-            $this->writeShiftLine($handle, $workerHRID, $sectionHRID, $shift, 'activeShifts', (int) ($shift['pause'] * 60));
+            $lines .= $this->buildShiftLine($workerHRID, $sectionHRID, $shift, 'activeShifts', (int) ($shift['pause'] * 60));
         }
 
         foreach ($data['gardes'] ?? [] as $shift) {
             if ($shift['type'] === 'hospital') {
-                $this->writeShiftLine($handle, $workerHRID, $sectionHRID, $shift, 'activeShifts', 0);
+                $lines .= $this->buildShiftLine($workerHRID, $sectionHRID, $shift, 'activeShifts', 0);
             }
             // callable garde: no line written (matches original behaviour)
         }
@@ -198,24 +250,43 @@ class GenerateStaffPlannerExport
                 'annualLeave' => 'holidays',
                 default       => 'abs',
             };
-            $this->writeShiftLine($handle, $workerHRID, $sectionHRID, $shift, $code, 0);
+            $lines .= $this->buildShiftLine($workerHRID, $sectionHRID, $shift, $code, 0);
         }
+
+        return $lines;
     }
 
-    /**
-     * @param resource             $handle
-     * @param array<string, mixed> $shift
-     */
-    private function writeShiftLine($handle, string $workerHRID, string $sectionHRID, array $shift, string $code, int $lunch): void
+    /** @param array<string, mixed> $shift */
+    private function buildShiftLine(string $workerHRID, string $sectionHRID, array $shift, string $code, int $lunch): string
     {
         $date     = date('Y-m-d', strtotime((string) $shift['start']));
         $start    = strtotime((string) $shift['start']) - strtotime($date);
         $end      = strtotime((string) $shift['end']) - strtotime($date);
         $duration = $end - $start;
 
-        fwrite(
-            $handle,
-            'AS=|' . $workerHRID . '|' . $sectionHRID . '|' . $date . '|1|' . $code . '|' . $start . '|' . $end . '|' . $duration . '|' . $lunch . '||' . "\n"
-        );
+        return 'AS=|' . $workerHRID . '|' . $sectionHRID . '|' . $date . '|1|' . $code . '|' . $start . '|' . $end . '|' . $duration . '|' . $lunch . '||' . "\n";
+    }
+
+    /**
+     * Computes total shift duration in minutes for snapshot metrics.
+     * Includes timesheets and hospital gardes; excludes callable gardes and absences.
+     *
+     * @param array<string, list<array<string, mixed>>> $data
+     */
+    private function computeTotalMinutes(array $data): int
+    {
+        $total = 0;
+
+        foreach ($data['timesheets'] ?? [] as $shift) {
+            $total += (int) round((strtotime((string) $shift['end']) - strtotime((string) $shift['start'])) / 60);
+        }
+
+        foreach ($data['gardes'] ?? [] as $shift) {
+            if (($shift['type'] ?? '') === 'hospital') {
+                $total += (int) round((strtotime((string) $shift['end']) - strtotime((string) $shift['start'])) / 60);
+            }
+        }
+
+        return $total;
     }
 }

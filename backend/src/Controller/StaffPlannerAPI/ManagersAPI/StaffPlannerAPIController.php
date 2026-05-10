@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controller\StaffPlannerAPI\ManagersAPI;
 
+use App\Repository\YearsResidentRepository;
+use App\Services\StaffPlanner\ExportBatchService;
 use App\Services\StaffPlanner\GenerateStaffPlannerExport;
 use App\Services\StaffPlanner\StaffPlannerMonthsService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,6 +25,10 @@ class StaffPlannerAPIController extends AbstractController
      * Generates a Staff Planner .txt file from (yearResidentId, month, calendarYear) items.
      * Does NOT require a ResidentValidation to exist.
      *
+     * Phase 2: creates an immutable StaffPlannerExportBatch + item snapshots BEFORE
+     * returning the file. If batch persistence fails, the file is NOT returned (audit trail
+     * is mandatory for legal/hospital compliance).
+     *
      * Body:
      * {
      *   "items": [
@@ -34,6 +41,9 @@ class StaffPlannerAPIController extends AbstractController
         Request $request,
         GenerateStaffPlannerExport $exporter,
         StaffPlannerMonthsService $monthsService,
+        ExportBatchService $batchService,
+        YearsResidentRepository $yrRepo,
+        LoggerInterface $logger,
     ): Response {
         $data = json_decode($request->getContent(), true);
 
@@ -65,16 +75,46 @@ class StaffPlannerAPIController extends AbstractController
             return new JsonResponse(['message' => '"items" ne peut pas être vide'], 400);
         }
 
+        // ── 1. Generate .txt file ──────────────────────────────────────────────
         $result = $exporter->generateFromItems($items);
 
         if (!empty($result['alerts'])) {
+            @unlink($result['filePath']);
             return new JsonResponse(['errors' => $result['alerts']], Response::HTTP_BAD_REQUEST);
         }
 
-        // Mark each exported item as treated
+        $filePath       = $result['filePath'];
+        $capturedItems  = $result['capturedItems'];
+
+        // ── 2. Persist immutable export batch (Phase 2) ───────────────────────
+        if ($capturedItems !== []) {
+            // Resolve year from the first successfully captured MACCS
+            $year = $capturedItems[0]['yearsResident']->getYear();
+
+            if ($year !== null) {
+                try {
+                    $fileContent = (string) file_get_contents($filePath);
+                    $batchService->recordBatch($year, $fileContent, $capturedItems, $this->getUser());
+                } catch (\Throwable $e) {
+                    @unlink($filePath);
+                    $logger->error('ExportBatch persistence failed — file NOT delivered', [
+                        'exception' => $e->getMessage(),
+                        'yearId'    => $year->getId(),
+                        'itemCount' => count($capturedItems),
+                    ]);
+                    return new JsonResponse(
+                        ['message' => 'Export généré mais impossible de créer l\'enregistrement d\'audit. Réessayez.'],
+                        Response::HTTP_INTERNAL_SERVER_ERROR,
+                    );
+                }
+            }
+        }
+
+        // ── 3. Mark items treated + update dirty/fingerprint (Phase 1) ────────
+        // Only runs if batch persistence succeeded (or no capturedItems).
         $monthsService->markItemsTreatedAfterGeneration($items, $this->getUser());
 
-        $filePath = $result['filePath'];
+        // ── 4. Return file ─────────────────────────────────────────────────────
         $response = new BinaryFileResponse($filePath);
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, 'Horaire.txt');
         $response->headers->set('Expires', '0');

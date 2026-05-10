@@ -13,6 +13,7 @@ use App\Entity\YearsResident;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\YearsResidentRepository;
 use App\Security\Voter\YearAccessVoter;
+use App\Services\StaffPlanner\FingerprintService;
 use App\Services\StaffPlanner\GenerateStaffPlannerExport;
 use App\Services\StaffPlanner\GetDataByMonth;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,6 +26,7 @@ class GenerateStaffPlannerExportTest extends TestCase
     private YearsResidentRepository&MockObject $yearsResidentRepo;
     private AuthorizationCheckerInterface&MockObject $authChecker;
     private GetDataByMonth&MockObject $getDataByMonth;
+    private FingerprintService&MockObject $fingerprintService;
     private GenerateStaffPlannerExport $service;
 
     protected function setUp(): void
@@ -33,12 +35,15 @@ class GenerateStaffPlannerExportTest extends TestCase
         $this->yearsResidentRepo      = $this->createMock(YearsResidentRepository::class);
         $this->authChecker            = $this->createMock(AuthorizationCheckerInterface::class);
         $this->getDataByMonth         = $this->createMock(GetDataByMonth::class);
+        $this->fingerprintService     = $this->createMock(FingerprintService::class);
+        $this->fingerprintService->method('hashData')->willReturn(str_repeat('a', 64));
 
         $this->service = new GenerateStaffPlannerExport(
             $this->residentValidationRepo,
             $this->yearsResidentRepo,
             $this->authChecker,
             $this->getDataByMonth,
+            $this->fingerprintService,
         );
     }
 
@@ -283,5 +288,171 @@ class GenerateStaffPlannerExportTest extends TestCase
 
         $this->assertSame([], $result['alerts']);
         unlink($result['filePath']);
+    }
+
+    // ─── Phase 2 : generateFromItems() — capturedItems ───────────────────────
+
+    public function testGenerateFromItemsReturnsCapturedItems(): void
+    {
+        $yr = $this->makeYearsResidentFull('W001', 'S001');
+        $this->yearsResidentRepo->method('find')->willReturn($yr);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $this->getDataByMonth->method('fetchData')->willReturn([
+            'timesheets' => [['start' => '2024-11-04 08:00:00', 'end' => '2024-11-04 16:00:00', 'pause' => 0]],
+            'gardes'     => [],
+            'absences'   => [],
+        ]);
+
+        $result = $this->service->generateFromItems([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+
+        $this->assertArrayHasKey('capturedItems', $result);
+        $this->assertCount(1, $result['capturedItems']);
+        unlink($result['filePath']);
+    }
+
+    public function testCapturedItemHasCorrectFields(): void
+    {
+        $yr = $this->makeYearsResidentFull('W001', 'S001');
+        $this->yearsResidentRepo->method('find')->willReturn($yr);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $this->getDataByMonth->method('fetchData')->willReturn([
+            'timesheets' => [['start' => '2024-11-04 08:00:00', 'end' => '2024-11-04 16:00:00', 'pause' => 0.5]],
+            'gardes'     => [['start' => '2024-11-10 20:00:00', 'end' => '2024-11-11 08:00:00', 'type' => 'hospital']],
+            'absences'   => [],
+        ]);
+
+        $result = $this->service->generateFromItems([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+
+        $item = $result['capturedItems'][0];
+        $this->assertSame(10, $item['yearResidentId']);
+        $this->assertSame(11, $item['month']);
+        $this->assertSame(2024, $item['calendarYear']);
+        $this->assertSame(1, $item['timesheetCount']);
+        $this->assertSame(1, $item['gardeHospitalCount']);
+        $this->assertSame(0, $item['absenceCount']);
+        $this->assertSame('W001', $item['workerHRIDAtExport']);
+        $this->assertSame('S001', $item['sectionHRIDAtExport']);
+        $this->assertSame(64, strlen($item['dataFingerprint'])); // SHA-256
+        $this->assertStringContainsString('AS=', $item['payloadLines']);
+        unlink($result['filePath']);
+    }
+
+    public function testCapturedItemCallableGardeNotCountedInGardeHospital(): void
+    {
+        $yr = $this->makeYearsResidentFull('W001', 'S001');
+        $this->yearsResidentRepo->method('find')->willReturn($yr);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $this->getDataByMonth->method('fetchData')->willReturn([
+            'timesheets' => [],
+            'gardes'     => [
+                ['start' => '2024-11-10 20:00:00', 'end' => '2024-11-11 08:00:00', 'type' => 'callable'],
+                ['start' => '2024-11-12 20:00:00', 'end' => '2024-11-13 08:00:00', 'type' => 'hospital'],
+            ],
+            'absences'   => [],
+        ]);
+
+        $result = $this->service->generateFromItems([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+
+        $item = $result['capturedItems'][0];
+        $this->assertSame(1, $item['gardeHospitalCount']); // only hospital counted
+        unlink($result['filePath']);
+    }
+
+    public function testCapturedItemPayloadLinesContainOnlyHospitalGardes(): void
+    {
+        $yr = $this->makeYearsResidentFull('W001', 'S001');
+        $this->yearsResidentRepo->method('find')->willReturn($yr);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $this->getDataByMonth->method('fetchData')->willReturn([
+            'timesheets' => [],
+            'gardes'     => [
+                ['start' => '2024-11-10 20:00:00', 'end' => '2024-11-11 08:00:00', 'type' => 'callable'],
+                ['start' => '2024-11-12 20:00:00', 'end' => '2024-11-13 08:00:00', 'type' => 'hospital'],
+            ],
+            'absences'   => [],
+        ]);
+
+        $result = $this->service->generateFromItems([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+
+        // Callable garde produces no line — only 1 AS= line (the hospital garde)
+        $lines = $result['capturedItems'][0]['payloadLines'];
+        $this->assertSame(1, substr_count($lines, 'AS='));
+        unlink($result['filePath']);
+    }
+
+    public function testGenerateFromItemsWithAlertsReturnsEmptyCapturedItems(): void
+    {
+        // When HRID is missing → alert added, no capturedItem
+        $yr = $this->makeYearsResidentFull(null, null);
+        $this->yearsResidentRepo->method('find')->willReturn($yr);
+        $this->authChecker->method('isGranted')->willReturn(true);
+
+        $result = $this->service->generateFromItems([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+
+        $this->assertCount(1, $result['alerts']);
+        $this->assertSame([], $result['capturedItems']);
+        unlink($result['filePath']);
+    }
+
+    // ─── buildLines() is consistent with file content ─────────────────────────
+
+    public function testBuildLinesMatchesWhatIsWrittenToFile(): void
+    {
+        $yr = $this->makeYearsResidentFull('W001', 'S001');
+        $this->yearsResidentRepo->method('find')->willReturn($yr);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $data = [
+            'timesheets' => [['start' => '2024-11-04 08:00:00', 'end' => '2024-11-04 16:00:00', 'pause' => 0]],
+            'gardes'     => [],
+            'absences'   => [],
+        ];
+        $this->getDataByMonth->method('fetchData')->willReturn($data);
+
+        $result     = $this->service->generateFromItems([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+        $fileContent = file_get_contents($result['filePath']) ?: '';
+
+        // payloadLines must appear verbatim in the generated file
+        $this->assertStringContainsString(
+            $result['capturedItems'][0]['payloadLines'],
+            $fileContent,
+        );
+        unlink($result['filePath']);
+    }
+
+    // ─── Helper for generateFromItems tests ──────────────────────────────────
+
+    private function makeYearsResidentFull(?string $workerHRID, ?string $sectionHRID): YearsResident&MockObject
+    {
+        $year = $this->createMock(\App\Entity\Years::class);
+        $year->method('getId')->willReturn(1);
+
+        $resource = $this->createMock(\App\Entity\StaffPlannerResources::class);
+        $resource->method('getWorkerHRID')->willReturn($workerHRID);
+        $resource->method('getSectionHRID')->willReturn($sectionHRID);
+
+        $resident = $this->createMock(\App\Entity\Resident::class);
+        $resident->method('getFirstname')->willReturn('Alice');
+        $resident->method('getLastname')->willReturn('Martin');
+
+        $yr = $this->createMock(YearsResident::class);
+        $yr->method('getId')->willReturn(10);
+        $yr->method('getAllowed')->willReturn(true);
+        $yr->method('getResident')->willReturn($resident);
+        $yr->method('getYear')->willReturn($year);
+        $yr->method('getStaffPlannerResources')->willReturn($resource);
+
+        return $yr;
     }
 }
