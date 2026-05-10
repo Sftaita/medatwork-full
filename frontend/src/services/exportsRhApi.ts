@@ -14,7 +14,7 @@ export interface StaffPlannerItem {
   residentLastname: string | null;
   residentEmail: string | null;
   residentAvatarUrl: string | null;
-  /** true uniquement si ResidentValidation.validated=true */
+  /** true uniquement si ResidentValidation.validated=true — informatif, ne bloque pas l'export */
   validatedByMds: boolean;
   treated: boolean;
   treatedAt: string | null;
@@ -23,6 +23,15 @@ export interface StaffPlannerItem {
   downloadCount: number;
   /** Date du dernier export Staff Planner incluant cet item (null si jamais exporté) */
   lastGeneratedAt: string | null;
+  // ── Phase 1 V2 — dirty flag ────────────────────────────────────────────────
+  /** true si les données ont changé depuis le dernier export. false avant premier export. */
+  dirtySinceExport: boolean;
+  /** ISO date de la dernière modification post-export (null si pas dirty) */
+  dirtyAt: string | null;
+  /** ex: 'timesheet_added' | 'garde_modified' | 'absence_deleted' | 'validation_changed' */
+  dirtyReason: string | null;
+  /** SHA-256 des données au moment du dernier export (null avant premier export) */
+  dataFingerprint: string | null;
 }
 
 export interface StaffPlannerMonthGroup {

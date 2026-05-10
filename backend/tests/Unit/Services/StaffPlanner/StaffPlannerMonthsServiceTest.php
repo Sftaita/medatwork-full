@@ -14,6 +14,7 @@ use App\Entity\YearsResident;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\StaffPlannerExportStatusRepository;
 use App\Repository\YearsResidentRepository;
+use App\Services\StaffPlanner\FingerprintService;
 use App\Services\StaffPlanner\StaffPlannerMonthsService;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -130,6 +131,149 @@ class StaffPlannerMonthsServiceTest extends TestCase
         $this->assertCount(2, $months[0]['items']);
     }
 
+    // ── Phase 1 V2 — dirty fields in listMonthsForYear ────────────────────────
+
+    public function testDirtySinceExportFalseWhenNoStatus(): void
+    {
+        $resident = $this->makeResident(1, 'Alice', 'Martin');
+        $yr       = $this->makeYr(10, $resident);
+        $year     = $this->makeYear('2024-11-01', '2024-11-30', [$yr]);
+
+        $months = $this->makeService()->listMonthsForYear($year);
+
+        $item = $months[0]['items'][0];
+        $this->assertFalse($item['dirtySinceExport']);
+        $this->assertNull($item['dirtyAt']);
+        $this->assertNull($item['dirtyReason']);
+        $this->assertNull($item['dataFingerprint']);
+    }
+
+    public function testDirtySinceExportTrueWhenStatusIsDirty(): void
+    {
+        $resident = $this->makeResident(1, 'Alice', 'Martin');
+        $yr       = $this->makeYr(10, $resident);
+        $year     = $this->makeYear('2024-11-01', '2024-11-30', [$yr]);
+
+        $status = (new StaffPlannerExportStatus())
+            ->setYearsResident($yr)->setMonth(11)->setCalendarYear(2024);
+        $status->recordGeneration(); // makes hasBeenExported() = true
+        $status->markDirty('timesheet_added');
+
+        $months = $this->makeService(statusIndex: ['10-11-2024' => $status])
+            ->listMonthsForYear($year);
+
+        $item = $months[0]['items'][0];
+        $this->assertTrue($item['dirtySinceExport']);
+        $this->assertSame('timesheet_added', $item['dirtyReason']);
+        $this->assertNotNull($item['dirtyAt']);
+    }
+
+    public function testDataFingerprintReturnedFromStatus(): void
+    {
+        $resident = $this->makeResident(1, 'Alice', 'Martin');
+        $yr       = $this->makeYr(10, $resident);
+        $year     = $this->makeYear('2024-11-01', '2024-11-30', [$yr]);
+
+        $status = (new StaffPlannerExportStatus())
+            ->setYearsResident($yr)->setMonth(11)->setCalendarYear(2024);
+        $status->updateFingerprint(str_repeat('c', 64));
+
+        $months = $this->makeService(statusIndex: ['10-11-2024' => $status])
+            ->listMonthsForYear($year);
+
+        $this->assertSame(str_repeat('c', 64), $months[0]['items'][0]['dataFingerprint']);
+    }
+
+    public function testAllMaccsReturnedEvenNonValidatedMds(): void
+    {
+        // Business rule: all MACCS visible regardless of MDS validation
+        $resident = $this->makeResident(1, 'Bob', 'Sans MDS');
+        $yr       = $this->makeYr(10, $resident);
+        $year     = $this->makeYear('2024-11-01', '2024-11-30', [$yr]);
+
+        // No ResidentValidation → validatedByMds = false, but MACCS still appears
+        $months = $this->makeService()->listMonthsForYear($year);
+
+        $this->assertCount(1, $months[0]['items']);
+        $this->assertFalse($months[0]['items'][0]['validatedByMds']);
+    }
+
+    // ── Phase 1 V2 — markItemsTreatedAfterGeneration clears dirty + fingerprint
+
+    public function testMarkItemsTreatedClearsDirtyAndStoresFingerprint(): void
+    {
+        $yr     = $this->makeYr(10, $this->makeResident(1, 'A', 'B'));
+        $status = (new StaffPlannerExportStatus())
+            ->setYearsResident($yr)->setMonth(11)->setCalendarYear(2024);
+        $status->recordGeneration();
+        $status->markDirty('garde_added');
+
+        $repo = $this->createMock(StaffPlannerExportStatusRepository::class);
+        $repo->method('findForItem')->willReturn($status);
+        $repo->method('findAllForYear')->willReturn([]);
+
+        $yrRepo = $this->createMock(YearsResidentRepository::class);
+        $yrRepo->method('find')->willReturn($yr);
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('flush');
+
+        $fingerprint = $this->createMock(FingerprintService::class);
+        $fingerprint->expects($this->once())
+            ->method('compute')
+            ->with($yr, 11, 2024)
+            ->willReturn(str_repeat('f', 64));
+
+        $svc = new StaffPlannerMonthsService(
+            $repo, $this->createMock(ResidentValidationRepository::class),
+            $yrRepo, $em, $fingerprint
+        );
+
+        $svc->markItemsTreatedAfterGeneration([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+
+        $this->assertFalse($status->isDirtySinceExport());
+        $this->assertSame(str_repeat('f', 64), $status->getDataFingerprint());
+        $this->assertNotNull($status->getFingerprintComputedAt());
+    }
+
+    public function testFingerprintComputedForEachItemOnGeneration(): void
+    {
+        $yr1 = $this->makeYr(10, $this->makeResident(1, 'A', 'B'));
+        $yr2 = $this->makeYr(11, $this->makeResident(2, 'C', 'D'));
+
+        $s1 = (new StaffPlannerExportStatus())
+            ->setYearsResident($yr1)->setMonth(11)->setCalendarYear(2024);
+        $s2 = (new StaffPlannerExportStatus())
+            ->setYearsResident($yr2)->setMonth(11)->setCalendarYear(2024);
+
+        $repo = $this->createMock(StaffPlannerExportStatusRepository::class);
+        $repo->method('findForItem')
+            ->willReturnOnConsecutiveCalls($s1, $s2);
+        $repo->method('findAllForYear')->willReturn([]);
+
+        $yrRepo = $this->createMock(YearsResidentRepository::class);
+        $yrRepo->method('find')
+            ->willReturnOnConsecutiveCalls($yr1, $yr2);
+
+        $em          = $this->createMock(EntityManagerInterface::class);
+        $em->method('flush');
+
+        $fingerprint = $this->createMock(FingerprintService::class);
+        $fingerprint->expects($this->exactly(2))->method('compute');
+
+        $svc = new StaffPlannerMonthsService(
+            $repo, $this->createMock(ResidentValidationRepository::class),
+            $yrRepo, $em, $fingerprint
+        );
+
+        $svc->markItemsTreatedAfterGeneration([
+            ['yearResidentId' => 10, 'month' => 11, 'calendarYear' => 2024],
+            ['yearResidentId' => 11, 'month' => 11, 'calendarYear' => 2024],
+        ]);
+    }
+
     // ── setItemTreated ─────────────────────────────────────────────────────────
 
     public function testSetItemTreatedCreatesStatusWhenNotExists(): void
@@ -204,22 +348,28 @@ class StaffPlannerMonthsServiceTest extends TestCase
         $rvRepo = $this->createMock(ResidentValidationRepository::class);
         $rvRepo->method('findAllForYearIndexed')->willReturn($rvIndex);
 
-        $yrRepo = $this->createMock(YearsResidentRepository::class);
-        $em     = $this->createMock(EntityManagerInterface::class);
+        $yrRepo      = $this->createMock(YearsResidentRepository::class);
+        $em          = $this->createMock(EntityManagerInterface::class);
         $em->method('persist');
         $em->method('flush');
 
-        return new StaffPlannerMonthsService($statusRepo, $rvRepo, $yrRepo, $em);
+        $fingerprint = $this->createMock(FingerprintService::class);
+        $fingerprint->method('compute')->willReturn(str_repeat('a', 64));
+
+        return new StaffPlannerMonthsService($statusRepo, $rvRepo, $yrRepo, $em, $fingerprint);
     }
 
     private function makeServiceWithMocks(
         StaffPlannerExportStatusRepository $statusRepo,
         EntityManagerInterface $em,
+        ?FingerprintService $fingerprint = null,
     ): StaffPlannerMonthsService {
-        $rvRepo = $this->createMock(ResidentValidationRepository::class);
+        $rvRepo      = $this->createMock(ResidentValidationRepository::class);
         $rvRepo->method('findAllForYearIndexed')->willReturn([]);
-        $yrRepo = $this->createMock(YearsResidentRepository::class);
-        return new StaffPlannerMonthsService($statusRepo, $rvRepo, $yrRepo, $em);
+        $yrRepo      = $this->createMock(YearsResidentRepository::class);
+        $fingerprint ??= $this->createMock(FingerprintService::class);
+        $fingerprint->method('compute')->willReturn(str_repeat('b', 64));
+        return new StaffPlannerMonthsService($statusRepo, $rvRepo, $yrRepo, $em, $fingerprint);
     }
 
     /** @param YearsResident[] $yrs */

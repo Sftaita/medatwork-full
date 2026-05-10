@@ -45,6 +45,7 @@ class StaffPlannerMonthsService
         private readonly ResidentValidationRepository $rvRepo,
         private readonly YearsResidentRepository $yrRepo,
         private readonly EntityManagerInterface $em,
+        private readonly FingerprintService $fingerprintService,
         private readonly string $apiUrl = '',
     ) {
     }
@@ -135,20 +136,25 @@ class StaffPlannerMonthsService
                 $status    = $statusIndex[$statusKey] ?? null;
 
                 $items[] = [
-                    'yearResidentId'       => $yr->getId(),
+                    'yearResidentId'        => $yr->getId(),
                     'hasResidentValidation' => $rv !== null,
-                    'residentValidationId' => $rv?->getId(),
-                    'residentId'           => $resident->getId(),
-                    'residentFirstname'    => $resident->getFirstname(),
-                    'residentLastname'     => $resident->getLastname(),
-                    'residentEmail'        => $resident->getEmail(),
-                    'residentAvatarUrl'    => $this->buildAvatarUrl($resident->getAvatarPath()),
-                    'validatedByMds'       => $rv !== null && (bool) $rv->getValidated(),
-                    'treated'              => $status?->isTreated() ?? false,
-                    'treatedAt'            => $status?->getTreatedAt()?->format(\DateTimeInterface::ATOM),
-                    'treatedByType'        => $status?->getTreatedByType(),
-                    'downloadCount'        => $status?->getDownloadCount() ?? 0,
-                    'lastGeneratedAt'      => $status?->getLastGeneratedAt()?->format(\DateTimeInterface::ATOM),
+                    'residentValidationId'  => $rv?->getId(),
+                    'residentId'            => $resident->getId(),
+                    'residentFirstname'     => $resident->getFirstname(),
+                    'residentLastname'      => $resident->getLastname(),
+                    'residentEmail'         => $resident->getEmail(),
+                    'residentAvatarUrl'     => $this->buildAvatarUrl($resident->getAvatarPath()),
+                    'validatedByMds'        => $rv !== null && (bool) $rv->getValidated(),
+                    'treated'               => $status?->isTreated() ?? false,
+                    'treatedAt'             => $status?->getTreatedAt()?->format(\DateTimeInterface::ATOM),
+                    'treatedByType'         => $status?->getTreatedByType(),
+                    'downloadCount'         => $status?->getDownloadCount() ?? 0,
+                    'lastGeneratedAt'       => $status?->getLastGeneratedAt()?->format(\DateTimeInterface::ATOM),
+                    // Phase 1 V2 — dirty flag + fingerprint
+                    'dirtySinceExport'      => $status?->isDirtySinceExport() ?? false,
+                    'dirtyAt'               => $status?->getDirtyAt()?->format(\DateTimeInterface::ATOM),
+                    'dirtyReason'           => $status?->getDirtyReason(),
+                    'dataFingerprint'       => $status?->getDataFingerprint(),
                 ];
             }
 
@@ -239,8 +245,13 @@ class StaffPlannerMonthsService
                 $status->setTreated(true)->setTreatedAt($now)->touch();
             }
 
-            // Record the generation (increments downloadCount + updates lastGeneratedAt)
+            // Record the generation (increments downloadCount, updates lastGeneratedAt, clears dirty flag).
             $status->recordGeneration();
+
+            // Compute and store the fingerprint immediately after export.
+            // This gives us a baseline to detect future modifications.
+            $fingerprint = $this->fingerprintService->compute($yr, $item['month'], $item['calendarYear']);
+            $status->updateFingerprint($fingerprint);
         }
 
         $this->em->flush();

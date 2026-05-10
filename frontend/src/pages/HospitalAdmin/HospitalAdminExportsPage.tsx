@@ -40,6 +40,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import exportsRhApi, {
@@ -287,6 +288,24 @@ const HospitalAdminExportsPage = () => {
     });
   };
 
+  /** Pré-sélectionne uniquement les items modifiés depuis leur dernier export. */
+  const selectDirty = () => {
+    const dirtyKeys = monthGroups
+      .flatMap((g) => g.items.map((i) => ({ item: i, group: g })))
+      .filter(({ item }) => item.dirtySinceExport)
+      .map(({ item, group }) => itemKey(item, group));
+    setSelected(new Set(dirtyKeys));
+  };
+
+  /** Pré-sélectionne les items non traités (comportement initial). */
+  const selectUntreated = () => {
+    const untreatedKeys = monthGroups
+      .flatMap((g) => g.items.map((i) => ({ item: i, group: g })))
+      .filter(({ item }) => !item.treated)
+      .map(({ item, group }) => itemKey(item, group));
+    setSelected(new Set(untreatedKeys));
+  };
+
   const handleGenerateStaffPlanner = async () => {
     if (selected.size === 0) return;
     // Build items from selected keys "yearResidentId-month-calendarYear"
@@ -495,8 +514,8 @@ const HospitalAdminExportsPage = () => {
                 </Alert>
               ) : (
                 <>
-                  {/* Barre sélection globale */}
-                  <Box display="flex" alignItems="center" gap={1} mb={1} px={0.5}>
+                  {/* Barre sélection globale + pré-sélection */}
+                  <Box display="flex" alignItems="center" gap={1} mb={1} px={0.5} flexWrap="wrap">
                     <Checkbox
                       indeterminate={someSelected}
                       checked={allSelected}
@@ -504,11 +523,31 @@ const HospitalAdminExportsPage = () => {
                       size="small"
                       aria-label="Tout sélectionner"
                     />
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                       {selected.size > 0
                         ? `${selected.size} validation${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`
                         : "Tout sélectionner / désélectionner"}
                     </Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={selectUntreated}
+                      sx={{ textTransform: "none", fontSize: "0.75rem" }}
+                      aria-label="Présélectionner les non traités"
+                    >
+                      Non traités
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                      onClick={selectDirty}
+                      startIcon={<WarningAmberIcon fontSize="small" />}
+                      sx={{ textTransform: "none", fontSize: "0.75rem" }}
+                      aria-label="Présélectionner les modifiés depuis export"
+                    >
+                      Modifiés depuis export
+                    </Button>
                   </Box>
 
                   <Box display="flex" alignItems="center" gap={2} mb={2}>
@@ -592,10 +631,18 @@ const HospitalAdminExportsPage = () => {
                                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MACCS</Typography></TableCell>
                                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">EMAIL</Typography></TableCell>
                                       <TableCell>
-                                        <Tooltip title="V = horaire validé par le maître de stage (par résident)" arrow>
+                                        <Tooltip title="V = horaire validé par le maître de stage (par résident). Informatif — ne bloque pas l'export." arrow>
                                           <Typography variant="caption" fontWeight={700} color="text.secondary"
                                             sx={{ cursor: "help", textDecoration: "underline dotted" }}>
                                             VALIDÉ MDS
+                                          </Typography>
+                                        </Tooltip>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Tooltip title="⚠ Modifié depuis export : les données ont changé depuis le dernier export Staff Planner." arrow>
+                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
+                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
+                                            MODIF.
                                           </Typography>
                                         </Tooltip>
                                       </TableCell>
@@ -655,6 +702,26 @@ const HospitalAdminExportsPage = () => {
                                           >
                                             {item.validatedByMds ? "V" : "—"}
                                           </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                          {item.dirtySinceExport ? (
+                                            <Tooltip
+                                              title={`Modifié depuis export${item.dirtyReason ? ` (${item.dirtyReason})` : ""}${item.dirtyAt ? ` — ${fmtDate(item.dirtyAt)}` : ""}`}
+                                              arrow
+                                            >
+                                              <Chip
+                                                label="Modifié"
+                                                size="small"
+                                                color="warning"
+                                                variant="outlined"
+                                                icon={<WarningAmberIcon />}
+                                                aria-label="Modifié depuis export"
+                                                sx={{ cursor: "help" }}
+                                              />
+                                            </Tooltip>
+                                          ) : (
+                                            <Typography variant="body2" color="text.disabled">—</Typography>
+                                          )}
                                         </TableCell>
                                         <TableCell>
                                           <Chip

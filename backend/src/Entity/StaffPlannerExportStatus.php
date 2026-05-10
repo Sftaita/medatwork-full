@@ -59,6 +59,28 @@ class StaffPlannerExportStatus
     #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $lastGeneratedAt = null;
 
+    // ── Phase 1 V2 : dirty flag + fingerprint ─────────────────────────────────
+
+    /** True if data changed after the last export. Reset to false on next export. */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $dirtySinceExport = false;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $dirtyAt = null;
+
+    /** e.g. 'timesheet_added' | 'garde_modified' | 'absence_deleted' | 'validation_changed' */
+    #[ORM\Column(type: 'string', length: 60, nullable: true)]
+    private ?string $dirtyReason = null;
+
+    /** SHA-256 of the canonical monthly data at last export. Null before first export. */
+    #[ORM\Column(type: 'string', length: 64, nullable: true)]
+    private ?string $dataFingerprint = null;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $fingerprintComputedAt = null;
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
@@ -95,6 +117,45 @@ class StaffPlannerExportStatus
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeInterface { return $this->updatedAt; }
 
+    // ── Phase 1 V2 accessors ──────────────────────────────────────────────────
+
+    public function isDirtySinceExport(): bool { return $this->dirtySinceExport; }
+    public function getDirtyAt(): ?\DateTimeInterface { return $this->dirtyAt; }
+    public function getDirtyReason(): ?string { return $this->dirtyReason; }
+    public function getDataFingerprint(): ?string { return $this->dataFingerprint; }
+    public function getFingerprintComputedAt(): ?\DateTimeInterface { return $this->fingerprintComputedAt; }
+
+    public function markDirty(string $reason): self
+    {
+        $this->dirtySinceExport = true;
+        $this->dirtyAt          = new \DateTime();
+        $this->dirtyReason      = $reason;
+        return $this->touch();
+    }
+
+    public function clearDirty(): self
+    {
+        $this->dirtySinceExport = false;
+        $this->dirtyAt          = null;
+        $this->dirtyReason      = null;
+        return $this->touch();
+    }
+
+    public function updateFingerprint(string $fingerprint): self
+    {
+        $this->dataFingerprint       = $fingerprint;
+        $this->fingerprintComputedAt = new \DateTime();
+        return $this->touch();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Returns true if there has been at least one export (used to guard dirty marking). */
+    public function hasBeenExported(): bool
+    {
+        return $this->downloadCount > 0 || $this->lastGeneratedAt !== null;
+    }
+
     public function touch(): self { $this->updatedAt = new \DateTime(); return $this; }
 
     public function markTreated(string $byType, int $byId): self
@@ -117,7 +178,7 @@ class StaffPlannerExportStatus
 
     /**
      * Called when this item is included in an actual Staff Planner export.
-     * Increments downloadCount and records the generation timestamp.
+     * Increments downloadCount, records generation timestamp, and clears dirty flag.
      * Independent from markTreated — an export always records generation,
      * but manual toggles do not.
      */
@@ -125,6 +186,7 @@ class StaffPlannerExportStatus
     {
         $this->downloadCount++;
         $this->lastGeneratedAt = new \DateTime();
+        $this->clearDirty();
         return $this->touch();
     }
 }

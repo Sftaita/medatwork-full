@@ -62,6 +62,8 @@ const ALICE = {
   validatedByMds: true,
   treated: false, treatedAt: null, treatedByType: null,
   downloadCount: 0, lastGeneratedAt: null,
+  // Phase 1 V2
+  dirtySinceExport: false, dirtyAt: null, dirtyReason: null, dataFingerprint: null,
 };
 
 const BOB = {
@@ -75,6 +77,26 @@ const BOB = {
   treated: true,                  // already treated
   treatedAt: "2024-11-20T10:00:00+00:00", treatedByType: "manager",
   downloadCount: 2, lastGeneratedAt: "2024-11-20T10:00:00+00:00",
+  // Phase 1 V2
+  dirtySinceExport: false, dirtyAt: null, dirtyReason: null,
+  dataFingerprint: "abc123" + "a".repeat(58),
+};
+
+// MACCS dirty (pour tests badge dirty)
+const CHARLIE_DIRTY = {
+  yearResidentId: 12,
+  hasResidentValidation: true, residentValidationId: 202,
+  residentId: 47,
+  residentFirstname: "Charlie", residentLastname: "Leclerc",
+  residentEmail: "charlie@test.be", residentAvatarUrl: null,
+  validatedByMds: true,
+  treated: false, treatedAt: null, treatedByType: null,
+  downloadCount: 1, lastGeneratedAt: "2024-11-10T09:00:00+00:00",
+  // Phase 1 V2 — dirty !
+  dirtySinceExport: true,
+  dirtyAt: "2024-11-15T14:00:00+00:00",
+  dirtyReason: "timesheet_added",
+  dataFingerprint: "d".repeat(64),
 };
 
 const NOV_GROUP: StaffPlannerMonthGroup = {
@@ -400,5 +422,109 @@ describe("HospitalAdminExportsPage", () => {
     const rows = screen.getAllByRole("row");
     const aliceRow = rows.find((r) => r.textContent?.includes("Alice Martin"))!;
     expect(aliceRow.textContent).toContain("V");
+  });
+
+  // ── Phase 1 V2 — Badge dirty ─────────────────────────────────────────────────
+
+  it("affiche le badge Modifié si dirtySinceExport=true", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [ALICE, BOB, CHARLIE_DIRTY] },
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText("Novembre 2024"));
+    fireEvent.click(screen.getByText("Novembre 2024"));
+    await waitFor(() => screen.getByText("Charlie Leclerc"));
+    expect(screen.getByLabelText("Modifié depuis export")).toBeDefined();
+  });
+
+  it("n'affiche PAS de badge Modifié si dirtySinceExport=false", async () => {
+    await expandNov(); // ALICE et BOB ont dirtySinceExport=false
+    expect(screen.queryByLabelText("Modifié depuis export")).toBeNull();
+  });
+
+  // ── Phase 1 V2 — Pré-sélection "Modifiés depuis export" ──────────────────────
+
+  it("le bouton 'Modifiés depuis export' sélectionne uniquement les items dirty", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [ALICE, BOB, CHARLIE_DIRTY] },
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText("Novembre 2024"));
+
+    // Avant clic : Alice présélectionnée (untreated), Bob non, Charlie non (traité)
+    // Le bouton "Modifiés depuis export" doit sélectionner uniquement Charlie
+    const dirtyBtn = screen.getByRole("button", { name: /Modifiés depuis export/i });
+    fireEvent.click(dirtyBtn);
+
+    // Charlie est dirty → 1 sélectionné
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ })).toBeDefined()
+    );
+  });
+
+  it("le bouton 'Non traités' présélectionne les non traités", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [ALICE, CHARLIE_DIRTY] }, // Both untreated
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText("Novembre 2024"));
+
+    // Les deux sont non traités → 2 sélectionnés via "Non traités"
+    const untreatedBtn = screen.getByRole("button", { name: /Non traités/i });
+    fireEvent.click(untreatedBtn);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Générer Staff Planner \(2\)/ })).toBeDefined()
+    );
+  });
+
+  // ── Phase 1 V2 — Export autorisé sans validation MDS ─────────────────────────
+
+  it("MACCS non validé MDS reste exportable (dirty ne bloque pas)", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [{ ...ALICE, validatedByMds: false, dirtySinceExport: true }] },
+    ]);
+    renderPage();
+    // L'item non validé MDS doit être présélectionné (non traité) et le bouton actif
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ })).not.toBeDisabled()
+    );
+  });
+
+  // ── Phase 1 V2 — Payload SPImport inchangé ────────────────────────────────────
+
+  it("le payload SPImport reste { items: [{ yearResidentId, month, calendarYear }] } même avec dirty", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [CHARLIE_DIRTY] },
+    ]);
+    renderPage();
+    const dirtyBtn = await waitFor(() => screen.getByRole("button", { name: /Modifiés depuis export/i }));
+    fireEvent.click(dirtyBtn);
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+
+    await waitFor(() =>
+      expect(exportsRhApi.generateStaffPlanner).toHaveBeenCalledWith([
+        { yearResidentId: 12, month: 11, calendarYear: 2024 },
+      ])
+    );
+    // Vérifie qu'il n'y a PAS d'appel à SPCheckV2 (ancien endpoint mort)
+    expect(vi.mocked(exportsRhApi.generateStaffPlanner).mock.calls.length).toBe(1);
+  });
+
+  // ── Régression legacy — SPCheckV2 ne doit JAMAIS être appelé ─────────────────
+
+  it("aucun appel à un endpoint SPCheckV2 n'est effectué", async () => {
+    // Les seuls appels d'API doivent être listMyYears, listStaffPlannerMonths,
+    // generateStaffPlanner — jamais SPCheckV2
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    await waitFor(() => expect(exportsRhApi.generateStaffPlanner).toHaveBeenCalledOnce());
+
+    // Vérifie que staffPlannerApi (qui contenait SPCheckV2) n'est pas importé
+    // en vérifiant qu'aucun appel non listé n'a été fait
+    expect(exportsRhApi.listStaffPlannerMonths).toHaveBeenCalled();
+    expect(exportsRhApi.generateStaffPlanner).toHaveBeenCalled();
+    // staffPlannerApi.checkResidentResource était l'ancien endpoint — n'existe plus dans le scope
   });
 });

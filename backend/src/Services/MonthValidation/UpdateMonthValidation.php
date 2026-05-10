@@ -7,6 +7,7 @@ namespace App\Services\MonthValidation;
 use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Entity\ResidentValidation;
+use App\Services\StaffPlanner\ExportDirtyNotifier;
 use Doctrine\ORM\EntityManagerInterface;
 
 class UpdateMonthValidation
@@ -14,6 +15,7 @@ class UpdateMonthValidation
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidationService $validationService,
+        private readonly ExportDirtyNotifier $dirtyNotifier,
     ) {
     }
 
@@ -73,6 +75,10 @@ class UpdateMonthValidation
         $residentValidation->setValidationHistory($existingValidationHistory);
 
         $this->entityManager->persist($residentValidation);
+
+        // Mark export status dirty BEFORE flush so the status change is included in the same transaction.
+        $dirtyReason = $isValidated ? 'validation_changed' : 'validation_changed';
+        $this->dirtyNotifier->notifyValidationChanged($residentValidation, $dirtyReason);
 
         $this->entityManager->flush();
 
