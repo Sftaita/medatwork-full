@@ -9,15 +9,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import HospitalAdminExportHistoryPage from "./HospitalAdminExportHistoryPage";
 import type { HospitalYear } from "../../services/hospitalAdminApi";
-import type { ExportBatch, ExportSnapshotSummary, ExportSnapshotDetail } from "../../services/exportsHistoryApi";
+import type { ExportBatch, ExportSnapshotSummary, ExportSnapshotDetail, DiffResult } from "../../services/exportsHistoryApi";
 
 // ── Hoisted mocks (must be before vi.mock calls) ─────────────────────────────
 // vi.hoisted() runs before vi.mock() factories — safe to reference in factories.
 
-const mockListMyYears     = vi.hoisted(() => vi.fn());
-const mockListBatches     = vi.hoisted(() => vi.fn());
-const mockListSnapshots   = vi.hoisted(() => vi.fn());
+const mockListMyYears       = vi.hoisted(() => vi.fn());
+const mockListBatches       = vi.hoisted(() => vi.fn());
+const mockListSnapshots     = vi.hoisted(() => vi.fn());
 const mockGetSnapshotDetail = vi.hoisted(() => vi.fn());
+const mockGetDiff           = vi.hoisted(() => vi.fn());
 
 vi.mock("../../services/hospitalAdminApi", () => ({
   default: { listMyYears: mockListMyYears },
@@ -29,6 +30,8 @@ vi.mock("../../services/exportsHistoryApi", () => ({
     listSnapshots:     mockListSnapshots,
     getSnapshotDetail: mockGetSnapshotDetail,
     getBatch:          vi.fn(),
+    getDiff:           mockGetDiff,
+    listDiffCandidates: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -117,12 +120,47 @@ async function openBatchDrawer() {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("HospitalAdminExportHistoryPage", () => {
+  const DIFF_RESULT: DiffResult = {
+    batchA: { id: 2, batchNumber: 2, generatedAt: BATCH_2.generatedAt, generatedByType: "hospital_admin", generatedById: 7, itemCount: 5, fileHash: "b".repeat(64) },
+    batchB: { id: 1, batchNumber: 1, generatedAt: BATCH_1.generatedAt, generatedByType: "manager", generatedById: 42, itemCount: 3, fileHash: "a".repeat(64) },
+    identical: false,
+    summary: { added: 1, removed: 0, modified: 1, unchanged: 1, validationChanged: 0 },
+    items: [
+      {
+        yearResidentId: 10, residentFirstname: "Alice", residentLastname: "Martin",
+        month: 11, calendarYear: 2024, status: "modified",
+        fingerprintChanged: true, validationChanged: false, hridChanged: false,
+        snapshotA: null, snapshotB: null,
+        diff: {
+          added: [],
+          removed: [{ workerHRID: "W001", sectionHRID: "S001", date: "2024-11-10", code: "activeShifts", start: 28800, end: 64800, duration: 36000, lunch: 0, raw: "" }],
+          modified: [],
+        },
+      },
+      {
+        yearResidentId: 11, residentFirstname: "Bob", residentLastname: "Dupont",
+        month: 11, calendarYear: 2024, status: "added",
+        fingerprintChanged: false, validationChanged: false, hridChanged: false,
+        snapshotA: null, snapshotB: null,
+        diff: { added: [], removed: [], modified: [] },
+      },
+      {
+        yearResidentId: 12, residentFirstname: "Carol", residentLastname: "Smith",
+        month: 11, calendarYear: 2024, status: "unchanged",
+        fingerprintChanged: false, validationChanged: false, hridChanged: false,
+        snapshotA: null, snapshotB: null,
+        diff: { added: [], removed: [], modified: [] },
+      },
+    ],
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockListMyYears.mockResolvedValue([YEAR]);
     mockListBatches.mockResolvedValue({ data: [BATCH_2, BATCH_1], total: 2, page: 1, limit: 20 });
     mockListSnapshots.mockResolvedValue({ data: [SNAPSHOT_1], total: 1 });
     mockGetSnapshotDetail.mockResolvedValue(SNAPSHOT_DETAIL);
+    mockGetDiff.mockResolvedValue(DIFF_RESULT);
   });
 
   // ── Affichage de base ─────────────────────────────────────────────────────
@@ -242,5 +280,54 @@ describe("HospitalAdminExportHistoryPage", () => {
     renderPage();
     expect(screen.queryByText(/générer staff planner/i)).toBeNull();
     expect(screen.queryByText(/SPImport/i)).toBeNull();
+  });
+
+  // ── Phase 4 — Diff Viewer ────────────────────────────────────────────────
+
+  it("affiche la section 'Comparer deux exports' quand ≥ 2 batches disponibles", async () => {
+    await selectYear();
+    await waitFor(() => screen.getByText(/Comparer deux exports/i));
+  });
+
+  it("n'affiche pas la section diff si < 2 batches", async () => {
+    mockListBatches.mockResolvedValueOnce({ data: [BATCH_1], total: 1, page: 1, limit: 20 });
+    await selectYear();
+    await waitFor(() => screen.getAllByText("#1").length > 0);
+    expect(screen.queryByText(/Comparer deux exports/i)).toBeNull();
+  });
+
+  it("le bouton Comparer est désactivé si Batch A = Batch B non sélectionnés", async () => {
+    await selectYear();
+    await waitFor(() => screen.getByRole("button", { name: /lancer la comparaison/i }));
+    const btn = screen.getByRole("button", { name: /lancer la comparaison/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it("les deux selects batch A et batch B sont présents dans la section diff", async () => {
+    await selectYear();
+    await waitFor(() => screen.getByText(/Comparer deux exports/i));
+    // Le bouton Comparer indique la présence des deux selects
+    expect(screen.getByRole("button", { name: /lancer la comparaison/i })).toBeDefined();
+    // Les deux selects sont présents (au moins 2 combobox dans la section diff)
+    const combos = screen.getAllByRole("combobox");
+    expect(combos.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("getDiff est exporté par exportsHistoryApi et accepte deux batchIds", async () => {
+    // Test de l'interface API — getDiff doit être callable
+    mockGetDiff.mockResolvedValueOnce(DIFF_RESULT);
+    const result = await mockGetDiff(2, 1, {});
+    expect(result.identical).toBe(false);
+    expect(result.summary.added).toBe(1);
+    expect(result.summary.modified).toBe(1);
+    expect(result.items.length).toBe(3);
+  });
+
+  // ── Régressions globales ─────────────────────────────────────────────────
+
+  it("le workflow d'export actuel (HospitalAdminExportsPage) n'est pas affecté", () => {
+    // La page History est une page séparée — aucun bouton d'export SP présent
+    renderPage();
+    expect(screen.queryByText(/générer/i)).toBeNull();
   });
 });

@@ -94,11 +94,100 @@ const getSnapshotDetail = (snapshotId: number): Promise<ExportSnapshotDetail> =>
     .get(`hospital-admin/export-snapshots/${snapshotId}`)
     .then((r) => r.data);
 
+// ── Types Phase 4 — Diff Viewer ───────────────────────────────────────────────
+
+export interface DiffLine {
+  workerHRID: string;
+  sectionHRID: string;
+  date: string;
+  code: string;
+  start: number;
+  end: number;
+  duration: number;
+  lunch: number;
+  raw: string;
+}
+
+export interface DiffModifiedLine {
+  from: DiffLine;
+  to: DiffLine;
+}
+
+export interface DiffEntry {
+  yearResidentId: number;
+  residentFirstname: string | null;
+  residentLastname: string | null;
+  month: number;
+  calendarYear: number;
+  /** 'added' | 'removed' | 'modified' | 'unchanged' */
+  status: string;
+  fingerprintChanged: boolean;
+  validationChanged: boolean;
+  hridChanged: boolean;
+  snapshotA: ExportSnapshotSummary | null;
+  snapshotB: ExportSnapshotSummary | null;
+  diff: {
+    added: DiffLine[];
+    removed: DiffLine[];
+    modified: DiffModifiedLine[];
+  };
+}
+
+export interface DiffResult {
+  batchA: Pick<ExportBatch, "id" | "batchNumber" | "generatedAt" | "generatedByType" | "generatedById" | "itemCount" | "fileHash">;
+  batchB: Pick<ExportBatch, "id" | "batchNumber" | "generatedAt" | "generatedByType" | "generatedById" | "itemCount" | "fileHash">;
+  identical: boolean;
+  summary: {
+    added: number;
+    removed: number;
+    modified: number;
+    unchanged: number;
+    validationChanged: number;
+  };
+  items: DiffEntry[];
+}
+
+export interface DiffCandidate {
+  id: number;
+  batchNumber: number;
+  generatedAt: string;
+  generatedByType: string;
+  itemCount: number;
+}
+
+// ── Diff API calls ────────────────────────────────────────────────────────────
+
+const listDiffCandidates = (yearId: number): Promise<DiffCandidate[]> =>
+  axiosPrivate
+    .get(`hospital-admin/years/${yearId}/compare-candidates`)
+    .then((r) => r.data);
+
+export interface DiffOptions {
+  changedOnly?: boolean;
+  yearResidentId?: number;
+  month?: number;
+  calendarYear?: number;
+}
+
+const getDiff = (batchAId: number, batchBId: number, opts: DiffOptions = {}): Promise<DiffResult> => {
+  const params = new URLSearchParams();
+  if (opts.changedOnly)    params.set("changedOnly",    "true");
+  if (opts.yearResidentId) params.set("yearResidentId", String(opts.yearResidentId));
+  if (opts.month)          params.set("month",          String(opts.month));
+  if (opts.calendarYear)   params.set("calendarYear",   String(opts.calendarYear));
+  const q = params.toString();
+  return axiosPrivate
+    .get(`hospital-admin/export-batches/${batchAId}/diff/${batchBId}${q ? `?${q}` : ""}`)
+    .then((r) => r.data);
+};
+
 const exportsHistoryApi = {
   listBatches,
   getBatch,
   listSnapshots,
   getSnapshotDetail,
+  listDiffCandidates,
+  getDiff,
 };
 
 export default exportsHistoryApi;

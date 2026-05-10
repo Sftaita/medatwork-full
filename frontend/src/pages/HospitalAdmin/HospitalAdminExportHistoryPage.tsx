@@ -48,6 +48,10 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import HistoryIcon from "@mui/icons-material/History";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
+import EditIcon from "@mui/icons-material/Edit";
 
 import YearSelect from "../../components/YearSelect";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -56,6 +60,9 @@ import exportsHistoryApi, {
   type ExportSnapshotSummary,
   type ExportSnapshotDetail,
   type BatchListFilters,
+  type DiffResult,
+  type DiffEntry,
+  type DiffLine,
 } from "../../services/exportsHistoryApi";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -182,6 +189,271 @@ const SnapshotDetailPanel = ({
             </Box>
           </Box>
         </Stack>
+      )}
+    </Box>
+  );
+};
+
+// ── DiffViewer ────────────────────────────────────────────────────────────────
+
+function fmtSeconds(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+const STATUS_COLOR: Record<string, "success" | "error" | "warning" | "default"> = {
+  added:     "success",
+  removed:   "error",
+  modified:  "warning",
+  unchanged: "default",
+};
+const STATUS_LABEL: Record<string, string> = {
+  added:     "Ajouté",
+  removed:   "Supprimé",
+  modified:  "Modifié",
+  unchanged: "Inchangé",
+};
+
+const DiffLineRow = ({ line, color }: { line: DiffLine; color: "success.light" | "error.light" | "warning.light" }) => (
+  <Box
+    component="pre"
+    sx={{
+      m: 0, p: 0.5, fontFamily: "monospace", fontSize: "0.7rem",
+      bgcolor: color, borderRadius: 0.5, overflowX: "auto", whiteSpace: "nowrap",
+    }}
+  >
+    {line.date} {fmtSeconds(line.start)}–{fmtSeconds(line.end)} [{line.code}]
+    {line.lunch > 0 ? ` pause ${fmtSeconds(line.lunch)}` : ""}
+  </Box>
+);
+
+const DiffItemDetail = ({ item }: { item: DiffEntry }) => {
+  const { added, removed, modified } = item.diff;
+  if (!added.length && !removed.length && !modified.length) {
+    return (
+      <Box sx={{ p: 1, fontSize: "0.75rem", color: "text.secondary" }}>
+        {item.validationChanged ? "Validation MDS changée uniquement." : "Aucune différence de ligne."}
+      </Box>
+    );
+  }
+  return (
+    <Box sx={{ p: 1 }}>
+      {removed.map((l, i) => (
+        <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5}>
+          <RemoveIcon sx={{ color: "error.main", fontSize: 14 }} />
+          <DiffLineRow line={l} color="error.light" />
+        </Box>
+      ))}
+      {added.map((l, i) => (
+        <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5}>
+          <AddIcon sx={{ color: "success.main", fontSize: 14 }} />
+          <DiffLineRow line={l} color="success.light" />
+        </Box>
+      ))}
+      {modified.map((m, i) => (
+        <Box key={i} mb={0.5}>
+          <Box display="flex" alignItems="center" gap={0.5} mb={0.25}>
+            <RemoveIcon sx={{ color: "error.main", fontSize: 14 }} />
+            <DiffLineRow line={m.from} color="error.light" />
+          </Box>
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <AddIcon sx={{ color: "success.main", fontSize: 14 }} />
+            <DiffLineRow line={m.to} color="success.light" />
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+const DiffViewer = ({
+  yearId,
+  batches,
+}: {
+  yearId: number;
+  batches: ExportBatch[];
+}) => {
+  const [batchAId, setBatchAId] = useState<number | "">("");
+  const [batchBId, setBatchBId] = useState<number | "">("");
+  const [changedOnly, setChangedOnly] = useState(false);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [triggerDiff, setTriggerDiff] = useState(false);
+
+  const enabled = typeof batchAId === "number" && typeof batchBId === "number" && batchAId !== batchBId && triggerDiff;
+
+  const { data: diffResult, isLoading, isError, isFetching } = useQuery<DiffResult>({
+    queryKey: ["sp-diff", batchAId, batchBId, changedOnly],
+    queryFn:  () => exportsHistoryApi.getDiff(batchAId as number, batchBId as number, { changedOnly }),
+    enabled,
+  });
+
+  const items = diffResult?.items ?? [];
+  const filteredItems = changedOnly ? items.filter((i) => i.status !== "unchanged") : items;
+
+  return (
+    <Box mt={4} pt={3} borderTop={1} borderColor="divider">
+      <Box display="flex" alignItems="center" gap={1} mb={2}>
+        <CompareArrowsIcon color="primary" />
+        <Typography variant="subtitle1" fontWeight={700}>Comparer deux exports</Typography>
+      </Box>
+
+      {/* Sélection */}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={2} alignItems="flex-end">
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel>Export A (référence)</InputLabel>
+          <Select value={batchAId} label="Export A (référence)"
+            onChange={(e) => { setBatchAId(e.target.value as number); setTriggerDiff(false); }}>
+            {batches.map((b) => (
+              <MenuItem key={b.id} value={b.id} disabled={b.id === batchBId}>
+                #{b.batchNumber} — {fmtDateTime(b.generatedAt)} ({b.itemCount} MACCS)
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <CompareArrowsIcon color="disabled" />
+
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel>Export B (comparé)</InputLabel>
+          <Select value={batchBId} label="Export B (comparé)"
+            onChange={(e) => { setBatchBId(e.target.value as number); setTriggerDiff(false); }}>
+            {batches.map((b) => (
+              <MenuItem key={b.id} value={b.id} disabled={b.id === batchAId}>
+                #{b.batchNumber} — {fmtDateTime(b.generatedAt)} ({b.itemCount} MACCS)
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Button
+          variant="contained"
+          startIcon={<CompareArrowsIcon />}
+          onClick={() => setTriggerDiff(true)}
+          disabled={!batchAId || !batchBId || batchAId === batchBId || isFetching}
+          aria-label="Lancer la comparaison"
+        >
+          {isFetching ? "Comparaison…" : "Comparer"}
+        </Button>
+      </Stack>
+
+      {/* Résultats */}
+      {isError && <Alert severity="error" sx={{ mb: 2 }}>Erreur lors de la comparaison.</Alert>}
+
+      {diffResult && !isLoading && (
+        <>
+          {/* Résumé */}
+          <Box display="flex" gap={1} flexWrap="wrap" mb={2} alignItems="center">
+            {diffResult.identical ? (
+              <Chip label="Exports identiques" color="success" />
+            ) : (
+              <>
+                {diffResult.summary.added    > 0 && <Chip label={`+${diffResult.summary.added} ajouté${diffResult.summary.added > 1 ? "s" : ""}`}    color="success" size="small" icon={<AddIcon />} />}
+                {diffResult.summary.removed  > 0 && <Chip label={`-${diffResult.summary.removed} supprimé${diffResult.summary.removed > 1 ? "s" : ""}`} color="error"   size="small" icon={<RemoveIcon />} />}
+                {diffResult.summary.modified > 0 && <Chip label={`${diffResult.summary.modified} modifié${diffResult.summary.modified > 1 ? "s" : ""}`}  color="warning" size="small" icon={<EditIcon />} />}
+                {diffResult.summary.unchanged > 0 && <Chip label={`${diffResult.summary.unchanged} inchangé${diffResult.summary.unchanged > 1 ? "s" : ""}`} variant="outlined" size="small" />}
+                {diffResult.summary.validationChanged > 0 && (
+                  <Chip label={`${diffResult.summary.validationChanged} validation MDS changée`} color="info" size="small" />
+                )}
+              </>
+            )}
+            <Box ml="auto">
+              <Button size="small" variant={changedOnly ? "contained" : "outlined"}
+                onClick={() => setChangedOnly(!changedOnly)}>
+                {changedOnly ? "Tout afficher" : "Changements uniquement"}
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Tableau diff */}
+          {filteredItems.length === 0 ? (
+            <Alert severity="info">Aucun changement à afficher.</Alert>
+          ) : (
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "grey.50" }}>
+                    <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MACCS</Typography></TableCell>
+                    <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MOIS</Typography></TableCell>
+                    <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
+                    <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">VALIDATION MDS</Typography></TableCell>
+                    <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">CHANGEMENTS</Typography></TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredItems.map((item) => {
+                    const key = `${item.yearResidentId}-${item.month}-${item.calendarYear}`;
+                    const isExpanded = expandedKey === key;
+                    const hasLines   = item.diff.added.length + item.diff.removed.length + item.diff.modified.length > 0;
+
+                    return (
+                      <>
+                        <TableRow
+                          key={key}
+                          hover
+                          sx={{ cursor: item.status !== "unchanged" ? "pointer" : "default" }}
+                          onClick={() => item.status !== "unchanged" && setExpandedKey(isExpanded ? null : key)}
+                        >
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={600}>
+                              {[item.residentLastname, item.residentFirstname].filter(Boolean).join(" ") || "—"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{MONTHS_FR[item.month - 1]} {item.calendarYear}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={STATUS_LABEL[item.status] ?? item.status}
+                              size="small"
+                              color={STATUS_COLOR[item.status] ?? "default"}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {item.validationChanged ? (
+                              <Chip label="Changée" size="small" color="info" variant="outlined" />
+                            ) : (
+                              <Typography variant="body2" color="text.disabled">—</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {hasLines ? (
+                              <Stack direction="row" spacing={0.5}>
+                                {item.diff.added.length    > 0 && <Chip label={`+${item.diff.added.length}`}    size="small" color="success" />}
+                                {item.diff.removed.length  > 0 && <Chip label={`-${item.diff.removed.length}`}  size="small" color="error" />}
+                                {item.diff.modified.length > 0 && <Chip label={`~${item.diff.modified.length}`} size="small" color="warning" />}
+                              </Stack>
+                            ) : (
+                              <Typography variant="body2" color="text.disabled">—</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell padding="checkbox">
+                            {item.status !== "unchanged" && (
+                              <IconButton size="small">
+                                {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                              </IconButton>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow key={`detail-${key}`}>
+                          <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
+                            <Collapse in={isExpanded} unmountOnExit>
+                              <Box sx={{ bgcolor: "grey.50", borderBottom: "1px solid", borderColor: "divider" }}>
+                                <DiffItemDetail item={item} />
+                              </Box>
+                            </Collapse>
+                          </TableCell>
+                        </TableRow>
+                      </>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </>
       )}
     </Box>
   );
@@ -578,6 +850,11 @@ const HospitalAdminExportHistoryPage = () => {
             </>
           )}
         </>
+      )}
+
+      {/* Section Diff Viewer — visible dès que ≥ 2 batches disponibles */}
+      {typeof selectedYearId === "number" && batches.length >= 2 && (
+        <DiffViewer yearId={selectedYearId} batches={batches} />
       )}
 
       {/* Drawer détail batch */}
