@@ -7,11 +7,13 @@ namespace App\Controller\AbsencesAPI\ResidentsAPI;
 use App\DTO\AbsenceInputDTO;
 use App\Entity\Absence;
 use App\Entity\Resident;
+use App\Exception\PeriodLockedException;
 use App\Repository\AbsenceRepository;
 use App\Repository\GardeRepository;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Repository\YearsRepository;
+use App\Services\StaffPlanner\LockGuardService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -32,7 +34,7 @@ class AbsencesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/residents/absences/addRecord', name: 'addAbsencesRecord', methods: ['POST'])]
-    public function addRecord(Request $request, Security $security): JsonResponse
+    public function addRecord(Request $request, Security $security, LockGuardService $lockGuard): JsonResponse
     {
         /** @var Resident $user */
         $user = $security->getUser();
@@ -84,6 +86,12 @@ class AbsencesResidentAPIController extends AbstractController
             return new JsonResponse(['message' => 'Une garde enregistrée chevauche cette période.'], 400);
         }
 
+        try {
+            $lockGuard->assertNotLocked($user, $year, $start);
+        } catch (PeriodLockedException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 422);
+        }
+
         $absence = (new Absence())
             ->setResident($user)
             ->setYear($year)
@@ -108,7 +116,7 @@ class AbsencesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/absences/delete/{id}', name: 'deleteAbsence', methods: ['DELETE'])]
-    public function delete(int $id, Security $security): JsonResponse
+    public function delete(int $id, Security $security, LockGuardService $lockGuard): JsonResponse
     {
         /** @var Resident $user */
         $user    = $security->getUser();
@@ -120,6 +128,12 @@ class AbsencesResidentAPIController extends AbstractController
 
         if ($absence->getIsEditable() === false) {
             return new JsonResponse(['message' => 'Cet événement a déjà été validé. Contactez votre maître de stage.'], 400);
+        }
+
+        try {
+            $lockGuard->assertNotLocked($user, $absence->getYear(), $absence->getDateOfStart());
+        } catch (PeriodLockedException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 422);
         }
 
         $this->entityManager->remove($absence);

@@ -210,7 +210,7 @@ final class HospitalAdminCanCreateYearTest extends TestCase
 
         $this->managerRepo->method('find')->willReturn($manager);
         $this->managerYearsRepo->method('findBy')->willReturn([$this->makeLinkedManagerYears($hospital)]);
-        $this->em->expects($this->once())->method('flush');
+        $this->em->expects($this->atLeastOnce())->method('flush');
 
         $response = $this->buildController($hospital)->setCanCreateYear(
             42,

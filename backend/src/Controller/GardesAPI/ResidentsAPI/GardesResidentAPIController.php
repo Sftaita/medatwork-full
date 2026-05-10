@@ -7,11 +7,13 @@ namespace App\Controller\GardesAPI\ResidentsAPI;
 use App\DTO\GardeInputDTO;
 use App\Entity\Garde;
 use App\Entity\Resident;
+use App\Exception\PeriodLockedException;
 use App\Repository\AbsenceRepository;
 use App\Repository\GardeRepository;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Repository\YearsRepository;
+use App\Services\StaffPlanner\LockGuardService;
 use App\Services\Utils\Tools;
 use DateTime;
 use DateTimeImmutable;
@@ -37,7 +39,7 @@ class GardesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/residents/gardes/addRecord', name: 'addGardeRecord', methods: ['POST'])]
-    public function addRecord(Request $request, Security $security): JsonResponse
+    public function addRecord(Request $request, Security $security, LockGuardService $lockGuard): JsonResponse
     {
         /** @var Resident $user */
         $user = $security->getUser();
@@ -92,6 +94,12 @@ class GardesResidentAPIController extends AbstractController
             return new JsonResponse(['message' => "Une période de travail de >24h n'est pas autorisée"], 400);
         }
 
+        try {
+            $lockGuard->assertNotLocked($user, $year, $dateOfStart);
+        } catch (PeriodLockedException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 422);
+        }
+
         $garde = (new Garde())
             ->setResident($user)
             ->setYear($year)
@@ -128,7 +136,7 @@ class GardesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/gardes/delete/{id}', name: 'deleteGarde', methods: ['DELETE'])]
-    public function delete(int $id, Security $security): JsonResponse
+    public function delete(int $id, Security $security, LockGuardService $lockGuard): JsonResponse
     {
         /** @var Resident $user */
         $user  = $security->getUser();
@@ -140,6 +148,12 @@ class GardesResidentAPIController extends AbstractController
 
         if ($garde->getIsEditable() === false) {
             return new JsonResponse(['message' => 'Cet événement a déjà été validé. Contactez votre maître de stage.'], 400);
+        }
+
+        try {
+            $lockGuard->assertNotLocked($user, $garde->getYear(), $garde->getDateOfStart());
+        } catch (PeriodLockedException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 422);
         }
 
         $this->entityManager->remove($garde);

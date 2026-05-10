@@ -7,7 +7,9 @@ namespace App\Services\MonthValidation;
 use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Entity\ResidentValidation;
+use App\Exception\PeriodLockedException;
 use App\Services\StaffPlanner\ExportDirtyNotifier;
+use App\Services\StaffPlanner\LockGuardService;
 use Doctrine\ORM\EntityManagerInterface;
 
 class UpdateMonthValidation
@@ -16,6 +18,7 @@ class UpdateMonthValidation
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidationService $validationService,
         private readonly ExportDirtyNotifier $dirtyNotifier,
+        private readonly LockGuardService $lockGuard,
     ) {
     }
 
@@ -43,6 +46,12 @@ class UpdateMonthValidation
     public function updateResidentValidationStatus(int $periodId, array $data, Manager $manager, Resident $resident): bool
     {
         $residentValidation = $this->validationService->getOrCreateResidentValidation($periodId, $resident);
+
+        // Phase 5: block MDS validation on locked periods
+        $pv = $residentValidation->getPeriodValidation();
+        if ($pv !== null && $pv->getYear() !== null && $pv->getMonth() !== null && $pv->getYearNb() !== null) {
+            $this->lockGuard->assertNotLockedPeriod($resident, $pv->getYear(), $pv->getMonth(), $pv->getYearNb());
+        }
 
         // Update validation status, manager and history based on the action specified in the request
         $isValidated = $data['status'] === 'validate';

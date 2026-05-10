@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Services\MonthValidation;
 
 use App\Entity\Manager;
+use App\Entity\PeriodValidation;
 use App\Entity\Resident;
 use App\Entity\ResidentValidation;
 use App\Services\MonthValidation\UpdateMonthValidation;
 use App\Services\MonthValidation\ValidationService;
+use App\Services\StaffPlanner\ExportDirtyNotifier;
+use App\Services\StaffPlanner\LockGuardService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -27,8 +30,11 @@ class UpdateMonthValidationTest extends TestCase
     {
         $this->em                = $this->createMock(EntityManagerInterface::class);
         $this->validationService = $this->createMock(ValidationService::class);
+        $dirtyNotifier           = $this->createMock(ExportDirtyNotifier::class);
+        $lockGuard               = $this->createMock(LockGuardService::class);
+        // Default: assertNotLockedPeriod is void — configures it to return silently (not throw)
 
-        $this->service = new UpdateMonthValidation($this->em, $this->validationService);
+        $this->service = new UpdateMonthValidation($this->em, $this->validationService, $dirtyNotifier, $lockGuard);
     }
 
     private function makeManager(int $id): Manager&MockObject

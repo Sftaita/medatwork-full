@@ -155,6 +155,11 @@ class StaffPlannerMonthsService
                     'dirtyAt'               => $status?->getDirtyAt()?->format(\DateTimeInterface::ATOM),
                     'dirtyReason'           => $status?->getDirtyReason(),
                     'dataFingerprint'       => $status?->getDataFingerprint(),
+                    // Phase 5 — Lock RH
+                    'locked'                => $status?->isLocked() ?? false,
+                    'lockedAt'              => $status?->getLockedAt()?->format(\DateTimeInterface::ATOM),
+                    'lockedByType'          => $status?->getLockedByType(),
+                    'lockReason'            => $status?->getLockReason(),
                 ];
             }
 

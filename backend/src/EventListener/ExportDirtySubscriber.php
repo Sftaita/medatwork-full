@@ -92,6 +92,11 @@ class ExportDirtySubscriber
                 continue;
             }
 
+            // Phase 5: locked items cannot become dirty — modifications are blocked upstream.
+            if ($status->isLocked()) {
+                continue;
+            }
+
             $reason = $this->buildReason($entity, $verb);
             $status->markDirty($reason);
             $needsFlush = true;

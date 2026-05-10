@@ -59,6 +59,24 @@ class StaffPlannerExportStatus
     #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $lastGeneratedAt = null;
 
+    // ── Phase 5 : Lock RH ────────────────────────────────────────────────────
+
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $locked = false;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $lockedAt = null;
+
+    /** 'manager' | 'hospital_admin' | 'app_admin' */
+    #[ORM\Column(type: 'string', length: 30, nullable: true)]
+    private ?string $lockedByType = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $lockedById = null;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $lockReason = null;
+
     // ── Phase 1 V2 : dirty flag + fingerprint ─────────────────────────────────
 
     /** True if data changed after the last export. Reset to false on next export. */
@@ -116,6 +134,34 @@ class StaffPlannerExportStatus
     public function getLastGeneratedAt(): ?\DateTimeInterface { return $this->lastGeneratedAt; }
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeInterface { return $this->updatedAt; }
+
+    // ── Phase 5 — Lock RH accessors & methods ────────────────────────────────
+
+    public function isLocked(): bool { return $this->locked; }
+    public function getLockedAt(): ?\DateTimeInterface { return $this->lockedAt; }
+    public function getLockedByType(): ?string { return $this->lockedByType; }
+    public function getLockedById(): ?int { return $this->lockedById; }
+    public function getLockReason(): ?string { return $this->lockReason; }
+
+    public function lock(string $byType, int $byId, ?string $reason = null): self
+    {
+        $this->locked       = true;
+        $this->lockedAt     = new \DateTime();
+        $this->lockedByType = $byType;
+        $this->lockedById   = $byId;
+        $this->lockReason   = $reason;
+        return $this->touch();
+    }
+
+    public function unlock(): self
+    {
+        $this->locked       = false;
+        $this->lockedAt     = null;
+        $this->lockedByType = null;
+        $this->lockedById   = null;
+        $this->lockReason   = null;
+        return $this->touch();
+    }
 
     // ── Phase 1 V2 accessors ──────────────────────────────────────────────────
 

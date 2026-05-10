@@ -41,9 +41,12 @@ import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import LockIcon from "@mui/icons-material/Lock";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
 
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import exportsRhApi, {
+  type LockResult,
   type StaffPlannerMonthGroup,
   type StaffPlannerItem,
   type SpImportItem,
@@ -221,6 +224,40 @@ const HospitalAdminExportsPage = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ha-exports-months", selectedYearId] }),
     onError: () => toast.error("Erreur lors de la mise à jour du statut."),
   });
+
+  // ── Lock mutation (Phase 5) ───────────────────────────────────────────────
+
+  const [lockDialog, setLockDialog] = useState<{
+    item: typeof monthGroups[0]["items"][0];
+    group: typeof monthGroups[0];
+    action: "lock" | "unlock";
+  } | null>(null);
+  const [lockReason, setLockReason] = useState("");
+
+  const lockMutation = useMutation<LockResult, Error, {
+    yearResidentId: number; month: number; calendarYear: number; locked: boolean; reason: string;
+  }>({
+    mutationFn: ({ yearResidentId, month, calendarYear, locked, reason }) =>
+      exportsRhApi.setItemLock(yearResidentId, month, calendarYear, locked, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ha-exports-months", selectedYearId] });
+      setLockDialog(null);
+      setLockReason("");
+      toast.success("Statut de clôture mis à jour.");
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour de la clôture."),
+  });
+
+  const confirmLock = () => {
+    if (!lockDialog) return;
+    lockMutation.mutate({
+      yearResidentId: lockDialog.item.yearResidentId,
+      month:          lockDialog.group.month,
+      calendarYear:   lockDialog.group.calendarYear,
+      locked:         lockDialog.action === "lock",
+      reason:         lockReason,
+    });
+  };
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -655,6 +692,14 @@ const HospitalAdminExportsPage = () => {
                                           </Typography>
                                         </Tooltip>
                                       </TableCell>
+                                      <TableCell>
+                                        <Tooltip title="Clôture RH officielle — bloque toute modification" arrow>
+                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
+                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
+                                            CLÔTURE
+                                          </Typography>
+                                        </Tooltip>
+                                      </TableCell>
                                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">TRAITÉ</Typography></TableCell>
                                     </TableRow>
                                   </TableHead>
@@ -747,6 +792,51 @@ const HospitalAdminExportsPage = () => {
                                             </Tooltip>
                                           ) : (
                                             <Typography variant="body2" color="text.disabled">—</Typography>
+                                          )}
+                                        </TableCell>
+                                        {/* ── CLÔTURE cell ── */}
+                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                          {item.locked ? (
+                                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                                              <Tooltip
+                                                title={`Clôturé${item.lockedAt ? ` le ${fmtDate(item.lockedAt)}` : ""}${item.lockReason ? ` — ${item.lockReason}` : ""}`}
+                                                arrow
+                                              >
+                                                <Chip
+                                                  label="Verrouillé RH"
+                                                  size="small"
+                                                  color="error"
+                                                  icon={<LockIcon />}
+                                                  sx={{ cursor: "help" }}
+                                                />
+                                              </Tooltip>
+                                              <Tooltip title="Déverrouiller la période" arrow>
+                                                <span>
+                                                  <IconButton
+                                                    size="small"
+                                                    color="warning"
+                                                    onClick={() => { setLockDialog({ item, group, action: "unlock" }); setLockReason(""); }}
+                                                    aria-label={`Déverrouiller ${fullName(item)} — ${group.label}`}
+                                                    disabled={lockMutation.isPending}
+                                                  >
+                                                    <LockOpenIcon fontSize="small" />
+                                                  </IconButton>
+                                                </span>
+                                              </Tooltip>
+                                            </Stack>
+                                          ) : (
+                                            <Tooltip title="Clôturer officiellement la période — bloque toute modification" arrow>
+                                              <span>
+                                                <IconButton
+                                                  size="small"
+                                                  onClick={() => { setLockDialog({ item, group, action: "lock" }); setLockReason(""); }}
+                                                  aria-label={`Clôturer ${fullName(item)} — ${group.label}`}
+                                                  disabled={lockMutation.isPending}
+                                                >
+                                                  <LockOpenIcon fontSize="small" />
+                                                </IconButton>
+                                              </span>
+                                            </Tooltip>
                                           )}
                                         </TableCell>
                                         <TableCell onClick={(e) => e.stopPropagation()}>
@@ -885,6 +975,62 @@ const HospitalAdminExportsPage = () => {
       )}
 
       <TutorialModal open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
+
+      {/* ── Lock / Unlock Confirmation Dialog ──────────────────────────── */}
+      <Dialog
+        open={lockDialog !== null}
+        onClose={() => { if (!lockMutation.isPending) { setLockDialog(null); setLockReason(""); } }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {lockDialog?.action === "lock" ? "Clôturer la période" : "Déverrouiller la période"}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} pt={1}>
+            {lockDialog && (
+              <Typography variant="body2" color="text.secondary">
+                {lockDialog.action === "lock"
+                  ? `Clôturer la période bloquera toute modification des horaires pour ${fullName(lockDialog.item)} — ${lockDialog.group.label}. Cette action est enregistrée dans l'audit RH.`
+                  : `Déverrouiller permettra à nouveau les modifications pour ${fullName(lockDialog.item)} — ${lockDialog.group.label}.`}
+              </Typography>
+            )}
+            {lockDialog?.action === "lock" && (
+              <TextField
+                label="Raison de la clôture"
+                placeholder="Ex. : Clôture définitive décembre 2024"
+                value={lockReason}
+                onChange={(e) => setLockReason(e.target.value)}
+                fullWidth
+                required
+                autoFocus
+                size="small"
+                helperText="Obligatoire — sera enregistré dans l'audit RH."
+              />
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setLockDialog(null); setLockReason(""); }} disabled={lockMutation.isPending}>
+            Annuler
+          </Button>
+          <Button
+            variant="contained"
+            color={lockDialog?.action === "lock" ? "error" : "warning"}
+            onClick={confirmLock}
+            disabled={lockMutation.isPending || (lockDialog?.action === "lock" && lockReason.trim() === "")}
+            startIcon={
+              lockMutation.isPending
+                ? <CircularProgress size={16} color="inherit" />
+                : lockDialog?.action === "lock" ? <LockIcon /> : <LockOpenIcon />
+            }
+          >
+            {lockMutation.isPending
+              ? "En cours…"
+              : lockDialog?.action === "lock" ? "Clôturer" : "Déverrouiller"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -32,6 +32,15 @@ export interface StaffPlannerItem {
   dirtyReason: string | null;
   /** SHA-256 des données au moment du dernier export (null avant premier export) */
   dataFingerprint: string | null;
+  // ── Phase 5 — Lock RH ────────────────────────────────────────────────────
+  /** true si la période est officiellement clôturée RH */
+  locked: boolean;
+  /** ISO date du verrouillage (null si non verrouillé) */
+  lockedAt: string | null;
+  /** 'manager' | 'hospital_admin' | 'app_admin' (null si non verrouillé) */
+  lockedByType: string | null;
+  /** Raison de la clôture (null si non verrouillé) */
+  lockReason: string | null;
 }
 
 export interface StaffPlannerMonthGroup {
@@ -121,9 +130,34 @@ const downloadResidentExcel = async (
   URL.revokeObjectURL(url);
 };
 
+// ── Lock / Unlock ─────────────────────────────────────────────────────────────
+
+export interface LockResult {
+  yearResidentId: number;
+  month: number;
+  calendarYear: number;
+  locked: boolean;
+  lockedAt: string | null;
+  lockedByType: string | null;
+  lockedById: number | null;
+  lockReason: string | null;
+}
+
+const setItemLock = (
+  yearResidentId: number,
+  month: number,
+  calendarYear: number,
+  locked: boolean,
+  reason: string,
+): Promise<LockResult> =>
+  axiosPrivate
+    .patch(`hospital-admin/staff-planner-items/${yearResidentId}/${month}/${calendarYear}/lock`, { locked, reason })
+    .then((r) => r.data);
+
 const exportsRhApi = {
   listStaffPlannerMonths,
   setItemTreated,
+  setItemLock,
   generateStaffPlanner,
   listYearResidents,
   downloadResidentExcel,

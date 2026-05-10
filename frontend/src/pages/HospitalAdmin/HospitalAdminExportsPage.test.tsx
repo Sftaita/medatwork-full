@@ -64,6 +64,8 @@ const ALICE = {
   downloadCount: 0, lastGeneratedAt: null,
   // Phase 1 V2
   dirtySinceExport: false, dirtyAt: null, dirtyReason: null, dataFingerprint: null,
+  // Phase 5
+  locked: false, lockedAt: null, lockedByType: null, lockReason: null,
 };
 
 const BOB = {
@@ -80,6 +82,8 @@ const BOB = {
   // Phase 1 V2
   dirtySinceExport: false, dirtyAt: null, dirtyReason: null,
   dataFingerprint: "abc123" + "a".repeat(58),
+  // Phase 5
+  locked: false, lockedAt: null, lockedByType: null, lockReason: null,
 };
 
 // MACCS dirty (pour tests badge dirty)
@@ -97,6 +101,16 @@ const CHARLIE_DIRTY = {
   dirtyAt: "2024-11-15T14:00:00+00:00",
   dirtyReason: "timesheet_added",
   dataFingerprint: "d".repeat(64),
+  // Phase 5
+  locked: false, lockedAt: null, lockedByType: null, lockReason: null,
+};
+
+const ALICE_LOCKED = {
+  ...ALICE,
+  locked: true,
+  lockedAt: "2024-11-25T09:00:00+00:00",
+  lockedByType: "hospital_admin",
+  lockReason: "Clôture définitive novembre 2024",
 };
 
 const NOV_GROUP: StaffPlannerMonthGroup = {
@@ -165,6 +179,12 @@ describe("HospitalAdminExportsPage", () => {
       downloadCount: 0, lastGeneratedAt: null,
     });
     vi.mocked(exportsRhApi.generateStaffPlanner).mockResolvedValue(new Blob(["test"]));
+    vi.mocked(exportsRhApi.setItemLock).mockResolvedValue({
+      yearResidentId: 10, month: 11, calendarYear: 2024,
+      locked: true, lockedAt: new Date().toISOString(),
+      lockedByType: "hospital_admin", lockedById: 1,
+      lockReason: "Test",
+    });
   });
 
   // ── Présence de tous les MACCS ────────────────────────────────────────────────
@@ -526,5 +546,82 @@ describe("HospitalAdminExportsPage", () => {
     expect(exportsRhApi.listStaffPlannerMonths).toHaveBeenCalled();
     expect(exportsRhApi.generateStaffPlanner).toHaveBeenCalled();
     // staffPlannerApi.checkResidentResource était l'ancien endpoint — n'existe plus dans le scope
+  });
+
+  // ── Phase 5 — Lock RH / Clôture officielle ────────────────────────────────────
+
+  it("affiche un bouton Clôturer pour chaque item non verrouillé", async () => {
+    await expandNov();
+    const aliceRow = screen.getAllByRole("row").find((r) => r.textContent?.includes("Alice Martin"))!;
+    expect(aliceRow.querySelector('[aria-label*="Clôturer Alice Martin"]')).toBeDefined();
+  });
+
+  it("affiche le chip Verrouillé RH pour un item verrouillé", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [ALICE_LOCKED, BOB] },
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText("Novembre 2024"));
+    fireEvent.click(screen.getByText("Novembre 2024"));
+    await waitFor(() => screen.getByText("Verrouillé RH"));
+    expect(screen.getByText("Verrouillé RH")).toBeDefined();
+  });
+
+  it("le clic sur Clôturer ouvre le dialog avec le titre 'Clôturer la période'", async () => {
+    await expandNov();
+    const lockBtn = screen.getByLabelText(/^Clôturer Alice Martin/);
+    fireEvent.click(lockBtn);
+    await waitFor(() => expect(screen.getByText("Clôturer la période")).toBeDefined());
+  });
+
+  it("le bouton Confirmer est désactivé si la raison est vide", async () => {
+    await expandNov();
+    fireEvent.click(screen.getByLabelText(/^Clôturer Alice Martin/));
+    await waitFor(() => screen.getByRole("button", { name: /^Clôturer$/ }));
+    expect(screen.getByRole("button", { name: /^Clôturer$/ })).toBeDisabled();
+  });
+
+  it("appelle setItemLock(locked=true) avec la raison saisie après confirmation", async () => {
+    await expandNov();
+    fireEvent.click(screen.getByLabelText(/^Clôturer Alice Martin/));
+    await waitFor(() => screen.getByRole("textbox", { name: /Raison/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Raison/ }), {
+      target: { value: "Clôture définitive novembre 2024" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Clôturer$/ }));
+    await waitFor(() =>
+      expect(exportsRhApi.setItemLock).toHaveBeenCalledWith(
+        10, 11, 2024, true, "Clôture définitive novembre 2024",
+      )
+    );
+  });
+
+  it("affiche le bouton Déverrouiller pour un item verrouillé", async () => {
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [ALICE_LOCKED, BOB] },
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText("Novembre 2024"));
+    fireEvent.click(screen.getByText("Novembre 2024"));
+    await waitFor(() => screen.getByLabelText(/^Déverrouiller Alice Martin/));
+    expect(screen.getByLabelText(/^Déverrouiller Alice Martin/)).toBeDefined();
+  });
+
+  it("le dialog de déverrouillage n'a pas de champ Raison et le bouton est actif", async () => {
+    vi.mocked(exportsRhApi.setItemLock).mockResolvedValueOnce({
+      yearResidentId: 10, month: 11, calendarYear: 2024,
+      locked: false, lockedAt: null, lockedByType: null, lockedById: null, lockReason: null,
+    });
+    vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValueOnce([
+      { ...NOV_GROUP, items: [ALICE_LOCKED, BOB] },
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText("Novembre 2024"));
+    fireEvent.click(screen.getByText("Novembre 2024"));
+    await waitFor(() => screen.getByLabelText(/^Déverrouiller Alice Martin/));
+    fireEvent.click(screen.getByLabelText(/^Déverrouiller Alice Martin/));
+    await waitFor(() => screen.getByText("Déverrouiller la période"));
+    expect(screen.queryByRole("textbox", { name: /Raison/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Déverrouiller/ })).not.toBeDisabled();
   });
 });
