@@ -12,7 +12,6 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Checkbox from "@mui/material/Checkbox";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
@@ -21,25 +20,21 @@ import FormGroup from "@mui/material/FormGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import { Stack } from "@mui/system";
-import OptionsButton from "./OptionsButton";
-import Grid from "@mui/material/Grid";
 import { handleApiError } from "@/services/apiError";
 
 const columns = [
-  { id: "title", label: "Année", minWidth: 250, align: "left" },
-  { id: "period", label: "Périodes", minWidth: 150, align: "left" },
-  { id: "master", label: "Maître de stage", minWidth: 200, align: "left" },
-  { id: "year", label: "En attente depuis", minWidth: 150, align: "left" },
+  { id: "title",  label: "Année",             minWidth: 250, align: "left" },
+  { id: "period", label: "Périodes",           minWidth: 150, align: "left" },
+  { id: "master", label: "Maître de stage",    minWidth: 200, align: "left" },
+  { id: "year",   label: "En attente depuis",  minWidth: 150, align: "left" },
 ];
 
 const InWaiting = () => {
   const axiosPrivate = useAxiosPrivate();
   const [loading, setLoading] = useState(true);
   const [list, setList] = useState([]);
-  const [selected, setSelected] = useState([]);
   const [activeYearChecked, setActiveYearChecked] = useState(true);
 
-  // Fetch list of inWaiting Period
   const getInWaintingList = useCallback(async (activeYearStatus) => {
     setLoading(true);
     try {
@@ -53,38 +48,11 @@ const InWaiting = () => {
     }
   }, [axiosPrivate]);
 
-  // Create an array of selected month
-  const handleSelect = (event, periodId) => {
-    const selectedIndex = selected.indexOf(periodId);
-    let newSelected = [];
+  const getLastDayOfMonth = (year, month) => new Date(year, month, 0);
 
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, periodId);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1)
-      );
-    }
-
-    setSelected(newSelected);
-  };
-
-  const isSelected = (periodId) => selected.indexOf(periodId) !== -1;
-
-  const getLastDayOfMonth = (year, month) => {
-    return new Date(year, month, 0);
-  };
-
-  // ActiveYearCheck controller
   const handleCheck = (event) => {
     setActiveYearChecked(event.target.checked);
-    const status = event.target.checked;
-    getInWaintingList(status);
+    getInWaintingList(event.target.checked);
   };
 
   useEffect(() => {
@@ -95,17 +63,14 @@ const InWaiting = () => {
     <div style={{ height: "40vh", width: "100%" }}>
       <Paper sx={{ width: "100%", overflow: "hidden" }}>
         <Toolbar>
-          <Grid container direction="row" justifyContent="space-between" alignItems="center">
-            <FormGroup>
-              <Stack direction="row" spacing={2}>
-                <FormControlLabel
-                  control={<Switch checked={activeYearChecked} onChange={handleCheck} />}
-                  label="Année en cours"
-                />
-              </Stack>
-            </FormGroup>
-            <OptionsButton selected={selected} setLoading={setLoading} />
-          </Grid>
+          <FormGroup>
+            <Stack direction="row" spacing={2}>
+              <FormControlLabel
+                control={<Switch checked={activeYearChecked} onChange={handleCheck} />}
+                label="Année en cours"
+              />
+            </Stack>
+          </FormGroup>
         </Toolbar>
 
         <TableContainer sx={{ maxHeight: "60vh" }}>
@@ -126,37 +91,23 @@ const InWaiting = () => {
             </TableHead>
             {!loading && (
               <TableBody>
-                {list.lentgh !== 0 &&
-                  list.map((row) => {
-                    const isItemSelected = isSelected(row.periodId);
-                    return (
-                      <TableRow
-                        hover
-                        onClick={(event) => handleSelect(event, row.periodId)}
-                        role="checkbox"
-                        aria-checked={isItemSelected}
-                        tabIndex={-1}
-                        key={row.periodId}
-                        selected={isItemSelected}
-                      >
-                        <TableCell>
-                          <Checkbox color="primary" checked={isItemSelected} />
-                          {row.title}
-                        </TableCell>
-                        <TableCell>{monthList[row.month] + " " + row.year}</TableCell>
-                        <TableCell>
-                          {row?.masterLastname
-                            ? row?.masterLastname + " " + row.masterFirstname
-                            : "Non défini"}
-                        </TableCell>
-                        <TableCell>
-                          {dayjs(getLastDayOfMonth(row.year, row.month))
-                            .locale("fr")
-                            .from(dayjs(), true)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                {list.length !== 0 &&
+                  list.map((row) => (
+                    <TableRow hover tabIndex={-1} key={row.periodId}>
+                      <TableCell>{row.title}</TableCell>
+                      <TableCell>{monthList[row.month] + " " + row.year}</TableCell>
+                      <TableCell>
+                        {row?.masterLastname
+                          ? row.masterLastname + " " + row.masterFirstname
+                          : "Non défini"}
+                      </TableCell>
+                      <TableCell>
+                        {dayjs(getLastDayOfMonth(row.year, row.month))
+                          .locale("fr")
+                          .from(dayjs(), true)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             )}
           </Table>

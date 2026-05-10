@@ -8,28 +8,38 @@
 
 **Nouvelles entités Sprint 2 (2026-04-07) :** `CommunicationMessage`, `CommunicationMessageRead`.
 
-**Nouvelles entités Sprint 3 (2026-05-06) :** `StaffPlannerMonthStatus`.
+**Nouvelles entités Sprint 3 (2026-05-06) :** `StaffPlannerExportStatus` (suivi export par MACCS × mois).
+
+> ⚠️ `StaffPlannerMonthStatus` — entité créée le 6 mai 2026 puis immédiatement remplacée par `StaffPlannerExportStatus`. Elle existe en base de données mais n'est utilisée par aucun service ni controller. Elle sera supprimée dans une prochaine migration de nettoyage.
 
 ---
 
-## StaffPlannerMonthStatus
+## StaffPlannerExportStatus
 
-Trace les exports Staff Planner par mois calendaire d'une année académique.
+Suivi des exports Staff Planner avec granularité **MACCS × mois**. Source de vérité unique pour le workflow RH.
 
 | Champ | Type | Description |
 |---|---|---|
-| `year` | FK → Years | Année académique concernée |
+| `yearsResident` | FK → YearsResident (CASCADE) | Le MACCS dans son année académique — **obligatoire** |
 | `month` | smallint (1–12) | Mois calendaire |
 | `calendarYear` | smallint | Année calendaire (ex. 2024) |
-| `treated` | bool | Export réalisé ? |
-| `treatedAt` | datetime? | Quand le dernier export a eu lieu |
-| `treatedBy` | FK → Manager? | Qui a généré l'export |
-| `lastGeneratedAt` | datetime? | Dernier appel à SPImport pour ce mois |
-| `downloadCount` | int | Nombre total de générations |
+| `treated` | bool (default: false) | Item marqué traité par RH |
+| `treatedAt` | datetime? | Date du marquage traité |
+| `treatedByType` | varchar(30)? | `'manager'` \| `'hospital_admin'` \| `'app_admin'` |
+| `treatedById` | int? | ID de l'utilisateur (polymorphe, pas de FK) |
+| `downloadCount` | smallint (default: 0) | Nombre d'inclusions dans un export Staff Planner |
+| `lastGeneratedAt` | datetime? | Date du dernier export Staff Planner incluant ce MACCS |
+| `createdAt` | datetime | Création |
+| `updatedAt` | datetime | Dernière mise à jour |
 
-**Contrainte unique :** `(year_id, month, calendar_year)` — un seul statut par mois/année.
+**Contrainte unique :** `(years_resident_id, month, calendar_year)` — un seul statut par MACCS × mois.
 
-**Flux :** `POST /api/managers/SPImport` → génère le fichier .txt → appelle automatiquement `StaffPlannerMonthsService::markMonthsAsTreatedAfterGeneration()` → crée/met à jour les `StaffPlannerMonthStatus`.
+**Décision métier :** La validation MDS (`ResidentValidation.validated`) est **informative uniquement** et ne bloque pas l'export. Tous les MACCS inscrits à l'année sont affichés, validés MDS ou non.
+
+**Flux RH :**
+1. `GET /api/hospital-admin/years/{yearId}/staff-planner-months` → `StaffPlannerMonthsService::listMonthsForYear()` → grille de tous les MACCS × mois avec `validatedByMds` (info) et `treated` (statut RH)
+2. `PATCH /api/hospital-admin/staff-planner-items/{yrId}/{month}/{calendarYear}/treated` → toggle `treated` manuellement
+3. `POST /api/managers/SPImport` avec `{ items: [{ yearResidentId, month, calendarYear }] }` → génère `.txt` → appelle `StaffPlannerMonthsService::markItemsTreatedAfterGeneration()` → incrémente `downloadCount`, met `lastGeneratedAt`, marque `treated=true`
 
 ---
 

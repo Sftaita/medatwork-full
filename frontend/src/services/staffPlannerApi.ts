@@ -1,12 +1,6 @@
-import type { ApiCall } from "./api.types";
+// L'export Staff Planner est géré via exportsRhApi.ts (generateStaffPlanner).
+// L'endpoint SPCheckV2 n'existait pas en backend — supprimé.
 
-const staffPlannerApi = {
-  checkResidentResource(): ApiCall {
-    return {
-      method: "post",
-      url: "managers/SPCheckV2",
-    };
-  },
-};
+const staffPlannerApi = {} as const;
 
 export default staffPlannerApi;
