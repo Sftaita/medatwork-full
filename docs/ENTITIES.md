@@ -10,6 +10,10 @@
 
 **Nouvelles entités Sprint 3 (2026-05-06) :** `StaffPlannerExportStatus` (suivi export par MACCS × mois).
 
+**Nouvelles entités Phase 2 V2 (2026-05-10) :** `StaffPlannerExportBatch`, `StaffPlannerExportItemSnapshot` (snapshots immuables de chaque export).
+
+**Nouvelles entités Phase 5 V2 (2026-05-10) :** `StaffPlannerAuditEvent` (audit trail append-only lock/unlock RH).
+
 > ⚠️ `StaffPlannerMonthStatus` — entité créée le 6 mai 2026 puis immédiatement remplacée par `StaffPlannerExportStatus`. Elle existe en base de données mais n'est utilisée par aucun service ni controller. Elle sera supprimée dans une prochaine migration de nettoyage.
 
 ---
@@ -29,17 +33,123 @@ Suivi des exports Staff Planner avec granularité **MACCS × mois**. Source de v
 | `treatedById` | int? | ID de l'utilisateur (polymorphe, pas de FK) |
 | `downloadCount` | smallint (default: 0) | Nombre d'inclusions dans un export Staff Planner |
 | `lastGeneratedAt` | datetime? | Date du dernier export Staff Planner incluant ce MACCS |
+| `dirtySinceExport` | bool (default: false) | true si les données ont changé depuis le dernier export *(Phase 1 V2)* |
+| `dirtyAt` | datetime? | Date de la dernière modification post-export *(Phase 1 V2)* |
+| `dirtyReason` | varchar(60)? | Motif du dirty (`timesheet_added`, `garde_modified`, etc.) *(Phase 1 V2)* |
+| `dataFingerprint` | char(64)? | SHA-256 des données au moment du dernier export *(Phase 1 V2)* |
+| `fingerprintComputedAt` | datetime? | Date du calcul du fingerprint *(Phase 1 V2)* |
+| `locked` | bool (default: false) | Période verrouillée RH — bloque toute modification *(Phase 5)* |
+| `lockedAt` | datetime? | Date du verrouillage *(Phase 5)* |
+| `lockedByType` | varchar(30)? | `'manager'` \| `'hospital_admin'` \| `'app_admin'` *(Phase 5)* |
+| `lockedById` | int? | ID de l'acteur (polymorphe) *(Phase 5)* |
+| `lockReason` | varchar(255)? | Raison de la clôture (obligatoire lors du lock) *(Phase 5)* |
 | `createdAt` | datetime | Création |
 | `updatedAt` | datetime | Dernière mise à jour |
 
 **Contrainte unique :** `(years_resident_id, month, calendar_year)` — un seul statut par MACCS × mois.
 
+**Méthodes notables :** `lock(byType, byId, reason)`, `unlock()`, `isLocked()`, `markDirty(reason)`, `clearDirty()`, `updateFingerprint(fp)`, `recordGeneration()`.
+
 **Décision métier :** La validation MDS (`ResidentValidation.validated`) est **informative uniquement** et ne bloque pas l'export. Tous les MACCS inscrits à l'année sont affichés, validés MDS ou non.
 
 **Flux RH :**
-1. `GET /api/hospital-admin/years/{yearId}/staff-planner-months` → `StaffPlannerMonthsService::listMonthsForYear()` → grille de tous les MACCS × mois avec `validatedByMds` (info) et `treated` (statut RH)
-2. `PATCH /api/hospital-admin/staff-planner-items/{yrId}/{month}/{calendarYear}/treated` → toggle `treated` manuellement
-3. `POST /api/managers/SPImport` avec `{ items: [{ yearResidentId, month, calendarYear }] }` → génère `.txt` → appelle `StaffPlannerMonthsService::markItemsTreatedAfterGeneration()` → incrémente `downloadCount`, met `lastGeneratedAt`, marque `treated=true`
+1. `GET /api/hospital-admin/years/{yearId}/staff-planner-months` → grille de tous les MACCS × mois
+2. `PATCH …/treated` → toggle `treated` manuellement
+3. `POST /api/managers/SPImport` → génère `.txt` + `StaffPlannerExportBatch` + snapshots → marque `treated=true`, met à jour fingerprint, efface dirty
+4. `PATCH …/lock` → verrouille ou déverrouille une période (raison obligatoire au lock)
+
+---
+
+## StaffPlannerExportBatch *(Phase 2 V2 — 2026-05-10)*
+
+Snapshot immuable de chaque export Staff Planner. Append-only — jamais modifié après création.
+
+| Champ | Type | Description |
+|---|---|---|
+| `id` | bigint | Clé primaire |
+| `year` | FK → Years (RESTRICT) | Année académique de l'export |
+| `batchNumber` | int | Numéro séquentiel par année (1, 2, 3…) |
+| `generatedAt` | datetime_immutable | Horodatage de la génération |
+| `generatedByType` | varchar(30) | `'manager'` \| `'hospital_admin'` \| `'app_admin'` |
+| `generatedById` | int? | ID de l'acteur |
+| `itemCount` | int | Nombre de MACCS × mois exportés |
+| `fileHash` | char(64) | SHA-256 du fichier .txt généré |
+| `fileSizeBytes` | int | Taille du fichier |
+| `notes` | text? | Notes libres |
+| `createdAt` | datetime_immutable | Date de création |
+
+**Contrainte unique :** `(year_id, batch_number)`.
+
+**Relations :** `snapshots` (OneToMany → `StaffPlannerExportItemSnapshot`, orphanRemoval).
+
+---
+
+## StaffPlannerExportItemSnapshot *(Phase 2 V2 — 2026-05-10)*
+
+Un snapshot par MACCS × mois dans un batch. Contient les données telles qu'elles étaient **au moment de l'export**. Append-only.
+
+| Champ | Type | Description |
+|---|---|---|
+| `id` | bigint | Clé primaire |
+| `batch` | FK → StaffPlannerExportBatch (CASCADE) | Batch parent |
+| `yearsResident` | FK → YearsResident (RESTRICT) | Le MACCS |
+| `month` | smallint | Mois |
+| `calendarYear` | smallint | Année calendaire |
+| `dataFingerprint` | char(64) | SHA-256 des données à l'export |
+| `validatedByMdsAtExport` | bool | Statut MDS au moment de l'export (informatif) |
+| `timesheetCount` | int | Nombre de timesheets inclus |
+| `gardeHospitalCount` | int | Nombre de gardes hôpital incluses |
+| `absenceCount` | int | Nombre d'absences incluses |
+| `totalMinutes` | int | Total minutes travaillées |
+| `workerHRIDAtExport` | varchar(50)? | Identifiant RH du résident dans Staff Planner |
+| `sectionHRIDAtExport` | varchar(50)? | Identifiant RH du service |
+| `payloadLines` | MEDIUMTEXT? | Lignes `AS=|…|` du fichier .txt |
+| `createdAt` | datetime_immutable | Date de création |
+
+---
+
+## StaffPlannerAuditEvent *(Phase 5 V2 — 2026-05-10, étendu Phase 6 — 2026-05-11)*
+
+Audit trail append-only pour tous les événements métier du Staff Planner RH.
+
+| Champ | Type | Description |
+|---|---|---|
+| `id` | bigint | Clé primaire |
+| `eventType` | varchar(60) | Type d'événement (voir catalogue ci-dessous) |
+| `yearsResident` | FK → YearsResident (SET NULL) | MACCS concerné (null si MACCS supprimé) |
+| `year` | FK → Years (SET NULL) | Année académique (pour la timeline globale) *(Phase 6)* |
+| `batch` | FK → StaffPlannerExportBatch (SET NULL) | Export batch lié (pour export_generated) *(Phase 6)* |
+| `month` | smallint? | Mois de la période |
+| `calendarYear` | smallint? | Année calendaire |
+| `actorType` | varchar(30) | `'resident'` \| `'manager'` \| `'hospital_admin'` \| `'app_admin'` \| `'system'` |
+| `actorId` | int? | ID de l'acteur (polymorphe, pas de FK) |
+| `occurredAt` | datetime_immutable | Horodatage (auto à la création) |
+| `context` | json | Payload spécifique à l'événement |
+
+**Catalogue des eventTypes :**
+
+| eventType | Déclenché par | context keys |
+|-----------|---------------|--------------|
+| `rh_lock_applied` | `LockController` | `reason, month, calendarYear` |
+| `rh_lock_removed` | `LockController` | `reason, month, calendarYear` |
+| `export_generated` | `StaffPlannerAPIController` | `batchId, batchNumber, itemCount, fileSizeBytes` |
+| `timesheet_created` | `TimesheetsResidentAPIController` | `timesheetId, dateOfStart, dateOfEnd, residentId, yearId` |
+| `timesheet_modified` | `TimesheetsResidentAPIController` | `timesheetId, dateOfStart, dateOfEnd, residentId, yearId` |
+| `timesheet_deleted` | `TimesheetsResidentAPIController` | `timesheetId, dateOfStart, residentId, yearId` |
+| `garde_created` | `GardesResidentAPIController` | `gardeId, dateOfStart, type, residentId, yearId` |
+| `garde_deleted` | `GardesResidentAPIController` | `gardeId, dateOfStart, residentId, yearId` |
+| `absence_created` | `AbsencesResidentAPIController` | `absenceId, dateOfStart, dateOfEnd, type, residentId, yearId` |
+| `absence_deleted` | `AbsencesResidentAPIController` | `absenceId, dateOfStart, residentId, yearId` |
+| `validation_accepted` | `UpdateMonthValidation` | `managerId, managerComment, residentId, yearId` |
+| `validation_rejected` | `UpdateMonthValidation` | `managerId, residentNotification, residentId, yearId` |
+| `validation_blocked_by_lock` | `ValidationController` | `managerId, residentId, yearId` |
+| `blocked_modification_attempt` | Chaque controller (catch PeriodLockedException) | `entityType, month, calYear, residentId, yearId` |
+
+**Indices :** `idx_audit_maccs_date`, `idx_audit_type_date`, `idx_audit_date`, `idx_audit_year`, `idx_audit_actor`, `idx_audit_period`, `idx_audit_batch`.
+
+**Invariant :** jamais mis à jour après création. Les FK `yearsResident`, `year`, `batch` sont SET NULL si l'entité cible est supprimée — l'historique est toujours conservé.
+
+**Exception PeriodLockedException :** `DomainException` lancée par `LockGuardService` → HTTP 422 avec message explicite incluant mois/année et raison du lock.
 
 ---
 
@@ -434,11 +544,19 @@ Enregistrement de lecture d'un message par un utilisateur (idempotent — insér
 
 ## Migrations
 
-59 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
+65 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
 
-**Sprint 1 (2026-04-02) :** `Version20260403000000` — création des tables `hospital`, `app_admin`, `hospital_admin`, `hospital_request`, `manager_hospital` ; migration des données `manager.hospital` (string) vers la table `hospital`.
+**Sprint 1 (2026-04-02) :** `Version20260403000000` — création des tables `hospital`, `app_admin`, `hospital_admin`, `hospital_request`, `manager_hospital`.
 
 **Sprint 2 (2026-04-07) :** `Version20260405000000` — création des tables `communication_message` et `communication_message_read`.
+
+**Phase 1 V2 (2026-05-10) :** `Version20260510120000` — 5 colonnes dirty/fingerprint sur `staff_planner_export_status` + index `idx_sp_export_dirty`.
+
+**Phase 2 V2 (2026-05-10) :** `Version20260510150000` — création des tables `staff_planner_export_batch` et `staff_planner_export_item_snapshot`.
+
+**Phase 5 V2 (2026-05-10) :** `Version20260510180000` — 5 colonnes lock sur `staff_planner_export_status` + création de la table `staff_planner_audit_event` (avec FK `years_resident_id` SET NULL + 3 indices).
+
+**Phase 6 V2 (2026-05-11) :** `Version20260511120000` — colonnes `year_id` et `batch_id` sur `staff_planner_audit_event` + 4 nouveaux indices (year, acteur, période, batch).
 
 Pour voir l'historique :
 ```bash
@@ -453,4 +571,4 @@ symfony console doctrine:migrations:migrate
 
 ---
 
-*Document créé le 2026-03-20 — mis à jour le 2026-04-07 (Sprint 2 Communication System)*
+*Document créé le 2026-03-20 — mis à jour le 2026-05-11 (Phase 6 V2 — Audit Timeline RH)*

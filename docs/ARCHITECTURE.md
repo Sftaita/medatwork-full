@@ -1212,7 +1212,143 @@ Mise à jour disponible
 | Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
 | devOptions activé (test dev) | ✅ `vite.config.js` |
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-06 (session 23)*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-11 (Phase 6 — Audit Timeline RH enterprise)*
+
+---
+
+## Staff Planner RH — Système Enterprise V2 (2026-05-11)
+
+### Architecture générale
+
+Le module Staff Planner V2 est un système enterprise d'audit et de contrôle RH ajouté en 6 phases sur `StaffPlannerExportStatus`.
+
+```
+YearsResident × mois
+        │
+        ▼
+StaffPlannerExportStatus     ← Phase 1 : dirty flag + SHA-256 fingerprint
+        │                    ← Phase 5 : lock RH (locked, lockedAt, lockReason…)
+        │
+        ├──► StaffPlannerExportBatch         ← Phase 2 : snapshot immuable par export
+        │          └──► StaffPlannerExportItemSnapshot (payloadLines MEDIUMTEXT)
+        │
+        └──► StaffPlannerAuditEvent          ← Phase 5/6 : audit trail append-only
+```
+
+### Services StaffPlanner
+
+| Service | Responsabilité |
+|---------|----------------|
+| `StaffPlannerMonthsService` | Grille mensuelle RH : tous les MACCS × mois avec leur statut |
+| `GenerateStaffPlannerExport` | Génère le fichier `.txt` Staff Planner + `buildLines()` public |
+| `ExportBatchService` | Crée le `StaffPlannerExportBatch` + snapshots en transaction atomique |
+| `FingerprintService` | Calcule le SHA-256 des données d'un MACCS × mois (fingerprint O(1)) |
+| `ExportDirtyNotifier` | Notifie les changements de données pour le dirty flag |
+| `LockGuardService` | Garde centralisée contre les modifications sur périodes verrouillées |
+| `StaffPlannerLineParser` | Parse les lignes `AS=|…|` du fichier txt (diff viewer) |
+| `ExportDiffService` | Compare deux batches : fingerprint O(1) puis diff ligne si différent |
+| `AuditService` | Crée les `StaffPlannerAuditEvent` pour chaque action métier |
+
+### Phase 1 V2 — Dirty flag + Fingerprint
+
+`StaffPlannerExportStatus` enrichi avec :
+- `dirtySinceExport` (bool) : true si les données ont changé depuis le dernier export
+- `dirtyAt` / `dirtyReason` : horodatage et motif de la modification
+- `dataFingerprint` (SHA-256 64 chars) : empreinte des données au dernier export
+- `fingerprintComputedAt`
+
+`ExportDirtySubscriber` (Doctrine postFlush) écoute les changements sur `Timesheet`, `Garde`, `Absence`, `ResidentValidation` → marque le statut dirty. Les items **lockés** sont ignorés (Phase 5).
+
+Badge "Modifié" dans la page Exports RH signale les items à ré-exporter.
+
+### Phase 2 — Export Batch immuable
+
+Chaque export génère un `StaffPlannerExportBatch` + N `StaffPlannerExportItemSnapshot` (append-only, jamais modifiés). Garantit la traçabilité légale.
+
+`ExportBatchService::recordBatch()` exécute tout en une seule transaction.
+
+### Phase 3 — Historique RH
+
+Endpoints lecture seule :
+| Route | Description |
+|-------|-------------|
+| `GET /api/hospital-admin/years/{yearId}/export-batches` | Liste paginée des batches (filtres : batchNumber, generatedByType, from, to) |
+| `GET /api/hospital-admin/export-batches/{batchId}` | Détail d'un batch |
+| `GET /api/hospital-admin/export-batches/{batchId}/snapshots` | Liste snapshots (sans payloadLines) |
+| `GET /api/hospital-admin/export-snapshots/{snapshotId}` | Détail snapshot avec payloadLines |
+
+### Phase 4 — Diff Viewer
+
+Compare deux batches ligne par ligne (format `AS=|…|`). L'algorithme compare d'abord les SHA-256 (O(1)) puis parse les lignes seulement si les fingerprints diffèrent.
+
+| Route | Description |
+|-------|-------------|
+| `GET /api/hospital-admin/years/{yearId}/compare-candidates` | Liste les batches comparables |
+| `GET /api/hospital-admin/export-batches/{a}/diff/{b}` | Diff entre batch A et B |
+
+### Phase 5 — Lock RH / Clôture officielle
+
+`LockController` — `PATCH /api/hospital-admin/staff-planner-items/{yrId}/{month}/{calYear}/lock`
+- Raison obligatoire pour verrouiller
+- Accès : `HospitalAdmin`, `AppAdmin`, `Manager` RH uniquement
+- Crée un `StaffPlannerAuditEvent` (`rh_lock_applied` ou `rh_lock_removed`)
+
+`LockGuardService` injecté via **method injection** dans tous les controllers d'écriture :
+- `TimesheetsResidentAPIController` : addRecord, update, delete
+- `GardesResidentAPIController` : addRecord, delete
+- `AbsencesResidentAPIController` : addRecord, delete
+- `UpdateMonthValidation` : validation MDS
+- `ValidationController` : catch `PeriodLockedException` → HTTP 422
+
+Exception : `PeriodLockedException extends \DomainException` → HTTP 422 avec message explicite.
+
+### Phase 6 — Audit Timeline RH
+
+`AuditService` — 12 méthodes explicites, une par event type. Chaque appel fait `em->persist(event) + em->flush()` indépendamment.
+
+14 event types catalogués :
+
+| Event | Déclenché par |
+|-------|--------------|
+| `export_generated` | `StaffPlannerAPIController::createTxtFile()` |
+| `timesheet_created` / `modified` / `deleted` | `TimesheetsResidentAPIController` |
+| `garde_created` / `deleted` | `GardesResidentAPIController` |
+| `absence_created` / `deleted` | `AbsencesResidentAPIController` |
+| `validation_accepted` / `rejected` | `UpdateMonthValidation` |
+| `validation_blocked_by_lock` | `ValidationController` (catch PeriodLockedException) |
+| `blocked_modification_attempt` | Chaque controller (catch PeriodLockedException) |
+| `rh_lock_applied` / `rh_lock_removed` | `LockController` |
+
+**Endpoints timeline :**
+
+| Route | Description |
+|-------|-------------|
+| `GET /api/hospital-admin/years/{yearId}/audit-events` | Timeline globale paginée (filtres : eventType, actorType, month, calendarYear, yearResidentId, batchId, from, to) |
+| `GET /api/hospital-admin/staff-planner-items/{yrId}/audit` | Historique complet d'un MACCS |
+| `GET /api/hospital-admin/export-batches/{batchId}/audit` | Audit events liés à un export |
+
+**Page frontend** : `/hospital-admin/audit-timeline` (`HospitalAdminAuditTimelinePage`)
+- Chips colorés par type d'événement
+- Context JSON expandable
+- Filtres actifs avec chips de suppression
+- Pagination avec sélecteur de limite
+
+### Performance & Scalabilité
+
+- Toutes les requêtes de liste sont paginées backend (jamais de SELECT *)
+- `StaffPlannerAuditEvent` : 7 indices (maccs+date, type+date, date, year+date, acteur, période, batch)
+- `StaffPlannerExportBatch` : contrainte unique `(year_id, batch_number)` + `SELECT COALESCE(MAX(batch_number), 0)+1` pour éviter les races
+- Diff viewer : fingerprint O(1) — les lignes ne sont parsées que si les fingerprints diffèrent
+- Rétention long terme : events orphelins (MACCS supprimé) conservés via `SET NULL` sur la FK
+
+### Sécurité des endpoints Staff Planner
+
+Tous les endpoints `/api/hospital-admin/…` utilisent le même `canAccessYear()` :
+- `AppAdmin` → accès global
+- `HospitalAdmin` → scoped à son hôpital
+- `Manager` avec `adminHospital` → scoped à l'hôpital administré
+- `Manager` avec `job=HumanResources` → scoped via `getHospitals()`
+- Tout autre rôle → HTTP 403
 
 ---
 
