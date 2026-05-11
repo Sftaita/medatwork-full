@@ -13,6 +13,7 @@ use App\Repository\GardeRepository;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Repository\YearsRepository;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\LockGuardService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -34,7 +35,7 @@ class AbsencesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/residents/absences/addRecord', name: 'addAbsencesRecord', methods: ['POST'])]
-    public function addRecord(Request $request, Security $security, LockGuardService $lockGuard): JsonResponse
+    public function addRecord(Request $request, Security $security, LockGuardService $lockGuard, AuditService $auditService): JsonResponse
     {
         /** @var Resident $user */
         $user = $security->getUser();
@@ -89,6 +90,11 @@ class AbsencesResidentAPIController extends AbstractController
         try {
             $lockGuard->assertNotLocked($user, $year, $start);
         } catch (PeriodLockedException $e) {
+            $auditService->recordBlockedModificationAttempt(
+                $user, $year,
+                (int) $start->format('n'), (int) $start->format('Y'),
+                'absence',
+            );
             return new JsonResponse(['error' => $e->getMessage()], 422);
         }
 
@@ -103,6 +109,8 @@ class AbsencesResidentAPIController extends AbstractController
         $this->entityManager->persist($absence);
         $this->entityManager->flush();
 
+        $auditService->recordAbsenceCreated($user, $year, $absence);
+
         return new JsonResponse(['message' => 'ok'], 200);
     }
 
@@ -116,7 +124,7 @@ class AbsencesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/absences/delete/{id}', name: 'deleteAbsence', methods: ['DELETE'])]
-    public function delete(int $id, Security $security, LockGuardService $lockGuard): JsonResponse
+    public function delete(int $id, Security $security, LockGuardService $lockGuard, AuditService $auditService): JsonResponse
     {
         /** @var Resident $user */
         $user    = $security->getUser();
@@ -130,14 +138,29 @@ class AbsencesResidentAPIController extends AbstractController
             return new JsonResponse(['message' => 'Cet événement a déjà été validé. Contactez votre maître de stage.'], 400);
         }
 
+        $absenceYear = $absence->getYear();
+        $absenceDate = $absence->getDateOfStart();
+        $absenceId   = $absence->getId();
+
         try {
-            $lockGuard->assertNotLocked($user, $absence->getYear(), $absence->getDateOfStart());
+            $lockGuard->assertNotLocked($user, $absenceYear, $absenceDate);
         } catch (PeriodLockedException $e) {
+            if ($absenceYear !== null && $absenceDate !== null) {
+                $auditService->recordBlockedModificationAttempt(
+                    $user, $absenceYear,
+                    (int) $absenceDate->format('n'), (int) $absenceDate->format('Y'),
+                    'absence',
+                );
+            }
             return new JsonResponse(['error' => $e->getMessage()], 422);
         }
 
         $this->entityManager->remove($absence);
         $this->entityManager->flush();
+
+        if ($absenceYear !== null && $absenceDate !== null && $absenceId !== null) {
+            $auditService->recordAbsenceDeleted($user, $absenceYear, $absenceId, $absenceDate);
+        }
 
         return new JsonResponse(['message' => 'ok'], 200);
     }

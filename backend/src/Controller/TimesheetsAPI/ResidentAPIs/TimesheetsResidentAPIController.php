@@ -12,6 +12,7 @@ use App\Repository\TimesheetRepository;
 use App\Repository\YearsRepository;
 use App\Security\Voter\TimesheetVoter;
 use App\Services\Checker\TimesheetInputValidator;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\LockGuardService;
 use DateTime;
 use DateTimeZone;
@@ -39,6 +40,7 @@ class TimesheetsResidentAPIController extends AbstractController
         TimesheetRepository $timesheetRepository,
         TimesheetInputValidator $validator,
         LockGuardService $lockGuard,
+        AuditService $auditService,
     ): JsonResponse {
         /** @var Resident $user */
         $user = $security->getUser();
@@ -69,6 +71,11 @@ class TimesheetsResidentAPIController extends AbstractController
                 $lockGuard->assertNotLocked($user, $year, $dateOfEnd);
             }
         } catch (PeriodLockedException $e) {
+            $auditService->recordBlockedModificationAttempt(
+                $user, $year,
+                (int) $dateOfStart->format('n'), (int) $dateOfStart->format('Y'),
+                'timesheet',
+            );
             return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
@@ -84,6 +91,8 @@ class TimesheetsResidentAPIController extends AbstractController
 
         $this->entityManager->persist($timesheet);
         $this->entityManager->flush();
+
+        $auditService->recordTimesheetCreated($user, $year, $timesheet);
 
         return new JsonResponse(['message' => 'ok'], JsonResponse::HTTP_OK);
     }
@@ -142,6 +151,7 @@ class TimesheetsResidentAPIController extends AbstractController
         TimesheetRepository $timesheetRepository,
         TimesheetInputValidator $validator,
         LockGuardService $lockGuard,
+        AuditService $auditService,
     ): JsonResponse {
         $timesheet = $timesheetRepository->findOneBy(['id' => $id]);
 
@@ -177,6 +187,11 @@ class TimesheetsResidentAPIController extends AbstractController
         try {
             $lockGuard->assertNotLocked($user, $year, $dateOfStart);
         } catch (PeriodLockedException $e) {
+            $auditService->recordBlockedModificationAttempt(
+                $user, $year,
+                (int) $dateOfStart->format('n'), (int) $dateOfStart->format('Y'),
+                'timesheet',
+            );
             return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
@@ -190,11 +205,13 @@ class TimesheetsResidentAPIController extends AbstractController
         $this->entityManager->persist($timesheet);
         $this->entityManager->flush();
 
+        $auditService->recordTimesheetModified($user, $year, $timesheet);
+
         return new JsonResponse(['message' => 'ok'], JsonResponse::HTTP_OK);
     }
 
     #[Route('/api/timesheets/delete/{id}', name: 'deleteTimesheets', methods: ['DELETE'])]
-    public function delete(int $id, Security $security, TimesheetRepository $timesheetRepository, LockGuardService $lockGuard): JsonResponse
+    public function delete(int $id, Security $security, TimesheetRepository $timesheetRepository, LockGuardService $lockGuard, AuditService $auditService): JsonResponse
     {
         $user = $security->getUser();
 
@@ -212,14 +229,29 @@ class TimesheetsResidentAPIController extends AbstractController
             return new JsonResponse(['message' => 'Cet événement a déjà été validé. Contactez votre maître de stage.'], 400);
         }
 
+        $tsYear  = $timesheet->getYear();
+        $tsDate  = $timesheet->getDateOfStart();
+        $tsId    = $timesheet->getId();
+
         try {
-            $lockGuard->assertNotLocked($user, $timesheet->getYear(), $timesheet->getDateOfStart());
+            $lockGuard->assertNotLocked($user, $tsYear, $tsDate);
         } catch (PeriodLockedException $e) {
+            if ($tsYear !== null && $tsDate !== null) {
+                $auditService->recordBlockedModificationAttempt(
+                    $user, $tsYear,
+                    (int) $tsDate->format('n'), (int) $tsDate->format('Y'),
+                    'timesheet',
+                );
+            }
             return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $this->entityManager->remove($timesheet);
         $this->entityManager->flush();
+
+        if ($tsYear !== null && $tsDate !== null && $tsId !== null) {
+            $auditService->recordTimesheetDeleted($user, $tsYear, $tsId, $tsDate);
+        }
 
         return new JsonResponse(['message' => 'ok'], 200);
     }

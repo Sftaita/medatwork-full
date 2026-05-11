@@ -8,6 +8,7 @@ use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Entity\ResidentValidation;
 use App\Exception\PeriodLockedException;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\ExportDirtyNotifier;
 use App\Services\StaffPlanner\LockGuardService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -19,6 +20,7 @@ class UpdateMonthValidation
         private readonly ValidationService $validationService,
         private readonly ExportDirtyNotifier $dirtyNotifier,
         private readonly LockGuardService $lockGuard,
+        private readonly AuditService $auditService,
     ) {
     }
 
@@ -86,10 +88,27 @@ class UpdateMonthValidation
         $this->entityManager->persist($residentValidation);
 
         // Mark export status dirty BEFORE flush so the status change is included in the same transaction.
-        $dirtyReason = $isValidated ? 'validation_changed' : 'validation_changed';
-        $this->dirtyNotifier->notifyValidationChanged($residentValidation, $dirtyReason);
+        $this->dirtyNotifier->notifyValidationChanged($residentValidation, 'validation_changed');
 
         $this->entityManager->flush();
+
+        // Audit validation event (after flush — separate transaction is acceptable)
+        $pv = $residentValidation->getPeriodValidation();
+        if ($pv !== null && $pv->getYear() !== null && $pv->getMonth() !== null && $pv->getYearNb() !== null) {
+            if ($isValidated) {
+                $this->auditService->recordValidationAccepted(
+                    $resident, $pv->getYear(), $pv->getMonth(), $pv->getYearNb(),
+                    $manager->getId() ?? 0,
+                    $data['managerComment'] ?? null,
+                );
+            } else {
+                $this->auditService->recordValidationRejected(
+                    $resident, $pv->getYear(), $pv->getMonth(), $pv->getYearNb(),
+                    $manager->getId() ?? 0,
+                    $data['residentNotification'] ?? null,
+                );
+            }
+        }
 
         return true;
     }

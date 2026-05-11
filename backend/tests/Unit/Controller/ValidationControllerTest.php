@@ -19,6 +19,7 @@ use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Services\MonthValidation\UpdateMonthValidation;
 use App\Services\Notifications\UpdateYearResidentNotifications;
+use App\Services\StaffPlanner\AuditService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Container;
@@ -105,6 +106,7 @@ final class ValidationControllerTest extends TestCase
             $this->createMock(GardeRepository::class),
             $this->createMock(AbsenceRepository::class),
             new NullLogger(),
+            $this->createMock(AuditService::class),
         ];
     }
 
@@ -254,6 +256,7 @@ final class ValidationControllerTest extends TestCase
             $gardeRepo,
             $absenceRepo,
             new NullLogger(),
+            $this->createMock(AuditService::class),
         );
 
         $this->assertSame(422, $response->getStatusCode());
@@ -287,6 +290,7 @@ final class ValidationControllerTest extends TestCase
             $this->createMock(GardeRepository::class),
             $this->createMock(AbsenceRepository::class),
             new NullLogger(),
+            $this->createMock(AuditService::class),
         );
 
         $this->assertSame(400, $response->getStatusCode());

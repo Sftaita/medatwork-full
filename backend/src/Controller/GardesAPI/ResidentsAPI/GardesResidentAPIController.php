@@ -13,6 +13,7 @@ use App\Repository\GardeRepository;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Repository\YearsRepository;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\LockGuardService;
 use App\Services\Utils\Tools;
 use DateTime;
@@ -39,7 +40,7 @@ class GardesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/residents/gardes/addRecord', name: 'addGardeRecord', methods: ['POST'])]
-    public function addRecord(Request $request, Security $security, LockGuardService $lockGuard): JsonResponse
+    public function addRecord(Request $request, Security $security, LockGuardService $lockGuard, AuditService $auditService): JsonResponse
     {
         /** @var Resident $user */
         $user = $security->getUser();
@@ -97,6 +98,11 @@ class GardesResidentAPIController extends AbstractController
         try {
             $lockGuard->assertNotLocked($user, $year, $dateOfStart);
         } catch (PeriodLockedException $e) {
+            $auditService->recordBlockedModificationAttempt(
+                $user, $year,
+                (int) $dateOfStart->format('n'), (int) $dateOfStart->format('Y'),
+                'garde',
+            );
             return new JsonResponse(['error' => $e->getMessage()], 422);
         }
 
@@ -111,6 +117,8 @@ class GardesResidentAPIController extends AbstractController
 
         $this->entityManager->persist($garde);
         $this->entityManager->flush();
+
+        $auditService->recordGardeCreated($user, $year, $garde);
 
         return new JsonResponse(['message' => 'ok'], 200);
     }
@@ -136,7 +144,7 @@ class GardesResidentAPIController extends AbstractController
     }
 
     #[Route('/api/gardes/delete/{id}', name: 'deleteGarde', methods: ['DELETE'])]
-    public function delete(int $id, Security $security, LockGuardService $lockGuard): JsonResponse
+    public function delete(int $id, Security $security, LockGuardService $lockGuard, AuditService $auditService): JsonResponse
     {
         /** @var Resident $user */
         $user  = $security->getUser();
@@ -150,14 +158,29 @@ class GardesResidentAPIController extends AbstractController
             return new JsonResponse(['message' => 'Cet événement a déjà été validé. Contactez votre maître de stage.'], 400);
         }
 
+        $gardeYear  = $garde->getYear();
+        $gardeDate  = $garde->getDateOfStart();
+        $gardeId    = $garde->getId();
+
         try {
-            $lockGuard->assertNotLocked($user, $garde->getYear(), $garde->getDateOfStart());
+            $lockGuard->assertNotLocked($user, $gardeYear, $gardeDate);
         } catch (PeriodLockedException $e) {
+            if ($gardeYear !== null && $gardeDate !== null) {
+                $auditService->recordBlockedModificationAttempt(
+                    $user, $gardeYear,
+                    (int) $gardeDate->format('n'), (int) $gardeDate->format('Y'),
+                    'garde',
+                );
+            }
             return new JsonResponse(['error' => $e->getMessage()], 422);
         }
 
         $this->entityManager->remove($garde);
         $this->entityManager->flush();
+
+        if ($gardeYear !== null && $gardeDate !== null && $gardeId !== null) {
+            $auditService->recordGardeDeleted($user, $gardeYear, $gardeId, $gardeDate);
+        }
 
         return new JsonResponse(['message' => 'ok'], 200);
     }

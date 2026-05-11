@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controller\StaffPlannerAPI\ManagersAPI;
 
+use App\Entity\AppAdmin;
+use App\Entity\HospitalAdmin;
+use App\Entity\Manager;
 use App\Repository\YearsResidentRepository;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\ExportBatchService;
 use App\Services\StaffPlanner\GenerateStaffPlannerExport;
 use App\Services\StaffPlanner\StaffPlannerMonthsService;
@@ -44,6 +48,7 @@ class StaffPlannerAPIController extends AbstractController
         ExportBatchService $batchService,
         YearsResidentRepository $yrRepo,
         LoggerInterface $logger,
+        AuditService $auditService,
     ): Response {
         $data = json_decode($request->getContent(), true);
 
@@ -94,7 +99,9 @@ class StaffPlannerAPIController extends AbstractController
             if ($year !== null) {
                 try {
                     $fileContent = (string) file_get_contents($filePath);
-                    $batchService->recordBatch($year, $fileContent, $capturedItems, $this->getUser());
+                    $batch = $batchService->recordBatch($year, $fileContent, $capturedItems, $this->getUser());
+                    [$actorType, $actorId] = $this->resolveActor();
+                    $auditService->recordExportGenerated($batch, $actorType, $actorId);
                 } catch (\Throwable $e) {
                     @unlink($filePath);
                     $logger->error('ExportBatch persistence failed — file NOT delivered', [
@@ -124,5 +131,17 @@ class StaffPlannerAPIController extends AbstractController
         $response->headers->set('Content-Type', 'text/plain');
 
         return $response;
+    }
+
+    /** @return array{string, int|null} */
+    private function resolveActor(): array
+    {
+        $user = $this->getUser();
+        return match (true) {
+            $user instanceof Manager       => ['manager',        $user->getId()],
+            $user instanceof HospitalAdmin => ['hospital_admin', $user->getId()],
+            $user instanceof AppAdmin      => ['app_admin',      $user->getId()],
+            default                        => ['system',         null],
+        };
     }
 }

@@ -16,6 +16,7 @@ use App\Security\Voter\YearAccessVoter;
 use App\Services\MonthValidation\UpdateMonthValidation;
 use App\Exception\PeriodLockedException;
 use App\Services\Notifications\UpdateYearResidentNotifications;
+use App\Services\StaffPlanner\AuditService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -52,7 +53,7 @@ class ValidationController extends AbstractController
      * @return JsonResponse A JSON response indicating the success or failure of the operation.
      */
     #[Route('/api/managers/validation/{periodId}', name: 'update_resident_validation_status', methods: ['PUT'])]
-    public function updateResidentValidationStatus(int $periodId, Request $request, UpdateMonthValidation $updateMonthValidation, UpdateYearResidentNotifications $notification, TimesheetRepository $timesheetRepository, GardeRepository $gardeRepository, AbsenceRepository $absenceRepository, LoggerInterface $logger): JsonResponse
+    public function updateResidentValidationStatus(int $periodId, Request $request, UpdateMonthValidation $updateMonthValidation, UpdateYearResidentNotifications $notification, TimesheetRepository $timesheetRepository, GardeRepository $gardeRepository, AbsenceRepository $absenceRepository, LoggerInterface $logger, AuditService $auditService): JsonResponse
     {
         try {
             $dto = ValidationListInputDTO::fromRequest($request);
@@ -128,6 +129,12 @@ class ValidationController extends AbstractController
 
 
                 } catch (PeriodLockedException $e) {
+                    if ($period->getYear() !== null && $period->getMonth() !== null && $period->getYearNb() !== null) {
+                        $auditService->recordValidationBlockedByLock(
+                            $resident, $period->getYear(), $period->getMonth(), $period->getYearNb(),
+                            $manager->getId() ?? 0,
+                        );
+                    }
                     return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
                 } catch (\Exception $e) {
                     $logger->error('Validation update failed', ['exception' => $e, 'residentId' => $item->residentId]);

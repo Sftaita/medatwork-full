@@ -10,6 +10,7 @@ use App\Entity\Resident;
 use App\Entity\ResidentValidation;
 use App\Services\MonthValidation\UpdateMonthValidation;
 use App\Services\MonthValidation\ValidationService;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\ExportDirtyNotifier;
 use App\Services\StaffPlanner\LockGuardService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,8 +34,9 @@ class UpdateMonthValidationTest extends TestCase
         $dirtyNotifier           = $this->createMock(ExportDirtyNotifier::class);
         $lockGuard               = $this->createMock(LockGuardService::class);
         // Default: assertNotLockedPeriod is void — configures it to return silently (not throw)
+        $auditService            = $this->createMock(AuditService::class);
 
-        $this->service = new UpdateMonthValidation($this->em, $this->validationService, $dirtyNotifier, $lockGuard);
+        $this->service = new UpdateMonthValidation($this->em, $this->validationService, $dirtyNotifier, $lockGuard, $auditService);
     }
 
     private function makeManager(int $id): Manager&MockObject

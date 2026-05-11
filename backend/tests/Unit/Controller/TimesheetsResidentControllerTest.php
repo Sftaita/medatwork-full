@@ -11,6 +11,7 @@ use App\Entity\Years;
 use App\Repository\TimesheetRepository;
 use App\Repository\YearsRepository;
 use App\Services\Checker\TimesheetInputValidator;
+use App\Services\StaffPlanner\AuditService;
 use App\Services\StaffPlanner\LockGuardService;
 use DateTime;
 use DateTimeZone;
@@ -44,6 +45,7 @@ final class TimesheetsResidentControllerTest extends TestCase
     private TimesheetRepository $timesheetRepo;
     private TimesheetInputValidator $validator;
     private LockGuardService $lockGuard;
+    private AuditService $auditService;
 
     protected function setUp(): void
     {
@@ -53,6 +55,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $this->timesheetRepo = $this->createMock(TimesheetRepository::class);
         $this->validator     = $this->createMock(TimesheetInputValidator::class);
         $this->lockGuard     = $this->createMock(LockGuardService::class);
+        $this->auditService  = $this->createMock(AuditService::class);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -102,7 +105,7 @@ final class TimesheetsResidentControllerTest extends TestCase
     {
         $this->security->method('getUser')->willReturn($this->makeResident());
         $request  = new Request([], [], [], [], [], [], 'not-json');
-        $response = $this->buildController()->addRecord($this->security, $request, $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard);
+        $response = $this->buildController()->addRecord($this->security, $request, $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard, $this->auditService);
         $this->assertSame(400, $response->getStatusCode());
     }
 
@@ -111,7 +114,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $this->security->method('getUser')->willReturn($this->makeResident());
         $body = $this->validBody();
         unset($body['pause']);
-        $response = $this->buildController()->addRecord($this->security, $this->post($body), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard);
+        $response = $this->buildController()->addRecord($this->security, $this->post($body), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard, $this->auditService);
         $this->assertSame(400, $response->getStatusCode());
     }
 
@@ -122,7 +125,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $this->security->method('getUser')->willReturn($this->makeResident());
         $this->yearsRepo->method('find')->willReturn(null);
 
-        $response = $this->buildController()->addRecord($this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard);
+        $response = $this->buildController()->addRecord($this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard, $this->auditService);
 
         $this->assertSame(400, $response->getStatusCode());
         $data = json_decode((string) $response->getContent(), true);
@@ -140,7 +143,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         );
         $this->validator->method('validate')->willReturn("L'intervalle chevauche un mois déjà validé.");
 
-        $response = $this->buildController()->addRecord($this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard);
+        $response = $this->buildController()->addRecord($this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard, $this->auditService);
 
         $this->assertSame(400, $response->getStatusCode());
         $data = json_decode((string) $response->getContent(), true);
@@ -161,7 +164,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(Timesheet::class));
         $this->em->expects($this->once())->method('flush');
 
-        $response = $this->buildController()->addRecord($this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard);
+        $response = $this->buildController()->addRecord($this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard, $this->auditService);
 
         $this->assertSame(200, $response->getStatusCode());
     }
@@ -172,7 +175,7 @@ final class TimesheetsResidentControllerTest extends TestCase
     {
         $this->timesheetRepo->method('findOneBy')->willReturn(null);
 
-        $response = $this->buildController()->update(99, $this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard);
+        $response = $this->buildController()->update(99, $this->security, $this->post($this->validBody()), $this->yearsRepo, $this->timesheetRepo, $this->validator, $this->lockGuard, $this->auditService);
 
         $this->assertSame(404, $response->getStatusCode());
     }
@@ -184,7 +187,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $this->security->method('getUser')->willReturn($this->makeResident());
         $this->timesheetRepo->method('findOneBy')->willReturn(null);
 
-        $response = $this->buildController()->delete(99, $this->security, $this->timesheetRepo, $this->lockGuard);
+        $response = $this->buildController()->delete(99, $this->security, $this->timesheetRepo, $this->lockGuard, $this->auditService);
 
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -197,7 +200,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $timesheet->method('getIsEditable')->willReturn(false);
         $this->timesheetRepo->method('findOneBy')->willReturn($timesheet);
 
-        $response = $this->buildController()->delete(99, $this->security, $this->timesheetRepo, $this->lockGuard);
+        $response = $this->buildController()->delete(99, $this->security, $this->timesheetRepo, $this->lockGuard, $this->auditService);
 
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -216,7 +219,7 @@ final class TimesheetsResidentControllerTest extends TestCase
         $this->em->expects($this->once())->method('remove')->with($timesheet);
         $this->em->expects($this->once())->method('flush');
 
-        $response = $this->buildController()->delete(99, $this->security, $this->timesheetRepo, $this->lockGuard);
+        $response = $this->buildController()->delete(99, $this->security, $this->timesheetRepo, $this->lockGuard, $this->auditService);
 
         $this->assertSame(200, $response->getStatusCode());
     }

@@ -78,6 +78,9 @@ const HospitalAdminCommunicationPage = lazy(
 const HospitalAdminAuditLogPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminAuditLogPage")
 );
+const HospitalAdminAuditTimelinePage = lazy(
+  () => import("./pages/HospitalAdmin/HospitalAdminAuditTimelinePage")
+);
 const HospitalAdminExportsPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminExportsPage")
 );
@@ -395,6 +398,14 @@ function App() {
                       element={
                         <Suspense fallback={<PageSkeleton />}>
                           <HospitalAdminExportsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/hospital-admin/audit-timeline"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <HospitalAdminAuditTimelinePage />
                         </Suspense>
                       }
                     />
