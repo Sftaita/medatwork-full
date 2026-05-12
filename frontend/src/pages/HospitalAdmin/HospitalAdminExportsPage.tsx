@@ -217,8 +217,8 @@ const HridMissingModal = ({
     <DialogActions>
       <Button onClick={onClose} color="inherit">Fermer</Button>
       <Button
-        variant="contained"
-        color="info"
+        variant="outlined"
+        color="primary"
         endIcon={<ArrowForwardIcon />}
         onClick={onGoToParams}
       >
