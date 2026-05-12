@@ -831,6 +831,9 @@ const HospitalAdminResidentsPage = () => {
     else { setSortCol(col); setSortDir("asc"); }
   };
 
+  // Stable sx — density changes rarely, avoid Emotion re-serialize on every row
+  const rowSx = useMemo(() => bodyRowSx(density), [density]);
+
   // ── Filter + sort ──────────────────────────────────────────────────────────
   const q = search.toLowerCase();
   const filtered = useMemo(() => {
@@ -1057,7 +1060,7 @@ const HospitalAdminResidentsPage = () => {
                   return (
                     <TableRow
                       key={row.yrId}
-                      sx={{ ...bodyRowSx(density), ...(selected.includes(row.yrId) ? { bgcolor: `${C.brand50} !important` } : {}) }}
+                      sx={{ ...rowSx, ...(selected.includes(row.yrId) ? { bgcolor: `${C.brand50} !important` } : {}) }}
                       selected={selected.includes(row.yrId)}
                       onClick={() => toggleOne(row.yrId)}
                     >

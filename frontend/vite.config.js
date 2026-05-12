@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { visualizer } from "rollup-plugin-visualizer";
 import { readFileSync } from "fs";
 import path from "path";
 
@@ -126,6 +127,15 @@ export default defineConfig({
   plugins: [
     muiBoxPatchPlugin(),
     react(),
+    // Visualizer — génère stats.html pour analyser le bundle réel
+    // Désactiver en CI : process.env.ANALYZE !== "true"
+    process.env.ANALYZE === "true" && visualizer({
+      filename: "bundle-stats.html",
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
+      template: "treemap",
+    }),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "logo192.png", "logo512.png", "robots.txt"],
@@ -184,6 +194,7 @@ export default defineConfig({
   build: {
     outDir: "build",
     sourcemap: false,
+    target: "es2020",
     // MUI is inherently > 500 KB — it's in a long-term vendor chunk so this is acceptable
     chunkSizeWarningLimit: 700,
     rollupOptions: {

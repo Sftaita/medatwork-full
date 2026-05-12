@@ -497,6 +497,9 @@ const HospitalAdminExportsPage = () => {
     }
   };
 
+  // Stable sx object — density changes rarely, avoid Emotion re-serialize on every row
+  const rowSx = useMemo(() => bodyRowSx(density), [density]);
+
   // ── Derived ───────────────────────────────────────────────────────────────────
 
   const filteredGroups: StaffPlannerMonthGroup[] = monthGroups
@@ -801,7 +804,7 @@ const HospitalAdminExportsPage = () => {
                                         onClick={() => toggleItem(key)}
                                         sx={{
                                           cursor: "pointer",
-                                          ...bodyRowSx(density),
+                                          ...rowSx,
                                           ...(selected.has(key) ? { bgcolor: `${C.brand50} !important` } : {}),
                                         }}
                                       >
@@ -1011,7 +1014,7 @@ const HospitalAdminExportsPage = () => {
                           const name = [r.firstname, r.lastname].filter(Boolean).join(" ") || "—";
                           const isDownloading = downloadingId === r.id;
                           return (
-                            <TableRow key={r.id} hover sx={bodyRowSx(density)}>
+                            <TableRow key={r.id} hover sx={rowSx}>
                               <TableCell>
                                 <Box sx={T.person}>
                                   <Avatar alt={name} sx={T.avatar}>
