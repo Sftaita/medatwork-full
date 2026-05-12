@@ -35,7 +35,8 @@ SSH="ssh -p $SSH_PORT $SSH_HOST"
 REMOTE_APP="/home/u929427688/domains/medatwork.be/app"
 REMOTE_PUBLIC="/home/u929427688/domains/medatwork.be/public_html"
 FRONTEND_DIR="$ROOT_DIR/frontend"
-VERSION=$(grep -o '"version": "[^"]*"' "$FRONTEND_DIR/package.json" | head -1 | grep -o '[0-9.]*')
+# Source de vérité : VersionController.php (synchronisé avec Footer.tsx)
+VERSION=$(grep -o "'[0-9][0-9.]*'" "$ROOT_DIR/backend/src/Controller/VersionController.php" | tr -d "'")
 
 echo ""
 echo "╔══════════════════════════════════════════════╗"

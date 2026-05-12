@@ -1,6 +1,6 @@
 {
   "name": "med-at-work",
-  "version": "0.1.0",
+  "version": "3.5.0",
   "private": true,
   "dependencies": {
     "@date-io/dayjs": "^3.2.0",
