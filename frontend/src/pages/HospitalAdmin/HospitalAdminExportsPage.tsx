@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
+import { useTableDensity } from "../../hooks/useTableDensity";
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -9,11 +10,9 @@ import Alert from "@mui/material/Alert";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Chip from "@mui/material/Chip";
-import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Checkbox from "@mui/material/Checkbox";
@@ -44,6 +43,8 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 
+import { T, C, bodyRowSx } from "../../styles/tableStyles";
+import { DensityToggleButton } from "../../components/DensityToggleButton";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
 import exportsRhApi, {
   type LockResult,
@@ -138,6 +139,7 @@ const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }
 const HospitalAdminExportsPage = () => {
   useAxiosPrivate();
   const qc = useQueryClient();
+  const { density, cycleDensity } = useTableDensity();
 
   const [tab, setTab] = useState(0);
   const [selectedYearId, setSelectedYearId] = useState<number | "">("");
@@ -434,19 +436,17 @@ const HospitalAdminExportsPage = () => {
     <Box p={3} maxWidth={1200} mx="auto">
 
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
+      <Box sx={{ ...T.pageHead, mb: 3 }}>
         <Box>
           <Box display="flex" alignItems="center" gap={0.5}>
-            <Typography variant="h5" fontWeight={700}>Exports RH</Typography>
+            <Typography sx={T.pageTitle}>Exports RH</Typography>
             <Tooltip title="Guide d'utilisation" arrow>
-              <IconButton onClick={() => setTutorialOpen(true)} size="small" sx={{ color: "text.secondary" }}>
+              <IconButton onClick={() => setTutorialOpen(true)} size="small" sx={{ color: C.ink3 }}>
                 <HelpOutlineIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            Staff Planner et exports Excel annuels par MACCS
-          </Typography>
+          <Typography sx={T.pageSub}>Staff Planner et exports Excel annuels par MACCS</Typography>
         </Box>
 
         <Box sx={{ minWidth: 380 }}>
@@ -523,20 +523,20 @@ const HospitalAdminExportsPage = () => {
           {/* ── Tab 0 — Staff Planner ─────────────────────────────────────── */}
           {tab === 0 && (
             <>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={2}>
-                <Typography variant="body2" color="text.secondary">
+              <Box sx={{ ...T.toolbar, mb: 2 }}>
+                <Typography sx={{ ...T.pageSub, flex: 1 }}>
                   Sélectionnez les validations à exporter. Les lignes non traitées sont présélectionnées.
                 </Typography>
                 <TextField
-                  size="small"
                   placeholder="Rechercher un MACCS ou mois…"
                   value={searchSp}
                   onChange={(e) => setSearchSp(e.target.value)}
-                  sx={{ width: 240 }}
+                  sx={T.search}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
                   }}
                 />
+                <DensityToggleButton density={density} onCycle={cycleDensity} />
               </Box>
 
               {monthsLoading ? (
@@ -660,47 +660,35 @@ const HospitalAdminExportsPage = () => {
                             </AccordionDetails>
                           ) : (
                             <AccordionDetails sx={{ p: 0 }}>
-                              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 0, borderLeft: 0, borderRight: 0, borderBottom: 0 }}>
-                                <Table size="small">
+                              <Box sx={T.wrap}>
+                                <Table sx={T.table}>
                                   <TableHead>
-                                    <TableRow sx={{ bgcolor: "grey.50" }}>
+                                    <TableRow sx={T.headRow}>
                                       <TableCell padding="checkbox" />
-                                      <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MACCS</Typography></TableCell>
-                                      <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">EMAIL</Typography></TableCell>
+                                      <TableCell>MACCS</TableCell>
+                                      <TableCell>EMAIL</TableCell>
                                       <TableCell>
-                                        <Tooltip title="V = horaire validé par le maître de stage (par résident). Informatif — ne bloque pas l'export." arrow>
-                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
-                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
-                                            VALIDÉ MDS
-                                          </Typography>
+                                        <Tooltip title="V = horaire validé par le maître de stage. Informatif — ne bloque pas l'export." arrow>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>VALIDÉ MDS</span>
                                         </Tooltip>
                                       </TableCell>
                                       <TableCell>
                                         <Tooltip title="⚠ Modifié depuis export : les données ont changé depuis le dernier export Staff Planner." arrow>
-                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
-                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
-                                            MODIF.
-                                          </Typography>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>MODIF.</span>
                                         </Tooltip>
                                       </TableCell>
-                                      <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
+                                      <TableCell>STATUT</TableCell>
                                       <TableCell>
                                         <Tooltip title="Nombre d'exports Staff Planner incluant ce MACCS pour ce mois" arrow>
-                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
-                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
-                                            EXPORTS
-                                          </Typography>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>EXPORTS</span>
                                         </Tooltip>
                                       </TableCell>
                                       <TableCell>
                                         <Tooltip title="Clôture RH officielle — bloque toute modification" arrow>
-                                          <Typography variant="caption" fontWeight={700} color="text.secondary"
-                                            sx={{ cursor: "help", textDecoration: "underline dotted" }}>
-                                            CLÔTURE
-                                          </Typography>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>CLÔTURE</span>
                                         </Tooltip>
                                       </TableCell>
-                                      <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">TRAITÉ</Typography></TableCell>
+                                      <TableCell>TRAITÉ</TableCell>
                                     </TableRow>
                                   </TableHead>
                                   <TableBody>
@@ -710,9 +698,12 @@ const HospitalAdminExportsPage = () => {
                                       <TableRow
                                         key={key}
                                         hover
-                                        selected={selected.has(key)}
-                                        sx={{ cursor: "pointer" }}
                                         onClick={() => toggleItem(key)}
+                                        sx={{
+                                          cursor: "pointer",
+                                          ...bodyRowSx(density),
+                                          ...(selected.has(key) ? { bgcolor: `${C.brand50} !important` } : {}),
+                                        }}
                                       >
                                         <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                                           <Checkbox
@@ -722,31 +713,32 @@ const HospitalAdminExportsPage = () => {
                                           />
                                         </TableCell>
                                         <TableCell>
-                                          <Box display="flex" alignItems="center" gap={1}>
+                                          <Box sx={T.person}>
                                             <Avatar
                                               src={item.residentAvatarUrl ?? undefined}
-                                              sx={{ width: 28, height: 28 }}
+                                              sx={T.avatar}
                                             >
                                               {!item.residentAvatarUrl && <PersonIcon sx={{ fontSize: 16 }} />}
                                             </Avatar>
-                                            <Typography variant="body2" fontWeight={600}>
-                                              {fullName(item)}
-                                            </Typography>
+                                            <Box>
+                                              <Box sx={T.name}>{fullName(item)}</Box>
+                                            </Box>
                                           </Box>
                                         </TableCell>
                                         <TableCell>
-                                          <Typography variant="body2" color="text.secondary">
-                                            {item.residentEmail ?? "—"}
-                                          </Typography>
+                                          <Box sx={T.sub}>{item.residentEmail ?? "—"}</Box>
                                         </TableCell>
                                         <TableCell>
-                                          <Typography
-                                            variant="body2"
-                                            fontWeight={item.validatedByMds ? 700 : 400}
-                                            color={item.validatedByMds ? "success.main" : "text.secondary"}
+                                          <Box
+                                            component="span"
+                                            sx={{
+                                              fontWeight: item.validatedByMds ? 700 : 400,
+                                              color: item.validatedByMds ? C.ok : C.ink3,
+                                              fontSize: 13,
+                                            }}
                                           >
                                             {item.validatedByMds ? "V" : "—"}
-                                          </Typography>
+                                          </Box>
                                         </TableCell>
                                         <TableCell>
                                           {item.dirtySinceExport ? (
@@ -860,7 +852,7 @@ const HospitalAdminExportsPage = () => {
                                     })}
                                   </TableBody>
                                 </Table>
-                              </TableContainer>
+                              </Box>
                             </AccordionDetails>
                           )}
                         </Accordion>
@@ -876,20 +868,20 @@ const HospitalAdminExportsPage = () => {
           {/* ── Tab 1 — Excel ─────────────────────────────────────────────── */}
           {tab === 1 && (
             <>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={2}>
-                <Typography variant="body2" color="text.secondary">
+              <Box sx={{ ...T.toolbar, mb: 2 }}>
+                <Typography sx={{ ...T.pageSub, flex: 1 }}>
                   Téléchargez le fichier Excel annuel pour chaque MACCS.
                 </Typography>
                 <TextField
-                  size="small"
                   placeholder="Rechercher un MACCS…"
                   value={searchExcel}
                   onChange={(e) => setSearchExcel(e.target.value)}
-                  sx={{ width: 220 }}
+                  sx={T.search}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
                   }}
                 />
+                <DensityToggleButton density={density} onCycle={cycleDensity} />
               </Box>
 
               {residentsLoading ? (
@@ -903,71 +895,71 @@ const HospitalAdminExportsPage = () => {
                   {residents.length === 0 ? "Aucun MACCS pour cette année." : "Aucun résultat."}
                 </Alert>
               ) : (
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: "grey.50" }}>
-                        <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">NOM</Typography></TableCell>
-                        <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">EMAIL</Typography></TableCell>
-                        <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
-                        <TableCell align="right"><Typography variant="caption" fontWeight={700} color="text.secondary">EXPORT</Typography></TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {filteredResidents.map((r) => {
-                        const name = [r.firstname, r.lastname].filter(Boolean).join(" ") || "—";
-                        const isDownloading = downloadingId === r.id;
-                        return (
-                          <TableRow key={r.id} hover>
-                            <TableCell>
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <Avatar alt={name} sx={{ width: 40, height: 40 }}>
-                                  <PersonIcon fontSize="small" />
-                                </Avatar>
-                                <Typography variant="body2" fontWeight={600}>{name}</Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" color="text.secondary">{r.email ?? "—"}</Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label="Actif"
-                                size="small"
-                                color="success"
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              <Tooltip title="Télécharger le fichier Excel annuel" arrow>
-                                <span>
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    disabled={isDownloading}
-                                    onClick={() => handleExcelDownload(r)}
-                                    sx={{ position: "relative" }}
-                                  >
-                                    <span style={{ visibility: isDownloading ? "hidden" : "visible" }}>
-                                      Excel annuel
-                                    </span>
-                                    {isDownloading && (
-                                      <CircularProgress
-                                        size={14}
-                                        color="inherit"
-                                        sx={{ position: "absolute" }}
-                                      />
-                                    )}
-                                  </Button>
-                                </span>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <Box sx={T.card}>
+                  <Box sx={T.wrap}>
+                    <Table sx={T.table}>
+                      <TableHead>
+                        <TableRow sx={T.headRow}>
+                          <TableCell>NOM</TableCell>
+                          <TableCell>EMAIL</TableCell>
+                          <TableCell>STATUT</TableCell>
+                          <TableCell align="right">EXPORT</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {filteredResidents.map((r) => {
+                          const name = [r.firstname, r.lastname].filter(Boolean).join(" ") || "—";
+                          const isDownloading = downloadingId === r.id;
+                          return (
+                            <TableRow key={r.id} hover sx={bodyRowSx(density)}>
+                              <TableCell>
+                                <Box sx={T.person}>
+                                  <Avatar alt={name} sx={T.avatar}>
+                                    <PersonIcon fontSize="small" />
+                                  </Avatar>
+                                  <Box>
+                                    <Box sx={T.name}>{name}</Box>
+                                  </Box>
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={T.sub}>{r.email ?? "—"}</Box>
+                              </TableCell>
+                              <TableCell>
+                                <Chip label="Actif" size="small" color="success" variant="outlined" />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Tooltip title="Télécharger le fichier Excel annuel" arrow>
+                                  <span>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      disabled={isDownloading}
+                                      onClick={() => handleExcelDownload(r)}
+                                      sx={{ position: "relative" }}
+                                    >
+                                      <span style={{ visibility: isDownloading ? "hidden" : "visible" }}>
+                                        Excel annuel
+                                      </span>
+                                      {isDownloading && (
+                                        <CircularProgress size={14} color="inherit" sx={{ position: "absolute" }} />
+                                      )}
+                                    </Button>
+                                  </span>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                  <Box sx={T.footer}>
+                    <Typography variant="caption" sx={{ color: C.ink3 }}>
+                      {filteredResidents.length} MACCS
+                    </Typography>
+                  </Box>
+                </Box>
               )}
             </>
           )}
