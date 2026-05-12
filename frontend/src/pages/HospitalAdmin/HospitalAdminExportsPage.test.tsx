@@ -366,26 +366,43 @@ describe("HospitalAdminExportsPage", () => {
     });
   });
 
-  // ── [NEW] Erreur génération : parse blob 400 ──────────────────────────────────
+  // ── [NEW] Erreur génération : parse blob 400 — modal HRID ───────────────────
 
-  it("affiche 'Ressources HRID manquantes' quand le serveur retourne errors[]", async () => {
+  it("affiche le modal HRID quand le serveur retourne errors[]", async () => {
     const errorBlob = new Blob(
-      [JSON.stringify({ errors: ["HRID manquant pour résident 45"] })],
+      [JSON.stringify({ errors: [{ firstname: "Alice", lastname: "Martin" }] })],
       { type: "application/json" },
     );
     const axiosError = Object.assign(new Error("400"), { response: { data: errorBlob } });
     (exportsRhApi.generateStaffPlanner as Mock).mockRejectedValueOnce(axiosError);
 
-    const { toast } = await import("react-toastify");
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
+
+    // Modal avec le titre, le résumé et le bouton d'action
+    await waitFor(() => screen.getByText("Ressources Staff Planner manquantes"));
+    expect(screen.getAllByText("Alice Martin").length).toBeGreaterThan(0);
+    expect(screen.getByText("MACCS concernés (1)")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Aller aux paramètres/ })).toBeDefined();
+  });
+
+  it("ferme le modal HRID au clic sur Fermer", async () => {
+    const errorBlob = new Blob(
+      [JSON.stringify({ errors: [{ firstname: "Bob", lastname: "Dupont" }] })],
+      { type: "application/json" },
+    );
+    const axiosError = Object.assign(new Error("400"), { response: { data: errorBlob } });
+    (exportsRhApi.generateStaffPlanner as Mock).mockRejectedValueOnce(axiosError);
 
     renderPage();
     await waitFor(() => screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
     fireEvent.click(screen.getByRole("button", { name: /Générer Staff Planner \(1\)/ }));
 
+    await waitFor(() => screen.getByText("Ressources Staff Planner manquantes"));
+    fireEvent.click(screen.getByRole("button", { name: /Fermer/ }));
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith(
-        "Ressources HRID manquantes pour certains résidents.",
-      ),
+      expect(screen.queryByText("Ressources Staff Planner manquantes")).toBeNull()
     );
   });
 

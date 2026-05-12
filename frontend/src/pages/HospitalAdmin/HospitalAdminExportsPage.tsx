@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import { useTableDensity } from "../../hooks/useTableDensity";
@@ -42,6 +43,8 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 
 import { T, C, bodyRowSx } from "../../styles/tableStyles";
 import { DensityToggleButton } from "../../components/DensityToggleButton";
@@ -134,12 +137,106 @@ const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }
   </Dialog>
 );
 
+// ── HRID Missing Modal ────────────────────────────────────────────────────────
+
+interface HridResident { firstname: string | null; lastname: string | null; }
+
+const HridMissingModal = ({
+  residents,
+  onClose,
+  onGoToParams,
+}: {
+  residents: HridResident[];
+  onClose: () => void;
+  onGoToParams: () => void;
+}) => (
+  <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+    <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1 }}>
+      <ErrorOutlineIcon color="warning" />
+      Ressources Staff Planner manquantes
+    </DialogTitle>
+    <DialogContent dividers>
+      <Stack spacing={2.5}>
+        <Typography variant="body2" color="text.secondary">
+          Le fichier Staff Planner nécessite deux identifiants par MACCS, définis dans votre
+          logiciel Staff Planner :
+        </Typography>
+        <Stack spacing={0.75} pl={1}>
+          <Typography variant="body2">
+            <strong>Matricule (WorkerHRID)</strong> — identifiant du travailleur dans Staff Planner
+          </Typography>
+          <Typography variant="body2">
+            <strong>Code service (SectionHRID)</strong> — identifiant du service ou de l'unité
+          </Typography>
+        </Stack>
+
+        <Divider />
+
+        <Box>
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+            MACCS concernés ({residents.length})
+          </Typography>
+          <Stack spacing={0.5}>
+            {residents.map((r, i) => (
+              <Box key={i} display="flex" alignItems="center" gap={1}>
+                <Box
+                  sx={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    bgcolor: "warning.main", flexShrink: 0,
+                  }}
+                />
+                <Typography variant="body2">
+                  {[r.firstname, r.lastname].filter(Boolean).join(" ") || "—"}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+
+        <Divider />
+
+        <Box>
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+            Comment corriger
+          </Typography>
+          <Stack spacing={0.75} pl={1}>
+            {[
+              "Ouvrez la page de l'année académique concernée",
+              'Cliquez sur l\'onglet "Paramètres"',
+              'Dans la section "Staff Planner", renseignez le Matricule et le Code service pour chaque MACCS listé ci-dessus',
+              "Relancez l'export",
+            ].map((step, i) => (
+              <Typography key={i} variant="body2" color="text.secondary">
+                <strong style={{ color: "#1a1620" }}>{i + 1}.</strong> {step}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+      </Stack>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} color="inherit">Fermer</Button>
+      <Button
+        variant="contained"
+        color="warning"
+        endIcon={<ArrowForwardIcon />}
+        onClick={onGoToParams}
+      >
+        Aller aux paramètres
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const HospitalAdminExportsPage = () => {
   useAxiosPrivate();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { density, cycleDensity } = useTableDensity();
+
+  const [hridErrors, setHridErrors] = useState<HridResident[] | null>(null);
 
   const [tab, setTab] = useState(0);
   const [selectedYearId, setSelectedYearId] = useState<number | "">("");
@@ -366,18 +463,21 @@ const HospitalAdminExportsPage = () => {
       toast.success("Fichier Staff Planner généré.");
       qc.invalidateQueries({ queryKey: ["ha-exports-months", selectedYearId] });
     } catch (err: any) {
-      let msg = "Erreur lors de la génération.";
       try {
         // responseType:'blob' → response.data est un Blob même pour les erreurs
         const blob: Blob | undefined = err?.response?.data;
         if (blob instanceof Blob) {
           const text = await blob.text();
           const json = JSON.parse(text);
-          if (json?.errors?.length) msg = "Ressources HRID manquantes pour certains résidents.";
-          else if (json?.message)   msg = json.message;
+          if (json?.errors?.length) {
+            // HRID manquants → modal guidé plutôt qu'un toast opaque
+            setHridErrors(json.errors as HridResident[]);
+            return;
+          }
+          if (json?.message) { toast.error(json.message); return; }
         }
       } catch {}
-      toast.error(msg);
+      toast.error("Erreur lors de la génération.");
     } finally {
       setGenerating(false);
     }
@@ -967,6 +1067,20 @@ const HospitalAdminExportsPage = () => {
       )}
 
       <TutorialModal open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
+
+      {/* ── Modal HRID manquants ──────────────────────────────────────── */}
+      {hridErrors !== null && (
+        <HridMissingModal
+          residents={hridErrors}
+          onClose={() => setHridErrors(null)}
+          onGoToParams={() => {
+            setHridErrors(null);
+            navigate("/manager/year-detail", {
+              state: { yearId: selectedYearId, defaultTab: "setup" },
+            });
+          }}
+        />
+      )}
 
       {/* ── Lock / Unlock Confirmation Dialog ──────────────────────────── */}
       <Dialog
