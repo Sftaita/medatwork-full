@@ -19,11 +19,21 @@ Le script fait dans l'ordre :
 | Étape | Action | Pourquoi |
 |-------|--------|----------|
 | 1 | Vérifie que le working tree est propre | Évite de déployer sans commiter |
-| 2 | `git push origin master` | Met GitHub à jour |
-| 3 | `npm run build` en local | Produit le vrai build à partir du code actuel |
-| 4 | `scp build/* → public_html/` | **Seul moyen fiable** de mettre le frontend à jour |
-| 5 | `git pull` + `php bin/console cache:clear` sur le serveur | Met le backend à jour |
-| 6 | Vérifie que la version dans le bundle live correspond | Confirme que le déploiement a réussi |
+| 2 | **`doctrine:migrations:up-to-date` en local** | **Bloque si des migrations ne sont pas appliquées** |
+| 3 | `git push origin master` | Met GitHub à jour |
+| 4 | `npm run build` en local | Produit le vrai build à partir du code actuel |
+| 5 | `scp build/* → public_html/` | **Seul moyen fiable** de mettre le frontend à jour |
+| 6 | `git pull` sur le serveur | Récupère le nouveau code |
+| 7 | **`doctrine:migrations:migrate` sur le serveur** | **Applique les nouvelles migrations avant le cache** |
+| 8 | `php bin/console cache:clear` sur le serveur | Active le nouveau code |
+| 9 | Vérifie que la version dans le bundle live correspond | Confirme que le déploiement a réussi |
+
+### Pourquoi les étapes 2 et 7 sont critiques
+
+Les tests unitaires **mockent** la base de données — ils ne font jamais de vraie requête SQL. Une migration en attente provoque un **500 silencieux en production** que les tests ne détectent pas.
+
+- **Étape 2** bloque le déploiement localement si des colonnes manquent en base. C'est la détection précoce.
+- **Étape 7** applique les migrations sur le serveur *avant* le `cache:clear`. L'ordre est important : si on vide le cache avant d'appliquer les migrations, Doctrine tente d'accéder aux nouvelles colonnes avant qu'elles existent → 500 immédiat.
 
 ---
 
@@ -35,18 +45,33 @@ git add .
 git commit -m "..."
 git push origin master
 
-# 2. Builder le frontend en local
+# 2. Vérifier les migrations locales
+cd backend
+php bin/console doctrine:migrations:up-to-date
+# Si des migrations sont en attente → les appliquer d'abord :
+php bin/console doctrine:migrations:migrate
+cd ..
+
+# 3. Builder le frontend en local
 cd frontend
 npm run build
 
-# 3. Transférer le build sur le serveur
+# 4. Transférer le build sur le serveur
 scp -P 65002 -r build/* u929427688@147.79.98.101:/home/u929427688/domains/medatwork.be/public_html/
 
-# 4. Sur le serveur : pull backend + cache
+# 5. Sur le serveur : pull backend
 ssh -p 65002 u929427688@147.79.98.101 \
-  "cd /home/u929427688/domains/medatwork.be/app && git pull origin master && cd backend && php bin/console cache:clear --env=prod"
+  "cd /home/u929427688/domains/medatwork.be/app && git pull origin master"
 
-# 5. Vérifier la version
+# 6. Appliquer les migrations en production (AVANT le cache:clear)
+ssh -p 65002 u929427688@147.79.98.101 \
+  "cd /home/u929427688/domains/medatwork.be/app/backend && php bin/console doctrine:migrations:migrate --no-interaction --env=prod"
+
+# 7. Vider le cache Symfony
+ssh -p 65002 u929427688@147.79.98.101 \
+  "cd /home/u929427688/domains/medatwork.be/app/backend && php bin/console cache:clear --env=prod"
+
+# 8. Vérifier la version
 ssh -p 65002 u929427688@147.79.98.101 \
   "grep -o 'version [0-9.]*' /home/u929427688/domains/medatwork.be/public_html/assets/index-*.js | head -1"
 ```
@@ -56,10 +81,14 @@ ssh -p 65002 u929427688@147.79.98.101 \
 ## Checklist avant déploiement
 
 - [ ] `git status` propre (aucun fichier non commité)
-- [ ] Tests passent : `npx vitest run`
+- [ ] **Migrations locales à jour** : `php bin/console doctrine:migrations:up-to-date`
+- [ ] Tests passent : `php bin/phpunit tests/Unit/` et `npx vitest run`
 - [ ] TypeScript OK : `npx tsc --noEmit`
 - [ ] Version à jour dans `Footer.tsx` **et** `VersionController.php`
 - [ ] Pas de `dd()`, `console.log` de debug, ou secret hardcodé
+
+> ⚠️ **Les tests unitaires ne détectent pas les migrations en attente** (ils mockent la BDD).  
+> La commande `doctrine:migrations:up-to-date` est la seule vérification fiable.
 
 ---
 
