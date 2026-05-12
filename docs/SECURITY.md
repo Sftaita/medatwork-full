@@ -164,12 +164,7 @@ Si l'email d'activation n'arrivait pas (SMTP failure, spam), l'utilisateur étai
 
 ### [m1] Code de Débogage dans les Contrôleurs — ✅ CORRIGÉ
 
-Tous les `dd()`, `die()`, `exit()` dans les contrôleurs remplacés par des `JsonResponse` appropriées.
-
-**`dd()` restants dans les services (à corriger) :**
-- `Services/ManagerMonthValidation/GetMonthStatus.php`
-- `Services/StaffPlanner/CheckResidentResources.php`
-- `Services/YearsManagement/UpdateYear.php`
+Tous les `dd()`, `die()`, `exit()` dans les contrôleurs et services remplacés par des `JsonResponse` appropriées ou supprimés. Aucun `dd()` ne subsiste dans le code de production.
 
 ---
 
@@ -201,15 +196,14 @@ Tous les `dd()`, `die()`, `exit()` dans les contrôleurs remplacés par des `Jso
 
 ---
 
-### [m3] Rate Limiting — ⚠️ PARTIELLEMENT IMPLÉMENTÉ
+### [m3] Rate Limiting — ✅ CORRIGÉ (complet)
 
 Actif sur :
+- Login (`login_throttling` dans `security.yaml` — 5 tentatives / minute)
+- Refresh token (`RefreshTokenRateLimiterListener` — 20 refreshes / 5 minutes)
 - Inscription manager (`registerLimiter`)
 - Reset de mot de passe (`passwordResetLimiter`)
-
-Manquant sur :
-- Login (`/api/login_check`)
-- Refresh token (`/api/token/refresh`)
+- Mutations manager (`manager_mutation` — 60 req/h/IP sur `addManager`, `updateYear`, `updateRights`)
 
 ---
 
@@ -290,4 +284,4 @@ L'algorithme par défaut (`auto`) utilise `bcrypt` ou `argon2id` selon la dispon
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-04-03*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-12*

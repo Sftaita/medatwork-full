@@ -366,6 +366,8 @@ const MyPage = () => {
 | `HospitalAdminResidentsPage` | `/hospital-admin/residents` | Densité, filtre Statut + Année, sélection multi |
 | `HospitalAdminYearResidentsPage` | `/hospital-admin/years/:id/residents` | Densité |
 | `HospitalAdminAuditLogPage` | `/hospital-admin/audit-log` | Densité, filtre Action + dates |
+| `HospitalAdminExportsPage` | `/hospital-admin/exports` | Densité, `T.table`/`T.headRow`/`bodyRowSx` dans accordéons MACCS + onglet Excel |
+| `HospitalAdminAuditTimelinePage` | `/hospital-admin/audit-timeline` | `T.card`/`T.wrap`/`T.table`, chips couleurs par event type, filtres actifs |
 
 ---
 

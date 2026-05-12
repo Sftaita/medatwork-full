@@ -9,7 +9,7 @@ Medatwork est une application **SPA + API REST** avec une séparation stricte Fr
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        NAVIGATEUR                           │
-│                    React 17 (SPA)                           │
+│                    React 18 (SPA)                           │
 │              https://www.medatwork.be                       │
 └───────────────────────────┬─────────────────────────────────┘
                             │ HTTPS + JWT Bearer
@@ -58,12 +58,12 @@ backend/
 │   ├── Controller/             # 33+ contrôleurs REST
 │   ├── Doctrine/               # Extensions Doctrine (CurrentUserExtension)
 │   ├── DTO/                    # 22 DTOs d'entrée typés (fromRequest())
-│   ├── Entity/                 # 25 entités Doctrine
+│   ├── Entity/                 # 30+ entités Doctrine
 │   ├── Enum/                   # Enums PHP 8.1 (GardeType, AbsenceType, Sexe, ManagerStatus, …)
 │   ├── Events/                 # Event subscribers (API Platform hooks)
 │   ├── EventListener/          # Listeners Symfony (ExceptionListener)
 │   ├── Exceptions/             # Exceptions métier
-│   ├── Repository/             # 25 repositories
+│   ├── Repository/             # 30+ repositories
 │   ├── Security/               # Voters d'accès (YearAccessVoter, etc.)
 │   ├── Services/               # Logique métier
 │   └── Util/                   # Utilitaires purs (FrenchMonths, etc.)
@@ -289,7 +289,7 @@ Ne jamais passer directement des entités avec relations bidirectionnelles à `$
 
 ---
 
-## Frontend — React 17
+## Frontend — React 18
 
 ### Structure des Dossiers
 

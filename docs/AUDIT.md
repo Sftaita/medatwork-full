@@ -1,9 +1,9 @@
 # Audit Initial — Medatwork
 
 **Date :** 2026-03-20
-**Dernière mise à jour :** 2026-04-20 (session 19)
-**Environnement :** Windows 11, WAMP + Docker, MySQL, Symfony 7.4 LTS, React 18
-**Statut :** Professionnalisation en cours — Droit canCreateYear (hospital-admin → manager) + correctif route /manager/realtime
+**Dernière mise à jour :** 2026-05-12
+**Environnement :** Windows 11, WAMP, MySQL, Symfony 7.4 LTS, React 18.3.1
+**Statut :** Professionnalisation avancée — Phases 1V2→6 complètes (Staff Planner enterprise, Lock RH, Audit Timeline)
 
 ---
 
@@ -11,18 +11,18 @@
 
 | Métrique | Valeur (audit initial) | Valeur (2026-03-22) | Valeur (2026-03-28) | Valeur (2026-03-31) | Valeur (2026-04-02) | Valeur (2026-04-03) | Valeur (2026-04-03 s2) | Valeur (2026-04-03 s4) | Valeur (2026-04-03 s5) | Valeur (2026-04-04 s7) | Valeur (2026-04-04 s8) | Valeur (2026-04-14 s14) | Valeur (2026-04-15 s17) | Valeur (2026-04-20 s18) | Valeur (2026-04-20 s19) |
 |----------|------------------------|---------------------|---------------------|---------------------|---------------------|---------------------|------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
-| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 | **~171** | **~173** | **~174** |
-| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 | ~265 | **~268** | **~269** |
-| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 | 26 | 26 | 26 |
-| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 | 7 | 7 | 7 |
-| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ | 35+ | 35+ | 35+ |
-| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ | 19+ | 19+ | 19+ |
-| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
-| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 | 58 | 58 | **59** |
-| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 | **1 027 (+6)** | **1 043 (+16)** | **1 235 (+11)** |
-| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | **19 (+9)** | 19 | **58** |
-| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 | **243 (+8)** | **267 (+24)** | 267 |
-| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 | 92/100 | 92/100 | 92/100 |
+| Fichiers PHP backend | ~132 | ~132 | ~135 | ~139 | **~160** | ~162 | ~162 | ~163 | **~165** | ~165 | ~165 | **~170** | ~170 | **~171** | **~173** | **~174** | **~200+** |
+| Fichiers JS/TSX frontend | ~248 | ~248 | ~248 | ~249 | ~251 | **~255** | ~255 | **~257** | **~260** | ~260 | **~263** | **~265** | ~265 | ~265 | **~268** | **~269** | **~285+** |
+| Entités Doctrine | 21 | 21 | 21 | 21 | **25** | 25 | 25 | 25 | 25 | 25 | 25 | **26** | 26 | 26 | 26 | 26 | **29+** |
+| Enums PHP | 1 | 1 | 3 | 3 | **6** | 6 | 6 | 6 | 6 | 6 | 6 | **7** | 7 | 7 | 7 | 7 | 7 |
+| Contrôleurs | 30+ | 30+ | 30+ | 30+ | **33+** | **34+** | 34+ | 34+ | **35+** | 35+ | 35+ | 35+ | 35+ | 35+ | 35+ | 35+ | **42+** |
+| Services | 15+ | 16+ | 16+ | 17+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | 18+ | **19+** | 19+ | 19+ | 19+ | 19+ | **28+** |
+| DTOs | 0 | 19 | 19 | 19 | **22** | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 | 22 |
+| Migrations | 50 | 50 | 50 | 52 | **54** | 54 | **55** | 55 | 55 | 55 | **57** | **58** | 58 | 58 | 58 | **59** | **73** |
+| Tests unitaires backend | 0 | **364 (703 ass.)** | **589 (1 153 ass.)** | **690 (1 405 ass.)** | **980 (1 904 ass.)** | 980 | 980 | 980 | **1 016 (+36)** | **1 021 (+5)** | 1 021 | 1 021 | 1 021 | **1 027 (+6)** | **1 043 (+16)** | **1 235 (+11)** | **1 456 (2 790 ass.)** |
+| Tests intégration API | 0 | 0 | 0 | **10 (19 ass.)** | **10 (19 ass.)** | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | **19 (+9)** | 19 | **58** | 58 |
+| Tests unitaires frontend | 0 | ~60 | **105 (Vitest)** | **114 (Vitest)** | **136 (Vitest)** | **141 (Vitest)** | **235 (Vitest)** | 235 | 235 | 235 | 235 | 235 | 235 | **243 (+8)** | **267 (+24)** | 267 | **738** |
+| Score PWA Lighthouse (estimé) | — | — | — | — | — | — | — | — | — | — | **92/100** | 92/100 | 92/100 | 92/100 | 92/100 | 92/100 | 92/100 |
 
 ### Tableau des Risques (mis à jour)
 
@@ -50,7 +50,7 @@
 - **Migrations:** Doctrine Migrations 3.x
 
 ### Frontend
-- **Framework:** React 17.0.2
+- **Framework:** React 18.3.1
 - **Routage:** React Router v6.0.2
 - **State:** React Query (TanStack v5) + Zustand + Context API
 - **HTTP:** Axios (intercepteurs JWT)
@@ -69,14 +69,15 @@
 - Services métier bien organisés avec séparation des responsabilités
 - Hooks React modernes (pas de class components)
 - Authentification JWT avec refresh tokens et verrou de concurrence
-- 50 migrations Doctrine gérées
+- **73 migrations Doctrine gérées**
 - Génération de rapports Excel
 - Système de notifications entièrement refactorisé (React Query, PATCH, purge automatique)
 - **22 DTOs d'entrée** avec validation stricte et tests exhaustifs
 - **Global Exception Handler** : `InvalidArgumentException` → 400, 5xx sans détails internes
-- **980 tests unitaires backend** (0 au départ), **114 tests Vitest frontend**
+- **1 456 tests unitaires backend + 58 intégration** (0 au départ), **738 tests Vitest frontend**
 - **`.env.example`** avec instructions d'onboarding
 - **Sprint 1 Hospital** : 4 nouvelles entités, 3 contrôleurs, CLI setup, migrations non-destructives
+- **Staff Planner V2 enterprise** (Phases 1V2→6) : dirty flag, fingerprints, snapshots immuables, historique RH, diff viewer, lock RH, audit timeline 14 event types
 
 ---
 
@@ -175,7 +176,7 @@ Aucune traçabilité des tentatives d'accès non autorisé. (`ExceptionListener`
 7. ~~Polling notifications via `setInterval`~~ → **React Query `refetchInterval`** ✅
 
 ### Dépendances
-1. React 17 — fin de vie, migrer vers React 18
+1. ~~React 17 — fin de vie, migrer vers React 18~~ → **React 18.3.1 ✅** (2026-04-02)
 2. Moment.js — legacy, remplacer par date-fns (déjà présent)
 3. Trop de librairies charts : Chart.js + Recharts → choisir l'une ou l'autre
 4. API Platform 3.x — quelques warnings de dépréciation internes

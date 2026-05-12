@@ -92,16 +92,19 @@ npm install
 
 ### 2. Configurer l'URL de l'API
 
-Éditer `src/config.js` :
+Le fichier `src/config.ts` lit la variable d'environnement Vite :
 
-```javascript
-export const API_URL = "http://localhost:8000/api/";
+```typescript
+export const API_URL = env.VITE_API_URL;
 ```
 
-> **Note :** À terme, utiliser une variable d'environnement React `.env` :
-> ```
-> REACT_APP_API_URL=http://localhost:8000/api/
-> ```
+Créer un fichier `.env.local` à la racine du frontend :
+
+```dotenv
+VITE_API_URL=http://localhost:8000/api/
+```
+
+> **Note :** Vite exige le préfixe `VITE_` pour exposer les variables au navigateur. Ne pas utiliser `REACT_APP_` (syntaxe Create React App, non supportée).
 
 ### 3. Démarrer l'Application
 
@@ -129,11 +132,11 @@ L'application sera disponible sur `http://localhost:3000`
 | `JWT_PUBLIC_KEY` | Chemin clé publique JWT | `%kernel.project_dir%/config/jwt/public.pem` |
 | `CORS_ALLOW_ORIGIN` | Origine autorisée CORS | `http://localhost:3000` |
 
-### Frontend (`frontend/src/config.js`)
+### Frontend (`frontend/.env.local`)
 
 | Variable | Description |
 |----------|-------------|
-| `API_URL` | URL de base de l'API backend |
+| `VITE_API_URL` | URL de base de l'API backend (préfixe Vite obligatoire) |
 
 ---
 

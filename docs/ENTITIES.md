@@ -544,7 +544,7 @@ Enregistrement de lecture d'un message par un utilisateur (idempotent — insér
 
 ## Migrations
 
-65 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
+73 migrations Doctrine (2022–2026) documentent l'évolution du schéma.
 
 **Sprint 1 (2026-04-02) :** `Version20260403000000` — création des tables `hospital`, `app_admin`, `hospital_admin`, `hospital_request`, `manager_hospital`.
 
