@@ -26,7 +26,7 @@ Le script fait dans l'ordre :
 | 6 | `git pull` sur le serveur | Récupère le nouveau code |
 | 7 | **`doctrine:migrations:migrate` sur le serveur** | **Applique les nouvelles migrations avant le cache** |
 | 8 | `php bin/console cache:clear` sur le serveur | Active le nouveau code |
-| 9 | Vérifie que la version dans le bundle live correspond | Confirme que le déploiement a réussi |
+| 9 | Vérifie que la version live = `VersionController::VERSION` | Confirme que le déploiement a réussi |
 
 ### Pourquoi les étapes 2 et 7 sont critiques
 
@@ -84,11 +84,16 @@ ssh -p 65002 u929427688@147.79.98.101 \
 - [ ] **Migrations locales à jour** : `php bin/console doctrine:migrations:up-to-date`
 - [ ] Tests passent : `php bin/phpunit tests/Unit/` et `npx vitest run`
 - [ ] TypeScript OK : `npx tsc --noEmit`
-- [ ] Version à jour dans `Footer.tsx` **et** `VersionController.php`
+- [ ] Version à jour dans **3 endroits synchronisés** :
+  - `frontend/src/components/layout/components/Footer/Footer.tsx` (affiché à l'utilisateur)
+  - `backend/src/Controller/VersionController.php` (endpoint `/api/version` + source du script)
+  - `frontend/package.json` (cohérence npm)
 - [ ] Pas de `dd()`, `console.log` de debug, ou secret hardcodé
 
 > ⚠️ **Les tests unitaires ne détectent pas les migrations en attente** (ils mockent la BDD).  
 > La commande `doctrine:migrations:up-to-date` est la seule vérification fiable.
+
+> ℹ️ Le script lit la version depuis `VersionController.php` — c'est la source de vérité pour la vérification finale (étape 9).
 
 ---
 
