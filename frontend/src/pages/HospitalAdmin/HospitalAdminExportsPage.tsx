@@ -152,7 +152,7 @@ const HridMissingModal = ({
 }) => (
   <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
     <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1 }}>
-      <ErrorOutlineIcon color="warning" />
+      <ErrorOutlineIcon color="info" />
       Ressources Staff Planner manquantes
     </DialogTitle>
     <DialogContent dividers>
@@ -182,7 +182,7 @@ const HridMissingModal = ({
                 <Box
                   sx={{
                     width: 6, height: 6, borderRadius: "50%",
-                    bgcolor: "warning.main", flexShrink: 0,
+                    bgcolor: "info.main", flexShrink: 0,
                   }}
                 />
                 <Typography variant="body2">
@@ -218,7 +218,7 @@ const HridMissingModal = ({
       <Button onClick={onClose} color="inherit">Fermer</Button>
       <Button
         variant="contained"
-        color="warning"
+        color="info"
         endIcon={<ArrowForwardIcon />}
         onClick={onGoToParams}
       >
