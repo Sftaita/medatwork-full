@@ -17,6 +17,7 @@ import WithFixedSidebar from "./components/layout/WithFixedSidebar";
 import SentryErrorBoundary from "./components/SentryErrorBoundary";
 import PageSkeleton from "./components/big/PageSkeleton";
 import { usePwaUpdate } from "./hooks/usePwaUpdate";
+import { UpdateBanner } from "./components/UpdateBanner";
 
 // The 404 page is kept static: it's tiny and must always be available
 import ErrorPage from "./pages/ErrorPage/ErrorPage";
@@ -120,7 +121,7 @@ const ResidentNotificationPage = lazy(
 );
 
 function App() {
-  usePwaUpdate();
+  const { needRefresh, updateServiceWorker } = usePwaUpdate();
   return (
     <div className="App">
       <QueryClientProvider client={queryClient}>
@@ -586,6 +587,9 @@ function App() {
               </Routes>
             </WithFixedSidebar>
             <ToastContainer />
+            {needRefresh && (
+              <UpdateBanner onUpdate={() => updateServiceWorker(true)} />
+            )}
           </BrowserRouter>
         </SentryErrorBoundary>
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
