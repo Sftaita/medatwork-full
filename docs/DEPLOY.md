@@ -116,5 +116,6 @@ ssh -p 65002 u929427688@147.79.98.101 \
 
 | Date | Version | Contenu | Déployé par |
 |------|---------|---------|-------------|
-| 2026-05-07 | 3.4.1 | Design system tableaux (densité, tri, filter chips, sidebar) ; pages Admin Manager/Residents/Years redesign ; version bump | Samy |
+| 2026-05-12 | 3.5.0 | Phases 1V2→6 : dirty flag, fingerprints, snapshots, historique RH, diff viewer, lock RH, audit timeline 14 event types, design system ExportsPage | Samy |
+| 2026-05-07 | 3.4.1 | Design system tableaux (densité, tri, filter chips, sidebar) ; pages Admin Manager/Residents/Years redesign | Samy |
 | *(précédentes)* | 3.4 | — | — |
