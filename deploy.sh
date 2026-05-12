@@ -26,12 +26,15 @@
 
 set -e  # Stoppe au premier échec
 
+# Chemin absolu du projet — insensible au répertoire courant d'appel
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 SSH_HOST="u929427688@147.79.98.101"
 SSH_PORT="65002"
 SSH="ssh -p $SSH_PORT $SSH_HOST"
 REMOTE_APP="/home/u929427688/domains/medatwork.be/app"
 REMOTE_PUBLIC="/home/u929427688/domains/medatwork.be/public_html"
-FRONTEND_DIR="$(dirname "$0")/frontend"
+FRONTEND_DIR="$ROOT_DIR/frontend"
 VERSION=$(grep -o '"version": "[^"]*"' "$FRONTEND_DIR/package.json" | head -1 | grep -o '[0-9.]*')
 
 echo ""
@@ -42,7 +45,7 @@ echo ""
 
 # ── 1. Vérifier que le working tree est propre ────────────────────────────────
 echo "▸ [1/9] Vérification git..."
-cd "$(dirname "$0")"
+cd "$ROOT_DIR"
 
 if ! git diff --quiet || ! git diff --staged --quiet; then
   echo ""
@@ -59,7 +62,7 @@ echo "  ✓ Working tree propre"
 # en attente. Cette étape bloque le déploiement avant le push si des
 # colonnes manquent en base locale.
 echo "▸ [2/9] Vérification migrations locales..."
-cd "$(dirname "$0")/backend"
+cd "$ROOT_DIR/backend"
 
 if ! php bin/console doctrine:migrations:up-to-date --no-interaction 2>&1; then
   echo ""
@@ -71,7 +74,7 @@ if ! php bin/console doctrine:migrations:up-to-date --no-interaction 2>&1; then
   echo "  → Puis relancez deploy.sh"
   exit 1
 fi
-cd "$(dirname "$0")"
+cd "$ROOT_DIR"
 echo "  ✓ Migrations locales à jour"
 
 # ── 3. Push GitHub ────────────────────────────────────────────────────────────
