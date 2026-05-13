@@ -1,5 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { useThemeStore } from "./store/themeStore";
+import { CustomizedTheme } from "./doc/CustomizedTheme";
 import ManagerRoute from "./routes/ManagerRoute";
 import CanCreateYearRoute from "./routes/CanCreateYearRoute";
 import ResidentRoute from "./routes/ResidentRoute";
@@ -86,6 +89,7 @@ const HospitalAdminExportsPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminExportsPage")
 );
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage"));
+const ProfileSettingsPage = lazy(() => import("./pages/Profile/ProfileSettingsPage"));
 
 // ── Manager pages ─────────────────────────────────────────────────────────────
 const ManagerYears = lazy(() => import("./pages/Management/YearsPage/ManagerYears"));
@@ -122,7 +126,16 @@ const ResidentNotificationPage = lazy(
 
 function App() {
   const { needRefresh, updateServiceWorker } = usePwaUpdate();
+  // Dynamic theme — reads from themeStore (initialized from localStorage, synced from server)
+  // Inner ThemeProvider overrides the static one in index.tsx
+  const mode = useThemeStore((s) => s.mode);
+  const dynamicTheme = useMemo(
+    () => createTheme({ ...CustomizedTheme, palette: { ...CustomizedTheme.palette, mode } }),
+    [mode],
+  );
+
   return (
+    <ThemeProvider theme={dynamicTheme}>
     <div className="App">
       <QueryClientProvider client={queryClient}>
         <SentryErrorBoundary>
@@ -523,6 +536,14 @@ function App() {
                       </Suspense>
                     }
                   />
+                  <Route
+                    path="/profile/settings"
+                    element={
+                      <Suspense fallback={<PageSkeleton />}>
+                        <ProfileSettingsPage />
+                      </Suspense>
+                    }
+                  />
 
                   {/* Resident routes */}
                   <Route element={<ResidentRoute />}>
@@ -595,6 +616,7 @@ function App() {
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </div>
+    </ThemeProvider>
   );
 }
 
