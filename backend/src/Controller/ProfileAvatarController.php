@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\AppAdmin;
 use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\Resident;
@@ -43,7 +44,7 @@ class ProfileAvatarController extends AbstractController
     public function upload(Request $request, EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user instanceof HospitalAdmin && !$user instanceof Manager && !$user instanceof Resident) {
+        if (!$user instanceof AppAdmin && !$user instanceof HospitalAdmin && !$user instanceof Manager && !$user instanceof Resident) {
             return new JsonResponse(['message' => 'Non autorisé'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -97,7 +98,7 @@ class ProfileAvatarController extends AbstractController
     public function delete(EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user instanceof HospitalAdmin && !$user instanceof Manager && !$user instanceof Resident) {
+        if (!$user instanceof AppAdmin && !$user instanceof HospitalAdmin && !$user instanceof Manager && !$user instanceof Resident) {
             return new JsonResponse(['message' => 'Non autorisé'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -110,7 +111,7 @@ class ProfileAvatarController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    private function deleteAvatarFile(HospitalAdmin|Manager|Resident $user, string $uploadPath): void
+    private function deleteAvatarFile(AppAdmin|HospitalAdmin|Manager|Resident $user, string $uploadPath): void
     {
         $current = $user->getAvatarPath();
         if ($current !== null && is_file($uploadPath . $current)) {

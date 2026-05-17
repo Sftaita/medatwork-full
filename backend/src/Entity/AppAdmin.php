@@ -43,6 +43,9 @@ class AppAdmin implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $avatarPath = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTime();
@@ -75,6 +78,9 @@ class AppAdmin implements UserInterface, PasswordAuthenticatedUserInterface
     public function setLastname(string $lastname): self { $this->lastname = $lastname; return $this; }
 
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
+
+    public function getAvatarPath(): ?string { return $this->avatarPath; }
+    public function setAvatarPath(?string $avatarPath): self { $this->avatarPath = $avatarPath; return $this; }
 
     public function getSalt(): ?string { return null; }
 
