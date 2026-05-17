@@ -7,6 +7,7 @@ namespace App\Tests\Unit\Services;
 use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Entity\UserSetting;
+use App\Repository\ManagerRepository;
 use App\Repository\UserSettingRepository;
 use App\Services\UserSettingService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,14 +26,16 @@ use PHPUnit\Framework\TestCase;
 final class UserSettingServiceTest extends TestCase
 {
     private UserSettingRepository&MockObject $repo;
+    private ManagerRepository&MockObject    $managerRepo;
     private EntityManagerInterface&MockObject $em;
     private UserSettingService $service;
 
     protected function setUp(): void
     {
-        $this->repo    = $this->createMock(UserSettingRepository::class);
-        $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->service = new UserSettingService($this->repo, $this->em);
+        $this->repo        = $this->createMock(UserSettingRepository::class);
+        $this->managerRepo = $this->createMock(ManagerRepository::class);
+        $this->em          = $this->createMock(EntityManagerInterface::class);
+        $this->service     = new UserSettingService($this->repo, $this->managerRepo, $this->em);
     }
 
     // ── Defaults ──────────────────────────────────────────────────────────────
@@ -45,11 +48,20 @@ final class UserSettingServiceTest extends TestCase
         $this->assertArrayHasKey('language', $defaults);
         $this->assertArrayHasKey('calendar', $defaults);
         $this->assertArrayHasKey('notifications', $defaults);
+        $this->assertArrayHasKey('ui', $defaults);
+        $this->assertArrayHasKey('tables', $defaults);
         $this->assertSame('light', $defaults['theme']);
         $this->assertSame('fr', $defaults['language']);
         $this->assertSame('month', $defaults['calendar']['defaultView']);
+        $this->assertNull($defaults['calendar']['lastUsedView']);
         $this->assertTrue($defaults['calendar']['showWeekends']);
         $this->assertFalse($defaults['notifications']['dailySummary']);
+        $this->assertTrue($defaults['notifications']['validation']);
+        $this->assertTrue($defaults['notifications']['planning']);
+        $this->assertTrue($defaults['notifications']['staffPlanner']);
+        $this->assertFalse($defaults['ui']['sidebarCollapsed']);
+        $this->assertSame(25, $defaults['tables']['staffPlanner']['pageSize']);
+        $this->assertFalse($defaults['tables']['staffPlanner']['dense']);
     }
 
     // ── getForUser ────────────────────────────────────────────────────────────
@@ -116,6 +128,43 @@ final class UserSettingServiceTest extends TestCase
         $this->assertFalse($result['notifications']['email']);
         $this->assertTrue($result['notifications']['dailySummary']);
         $this->assertTrue($result['notifications']['push']); // unchanged default
+    }
+
+    // ── compliance sync ───────────────────────────────────────────────────────
+
+    public function testPatchForManagerSyncsComplianceEmail(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->expects($this->once())
+            ->method('setReceiveComplianceEmails')
+            ->with(false);
+
+        $stored = new UserSetting('manager', 5, $this->service->getDefaults());
+        $this->repo->method('getOrCreate')->willReturn($stored);
+        $this->managerRepo->method('find')->with(5)->willReturn($manager);
+        $this->em->method('flush');
+
+        $this->service->patchForUser('manager', 5, ['notifications' => ['compliance' => false]]);
+    }
+
+    public function testPatchForResidentDoesNotTouchManagerRepo(): void
+    {
+        $stored = new UserSetting('resident', 3, $this->service->getDefaults());
+        $this->repo->method('getOrCreate')->willReturn($stored);
+        $this->managerRepo->expects($this->never())->method('find');
+        $this->em->method('flush');
+
+        $this->service->patchForUser('resident', 3, ['notifications' => ['compliance' => false]]);
+    }
+
+    public function testPatchWithoutComplianceKeySkipsSyncEvenForManager(): void
+    {
+        $stored = new UserSetting('manager', 7, $this->service->getDefaults());
+        $this->repo->method('getOrCreate')->willReturn($stored);
+        $this->managerRepo->expects($this->never())->method('find');
+        $this->em->method('flush');
+
+        $this->service->patchForUser('manager', 7, ['theme' => 'dark']);
     }
 
     // ── resolveIdentity ───────────────────────────────────────────────────────

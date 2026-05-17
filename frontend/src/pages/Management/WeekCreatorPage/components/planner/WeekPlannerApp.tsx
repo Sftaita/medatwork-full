@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useCallback, useRef, CSSProperties } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, CSSProperties } from 'react';
+import Skeleton from '@mui/material/Skeleton';
+import { useTopbarSearch } from '../../../../../hooks/useTopbarSearch';
 import { toast } from 'react-toastify';
 import useAxiosPrivate from '../../../../../hooks/useAxiosPrivate';
 import weekTemplatesApi from '../../../../../services/weekTemplatesApi';
@@ -11,6 +13,7 @@ import {
 import TopBar from './TopBar';
 import TimeRuler from './TimeRuler';
 import DayRow from './DayRow';
+import SlotEditor from './SlotEditor';
 import DescriptionEditor from './DescriptionEditor';
 import WeekTotals from './WeekTotals';
 import DayPickerModal, { DayPickerModalState } from './DayPickerModal';
@@ -88,6 +91,142 @@ const S: Record<string, CSSProperties> = {
   error:   { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#e11d48', fontSize: 14 },
 };
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+const DAYS_SK  = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
+const HOURS_SK = [6, 8, 10, 12, 14, 16, 18, 20, 22];
+
+// Quelques tâches factices par jour pour que le skeleton ressemble à du vrai contenu
+const FAKE_TASKS: Record<string, { left: string; width: string }[]> = {
+  Lun: [{ left: '12%',  width: '22%' }, { left: '48%', width: '18%' }],
+  Mar: [{ left: '5%',   width: '30%' }],
+  Mer: [{ left: '20%',  width: '16%' }, { left: '55%', width: '25%' }],
+  Jeu: [{ left: '8%',   width: '20%' }],
+  Ven: [{ left: '30%',  width: '28%' }, { left: '70%', width: '12%' }],
+};
+
+function WeekCreatorSkeleton() {
+  const bg    = '#f8fafc';
+  const white = '#ffffff';
+  const line  = '#e2e8f0';
+  const soft  = '#f1f5f9';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', background: bg, overflow: 'hidden' }}>
+
+      {/* ── TopBar ── */}
+      <div style={{ background: white, borderBottom: `1px solid ${line}`, flexShrink: 0, padding: '20px 28px 10px' }}>
+
+        {/* Titre + actions droite */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12, gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Skeleton variant="text" width={210} height={34} />
+            <Skeleton variant="circular" width={22} height={22} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Skeleton variant="rounded" width={110} height={34} sx={{ borderRadius: 2 }} />
+            <Skeleton variant="rounded" width={90}  height={34} sx={{ borderRadius: 2 }} />
+            <Skeleton variant="rounded" width={80}  height={14} />
+          </div>
+        </div>
+
+        {/* Chips row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 10 }}>
+          <Skeleton variant="text" width={55} height={14} />
+          <div style={{ width: 1, height: 18, background: line }} />
+          <Skeleton variant="rounded" width={130} height={28} sx={{ borderRadius: 999 }} />
+          <div style={{ width: 1, height: 18, background: line }} />
+          {[90, 110, 75, 120, 85].map((w, i) => (
+            <Skeleton key={i} variant="rounded" width={w} height={28} sx={{ borderRadius: 999 }} />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main layout ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1fr) ${SIDE_W}px`, gap: 16, padding: 16, flex: 1, overflow: 'hidden', alignItems: 'start' }}>
+
+        {/* Planner card */}
+        <div style={{ minWidth: 0, overflow: 'hidden', border: `1px solid ${line}`, borderRadius: 16, background: white, display: 'flex', flexDirection: 'column' }}>
+
+          {/* Time ruler */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${line}`, background: soft }}>
+            <div style={{ width: LABEL_W, flexShrink: 0, borderRight: `1px solid ${line}`, padding: '8px 12px' }}>
+              <Skeleton width={40} height={12} />
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '8px 0', position: 'relative', height: 32 }}>
+              {HOURS_SK.map((h) => (
+                <div key={h} style={{ position: 'absolute', left: `${((h - 5) / 18) * 100}%` }}>
+                  <Skeleton width={24} height={12} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Day rows */}
+          {DAYS_SK.map((day, idx) => (
+            <div key={day} style={{
+              display: 'flex',
+              borderBottom: idx === DAYS_SK.length - 1 ? 'none' : `1px solid ${line}`,
+              minHeight: 68,
+            }}>
+              {/* Label */}
+              <div style={{
+                width: LABEL_W, flexShrink: 0, borderRight: `1px solid ${line}`,
+                padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <Skeleton variant="rounded" width={32} height={32} sx={{ borderRadius: 1 }} />
+                <Skeleton width={30} height={14} />
+              </div>
+
+              {/* Timeline */}
+              <div style={{ flex: 1, position: 'relative', padding: '10px 4px' }}>
+                {(FAKE_TASKS[day] ?? []).map((t, i) => (
+                  <Skeleton
+                    key={i}
+                    variant="rounded"
+                    sx={{
+                      position: 'absolute',
+                      top: 10, bottom: 10,
+                      left: t.left, width: t.width,
+                      borderRadius: 2,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Side panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* WeekTotals */}
+          <div style={{ background: white, border: `1px solid ${line}`, borderRadius: 16, padding: 16 }}>
+            <Skeleton variant="text" width={100} height={14} sx={{ mb: 2 }} />
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <Skeleton variant="circular" width={100} height={100} />
+            </div>
+            {DAYS_SK.map((d) => (
+              <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Skeleton width={28} height={12} />
+                <Skeleton variant="rounded" sx={{ flex: 1, borderRadius: 999 }} height={8} />
+                <Skeleton width={30} height={12} />
+              </div>
+            ))}
+          </div>
+
+          {/* DescriptionEditor */}
+          <div style={{ background: white, border: `1px solid ${line}`, borderRadius: 16, padding: 16 }}>
+            <Skeleton variant="text" width={140} height={14} sx={{ mb: 1.5 }} />
+            <Skeleton variant="rounded" width="100%" height={80} sx={{ borderRadius: 2, mb: 1.5 }} />
+            <Skeleton variant="rounded" width={80} height={30} sx={{ borderRadius: 1 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function cloneSlots(slots: Record<string, Slot[]>): Record<string, Slot[]> {
   const out: Record<string, Slot[]> = {};
   for (const key of Object.keys(slots)) out[key] = [...slots[key]];
@@ -122,6 +261,13 @@ export default function WeekPlannerApp() {
 
   // Debounce timers per slot (keyed by localId)
   const debounceMap = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const search = useTopbarSearch('Rechercher un modèle…');
+
+  const displayTemplates = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? templates.filter(t => t.name.toLowerCase().includes(q)) : templates;
+  }, [templates, search]);
 
   const days = weekendVisible ? ALL_DAYS : ALL_DAYS.filter(d => !WEEKEND_KEYS.has(d.key));
   const currentTemplate = templates.find(t => t.id === currentId) ?? null;
@@ -447,7 +593,7 @@ export default function WeekPlannerApp() {
   const isApplyingSlot = modal.sourceSlots.length === 1;
 
   // ── Render ────────────────────────────────────────────────────────────────────
-  if (loading)   return <div style={S.loading}>Chargement des modèles…</div>;
+  if (loading)   return <WeekCreatorSkeleton />;
   if (loadError) return <div style={S.error}>Impossible de charger les modèles.</div>;
 
   return (
@@ -457,6 +603,7 @@ export default function WeekPlannerApp() {
         <div style={S.topArea}>
           <TopBar
             templates={templates}
+            displayTemplates={displayTemplates}
             currentTemplateId={currentId}
             weekendVisible={weekendVisible}
             syncStatus={syncStatus}
@@ -500,6 +647,14 @@ export default function WeekPlannerApp() {
           {/* Panneau Inspecteur — colonne droite */}
           <div style={S.sidePanel}>
             {currentTemplate && <WeekTotals days={days} slotsByDay={slots} />}
+            <SlotEditor
+              slot={selectedSlot}
+              dayKey={selected?.dayKey ?? null}
+              days={days}
+              onUpdate={(patch) => { if (selected) handleUpdateSlot(selected.dayKey, selected.localId, patch); }}
+              onDelete={() => { if (selected) handleDeleteSlot(selected.dayKey, selected.localId); }}
+              onApplyToDays={handleApplySlotToDays}
+            />
             <DescriptionEditor
               slot={selectedSlot}
               onChange={handleSlotDescription}

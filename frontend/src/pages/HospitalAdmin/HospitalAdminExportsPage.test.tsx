@@ -35,6 +35,17 @@ vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
+
+// ExportsPage lit useSearchStore directement (pas via useTopbarSearch)
+let mockSearchValue = "";
+vi.mock("../../store/searchStore", () => ({
+  useSearchStore: () => ({
+    register:   vi.fn(),
+    unregister: vi.fn(),
+    value:      mockSearchValue,
+    setValue:   vi.fn(),
+  }),
+}));
 vi.mock("../../components/YearSelect", () => ({
   default: ({ years, value, onChange }: any) => (
     <select data-testid="year-select" value={value} onChange={(e) => onChange(Number(e.target.value))}>
@@ -169,6 +180,7 @@ describe("itemKey format", () => {
 describe("HospitalAdminExportsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchValue = "";
     vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue([YEAR]);
     vi.mocked(exportsRhApi.listStaffPlannerMonths).mockResolvedValue([NOV_GROUP, DEC_GROUP]);
     vi.mocked(exportsRhApi.listYearResidents).mockResolvedValue([ALICE_MACCS, BOB_MACCS]);
@@ -292,12 +304,14 @@ describe("HospitalAdminExportsPage", () => {
   // ── Recherche ─────────────────────────────────────────────────────────────────
 
   it("filtre par nom de MACCS", async () => {
+    // "alice" filtre les lignes — seules celles d'Alice Martin restent dans Novembre
+    mockSearchValue = "alice";
     renderPage();
     await waitForNov();
-    fireEvent.change(screen.getByPlaceholderText(/Rechercher un MACCS/), {
-      target: { value: "alice" },
-    });
-    await waitFor(() => expect(screen.queryByText("Décembre 2024")).toBeNull());
+    // Ouvrir le groupe Novembre pour voir les items
+    fireEvent.click(screen.getByText("Novembre 2024"));
+    await waitFor(() => expect(screen.getByText("Alice Martin")).toBeInTheDocument());
+    expect(screen.queryByText("Bob Dupont")).not.toBeInTheDocument();
   });
 
   // ── Excel ─────────────────────────────────────────────────────────────────────

@@ -21,14 +21,14 @@ const Footer = () => {
           gap={{ xs: 2, sm: 0 }}
           paddingY={{ xs: 2, sm: 3 }}
         >
-          <Box display={"flex"} alignItems={"center"} color={"primary.dark"}>
+          <Box display={"flex"} alignItems={"center"}>
             <Box
               component="img"
               sx={{ height: 30 }}
-              alt="Your logo."
+              alt="Logo Medatwork"
               src={Logo}
             />
-            <Typography fontWeight={700} marginLeft={1}>
+            <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main" marginLeft={1}>
               MED@WORK
             </Typography>
           </Box>

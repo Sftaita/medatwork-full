@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\ShedulersAPI\ManagersAPI;
 
+use App\Controller\MailerController;
 use App\DTO\AddCalendarEventInputDTO;
 use App\DTO\UpdateCalendarEventInputDTO;
 use App\Entity\Manager;
@@ -32,6 +33,7 @@ class CalendarController extends AbstractController
         private readonly CalendarEventFormatter $calendarEventFormatter,
         private readonly YearsRepository $yearsRepository,
         private readonly ResidentYearCalendarRepository $residentYearCalendarRepository,
+        private readonly MailerController $mailerController,
     ) {
     }
 
@@ -131,6 +133,102 @@ class CalendarController extends AbstractController
         }
 
         return $this->json($yearInfo, 200);
+    }
+
+    #[Route('/api/managers/managerCalendar/sendScheduleEmail', methods: ['POST'])]
+    public function sendScheduleEmail(Request $request, Security $security): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $yearId        = (int) ($data['yearId']        ?? 0);
+        $fromDate      = $data['fromDate']      ?? '';
+        $toDate        = $data['toDate']        ?? '';
+        $recipientType = $data['recipientType'] ?? '';
+        $maccIds       = array_map('intval', $data['maccIds'] ?? []);
+        $pdfBase64     = $data['pdfBase64']     ?? '';
+
+        if (!$yearId || !$fromDate || !$toDate || !$recipientType || !$pdfBase64) {
+            return new JsonResponse(['message' => 'Paramètres manquants.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $year = $this->yearsRepository->find($yearId);
+        if (!$year) {
+            return new JsonResponse(['message' => 'Année non trouvée.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $this->denyAccessUnlessGranted(YearAccessVoter::MANAGE_AGENDA, $year);
+
+        $subject     = sprintf('Planning des affectations — du %s au %s', $fromDate, $toDate);
+        $attachName  = sprintf('planning-%s-%s.pdf', str_replace('-', '', $fromDate), str_replace('-', '', $toDate));
+        $errors      = [];
+        $sent        = 0;
+
+        $htmlBody = sprintf(
+            '<p>Bonjour,</p><p>Veuillez trouver ci-joint le planning des affectations du <strong>%s</strong> au <strong>%s</strong>.</p><p>Cordialement,<br>L\'équipe MED@WORK</p>',
+            $fromDate, $toDate
+        );
+
+        if ($recipientType === 'maccs') {
+            // Envoyer à chaque MACC sélectionné
+            foreach ($year->getResidents()->getValues() as $yr) {
+                $resident = $yr->getResident();
+                if (!$resident || !in_array($resident->getId(), $maccIds, true)) {
+                    continue;
+                }
+                try {
+                    $this->mailerController->sendEmailWithPdfAttachment(
+                        $resident->getEmail(), $subject, $htmlBody, $pdfBase64, $attachName
+                    );
+                    ++$sent;
+                } catch (\Throwable $e) {
+                    $errors[] = $resident->getEmail();
+                }
+            }
+        } elseif ($recipientType === 'manager') {
+            // Envoyer aux managers de l'année
+            foreach ($this->managerYearRepository->findBy(['years' => $year]) as $my) {
+                $manager = $my->getManager();
+                if (!$manager) { continue; }
+                try {
+                    $this->mailerController->sendEmailWithPdfAttachment(
+                        $manager->getEmail(), $subject, $htmlBody, $pdfBase64, $attachName
+                    );
+                    ++$sent;
+                } catch (\Throwable $e) {
+                    $errors[] = $manager->getEmail();
+                }
+            }
+        } elseif ($recipientType === 'hr') {
+            // Envoyer au(x) HospitalAdmin de l'hôpital lié à l'année
+            $hospital = $year->getHospital();
+            if ($hospital) {
+                foreach ($hospital->getHospitalAdmins() as $ha) {
+                    try {
+                        $this->mailerController->sendEmailWithPdfAttachment(
+                            $ha->getEmail(), $subject, $htmlBody, $pdfBase64, $attachName
+                        );
+                        ++$sent;
+                    } catch (\Throwable $e) {
+                        $errors[] = $ha->getEmail();
+                    }
+                }
+            }
+        } else {
+            return new JsonResponse(['message' => 'Type de destinataire invalide.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($sent === 0 && count($errors) === 0) {
+            return new JsonResponse(['message' => 'Aucun destinataire trouvé pour ce critère.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!empty($errors)) {
+            return new JsonResponse([
+                'message' => sprintf('%d email(s) envoyé(s), %d échec(s).', $sent, count($errors)),
+                'errors'  => $errors,
+            ], Response::HTTP_MULTI_STATUS);
+        }
+
+        return new JsonResponse(['message' => sprintf('%d email(s) envoyé(s) avec succès.', $sent)]);
     }
 
     #[Route('/api/managers/managerCalendar/addEvent', methods: ['POST'])]

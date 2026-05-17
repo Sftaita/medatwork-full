@@ -1,15 +1,23 @@
 import Drawer from "@mui/material/Drawer";
+import { useTheme } from "@mui/material/styles";
 import { SidebarNav } from "./components";
 import useAuth from "../../../../hooks/useAuth";
 
+export const MINI_WIDTH     = 64;
+export const EXPANDED_WIDTH = 240;   // 240px — fidèle au design
+
 interface SidebarProps {
-  open: boolean;
-  variant: "permanent" | "temporary";
-  onClose: () => void;
+  open:       boolean;
+  variant:    "permanent" | "temporary";
+  onClose:    () => void;
+  collapsed?: boolean;
 }
 
-const Sidebar = ({ open, variant, onClose }: SidebarProps) => {
+const Sidebar = ({ open, variant, onClose, collapsed = false }: SidebarProps) => {
+  const theme = useTheme();
   const { selectedMenuItem, setSelectedMenuItem } = useAuth();
+
+  const width = collapsed ? MINI_WIDTH : EXPANDED_WIDTH;
 
   return (
     <Drawer
@@ -19,10 +27,12 @@ const Sidebar = ({ open, variant, onClose }: SidebarProps) => {
       variant={variant}
       sx={{
         "& .MuiPaper-root": {
-          width: "100%",
-          maxWidth: 256,
-          top: { xs: 0, md: 71 },
-          height: { xs: "100%", md: "calc(100% - 71px)" },
+          width,
+          overflow:   "hidden",
+          top:        0,
+          height:     "100%",
+          zIndex:     1000,   // au-dessus de l'AppBar (999) pour que le logo recouvre la zone topbar
+          transition: theme.transitions.create("width"),
         },
       }}
     >
@@ -30,6 +40,7 @@ const Sidebar = ({ open, variant, onClose }: SidebarProps) => {
         onClose={() => onClose()}
         selected={selectedMenuItem}
         handleSelected={(title) => setSelectedMenuItem(title)}
+        collapsed={collapsed}
       />
     </Drawer>
   );

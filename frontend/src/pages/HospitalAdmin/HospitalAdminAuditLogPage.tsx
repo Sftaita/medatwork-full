@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { useQuery } from "@tanstack/react-query";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import { T, C, bodyRowSx } from "../../styles/tableStyles";
@@ -132,7 +133,11 @@ const HelpModal = ({ open, onClose }: { open: boolean; onClose: () => void }) =>
 const HospitalAdminAuditLogPage = () => {
   useAxiosPrivate();
   const { density, cycleDensity } = useTableDensity();
+  const search = useTopbarSearch("Admin, action, description…");
   const [page, setPage] = useState(1);
+
+  // Reset page quand la recherche topbar change
+  useEffect(() => { setPage(1); }, [search]);
   const [sortCol, setSortCol] = useState<"date" | "admin" | "action" | null>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc"); // plus récent en premier par défaut
   const [helpOpen, setHelpOpen] = useState(false);
@@ -155,6 +160,7 @@ const HospitalAdminAuditLogPage = () => {
 
   const filtered = useMemo(() => {
     if (!data?.logs) return [];
+    const q = search.trim().toLowerCase();
     const base = data.logs.filter((log: AuditLogEntry) => {
       if (filterAction && log.action !== filterAction) return false;
       if (filterFrom) {
@@ -169,6 +175,14 @@ const HospitalAdminAuditLogPage = () => {
         to.setHours(23, 59, 59, 999);
         if (logDate > to) return false;
       }
+      if (q) {
+        const actionLabel = (ACTION_LABEL[log.action] ?? log.action).toLowerCase();
+        if (
+          !log.adminName.toLowerCase().includes(q) &&
+          !actionLabel.includes(q) &&
+          !log.description.toLowerCase().includes(q)
+        ) return false;
+      }
       return true;
     });
 
@@ -181,12 +195,12 @@ const HospitalAdminAuditLogPage = () => {
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [data, filterAction, filterFrom, filterTo, sortCol, sortDir]);
+  }, [data, search, filterAction, filterFrom, filterTo, sortCol, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedLogs = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const hasFilters = Boolean(filterAction || filterFrom || filterTo);
+  const hasFilters = Boolean(filterAction || filterFrom || filterTo || search.trim());
 
   const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
     setter(v);

@@ -391,7 +391,7 @@ const HospitalAdminAuditTimelinePage = () => {
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ bgcolor: "grey.50" }}>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">DATE / HEURE</Typography></TableCell>
                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">ÉVÉNEMENT</Typography></TableCell>
                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MACCS / PÉRIODE</Typography></TableCell>

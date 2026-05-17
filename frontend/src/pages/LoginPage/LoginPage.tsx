@@ -49,19 +49,20 @@ const Loginpage = () => {
         <Container>
           <Grid container spacing={6} alignItems="center">
             {isMd ? (
-              <Grid item container justifyContent={"center"} md={6}>
-                <Box width={1} maxWidth={500}>
-                  <Box
-                    component={"img"}
-                    src={
-                      "https://assets.maccarianagency.com/svg/illustrations/drawkit-illustration2.svg"
-                    }
-                    width={1}
-                    sx={{
-                      filter: theme.palette.mode === "dark" ? "brightness(0.8)" : "none",
-                    }}
-                  />
-                </Box>
+              <Grid item container justifyContent={"center"} alignItems="center" md={6}>
+                <Box
+                  component={"img"}
+                  src={
+                    "https://assets.maccarianagency.com/svg/illustrations/drawkit-illustration2.svg"
+                  }
+                  sx={{
+                    width: "100%",
+                    maxWidth: 460,
+                    maxHeight: "55vh",
+                    objectFit: "contain",
+                    filter: theme.palette.mode === "dark" ? "brightness(0.8)" : "none",
+                  }}
+                />
               </Grid>
             ) : null}
             <Grid item container alignItems={"center"} justifyContent={"center"} xs={12} md={6}>

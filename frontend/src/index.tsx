@@ -5,6 +5,7 @@ import { CustomizedTheme } from "./doc/CustomizedTheme";
 import "./index.css";
 import * as Sentry from "@sentry/react";
 import env from "./env";
+import { registerChunkErrorHandler } from "./utils/chunkErrorHandler";
 
 import { createTheme, responsiveFontSizes, ThemeProvider } from "@mui/material/styles";
 
@@ -22,6 +23,9 @@ Sentry.init({
     return event;
   },
 });
+
+// Recharge automatique sur erreur de chunk (module JS introuvable après déploiement)
+registerChunkErrorHandler();
 // ──────────────────────────────────────────────────────────────────────────
 
 let theme = createTheme(CustomizedTheme);

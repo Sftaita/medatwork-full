@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchStore } from "../../store/searchStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import { useTableDensity } from "../../hooks/useTableDensity";
+import { useUserSettings, DEFAULT_SETTINGS } from "../../hooks/useUserSettings";
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -18,7 +20,6 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Checkbox from "@mui/material/Checkbox";
 import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -35,9 +36,9 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Divider from "@mui/material/Divider";
+import TablePagination from "@mui/material/TablePagination";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import CloseIcon from "@mui/icons-material/Close";
-import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -235,6 +236,12 @@ const HospitalAdminExportsPage = () => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { density, cycleDensity } = useTableDensity();
+  const { data: userSettings } = useUserSettings();
+  const excelPageSize = userSettings?.tables.staffPlanner.pageSize
+    ?? DEFAULT_SETTINGS.tables.staffPlanner.pageSize;
+
+  // Excel tab pagination
+  const [excelPage, setExcelPage] = useState(0);
 
   const [hridErrors, setHridErrors] = useState<HridResident[] | null>(null);
 
@@ -244,11 +251,17 @@ const HospitalAdminExportsPage = () => {
   const [initialized, setInitialized] = useState(false);
   // Selection : Set<"yearResidentId-month-calendarYear">
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [searchSp, setSearchSp] = useState("");
-  const [searchExcel, setSearchExcel] = useState("");
+  const { register, unregister, value: searchValue, setValue: setSearchValue } = useSearchStore();
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+
+  // Topbar search — placeholder selon l'onglet actif
+  useEffect(() => {
+    register(tab === 0 ? "MACCS, mois…" : "Nom, email…");
+    return () => unregister();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   // ── Fetch years ─────────────────────────────────────────────────────────────
 
@@ -365,8 +378,8 @@ const HospitalAdminExportsPage = () => {
     setSelectedYearId(yearId);
     if (year?.period) setSelectedPeriod(year.period);
     setSelected(new Set());
-    setSearchSp("");
-    setSearchExcel("");
+    setSearchValue("");
+    setExcelPage(0);
   };
 
   const handlePeriodChange = (period: string) => {
@@ -384,8 +397,7 @@ const HospitalAdminExportsPage = () => {
     if (best) {
       setSelectedYearId(best.id);
       setSelected(new Set());
-      setSearchSp("");
-      setSearchExcel("");
+      setSearchValue("");
     }
   };
 
@@ -502,36 +514,38 @@ const HospitalAdminExportsPage = () => {
 
   // ── Derived ───────────────────────────────────────────────────────────────────
 
+  const spQuery    = tab === 0 ? searchValue.trim().toLowerCase() : "";
+  const excelQuery = tab === 1 ? searchValue.trim().toLowerCase() : "";
+
   const filteredGroups: StaffPlannerMonthGroup[] = monthGroups
     .map((g) => ({
       ...g,
-      items: searchSp.trim()
-        ? g.items.filter((i) => {
-            const q = searchSp.toLowerCase();
-            return (
-              fullName(i).toLowerCase().includes(q) ||
-              (i.residentEmail ?? "").toLowerCase().includes(q) ||
-              g.label.toLowerCase().includes(q)
-            );
-          })
+      items: spQuery
+        ? g.items.filter((i) =>
+            fullName(i).toLowerCase().includes(spQuery) ||
+            (i.residentEmail ?? "").toLowerCase().includes(spQuery) ||
+            g.label.toLowerCase().includes(spQuery)
+          )
         : g.items,
     }))
-    .filter((g) => !searchSp.trim() || g.items.length > 0);
+    .filter((g) => !spQuery || g.items.length > 0);
 
   const allItemsFlat = filteredGroups.flatMap((g) => g.items.map((i) => ({ item: i, group: g })));
   const allSelected  = allItemsFlat.length > 0 && allItemsFlat.every(({ item, group }) => selected.has(itemKey(item, group)));
   const someSelected = allItemsFlat.some(({ item, group }) => selected.has(itemKey(item, group))) && !allSelected;
 
-  const filteredResidents = searchExcel.trim()
-    ? residents.filter((r) => {
-        const q = searchExcel.toLowerCase();
-        return (
-          (r.firstname ?? "").toLowerCase().includes(q) ||
-          (r.lastname ?? "").toLowerCase().includes(q) ||
-          (r.email ?? "").toLowerCase().includes(q)
-        );
-      })
+  const filteredResidents = excelQuery
+    ? residents.filter((r) =>
+        (r.firstname ?? "").toLowerCase().includes(excelQuery) ||
+        (r.lastname ?? "").toLowerCase().includes(excelQuery) ||
+        (r.email ?? "").toLowerCase().includes(excelQuery)
+      )
     : residents;
+
+  const paginatedResidents = filteredResidents.slice(
+    excelPage * excelPageSize,
+    (excelPage + 1) * excelPageSize,
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -551,18 +565,9 @@ const HospitalAdminExportsPage = () => {
           </Box>
           <Typography sx={T.pageSub}>Staff Planner et exports Excel annuels par MACCS</Typography>
         </Box>
-
-        <Box sx={{ minWidth: 380 }}>
-          <YearSelect
-            years={years}
-            value={selectedYearId}
-            onChange={(id) => id !== "" && handleYearChange(id)}
-            disabled={yearsLoading}
-          />
-        </Box>
       </Box>
 
-      {selectedYearId === "" ? (
+      {selectedYearId === "" && !yearsLoading ? (
         <Alert severity="info">Sélectionnez une année académique.</Alert>
       ) : (
         <>
@@ -623,6 +628,21 @@ const HospitalAdminExportsPage = () => {
             )}
           </Box>
 
+          {/* Toolbar commune — sélection d'année + densité */}
+          <Box sx={{ ...T.toolbar, mb: 2 }}>
+            <Box sx={{ minWidth: 280 }}>
+              <YearSelect
+                years={years}
+                value={selectedYearId}
+                onChange={(id) => id !== "" && handleYearChange(id)}
+                disabled={yearsLoading}
+              />
+            </Box>
+            <Box sx={{ ml: "auto" }}>
+              <DensityToggleButton density={density} onCycle={cycleDensity} />
+            </Box>
+          </Box>
+
           {/* ── Tab 0 — Staff Planner ─────────────────────────────────────── */}
           {tab === 0 && (
             <>
@@ -630,16 +650,6 @@ const HospitalAdminExportsPage = () => {
                 <Typography sx={{ ...T.pageSub, flex: 1 }}>
                   Sélectionnez les validations à exporter. Les lignes non traitées sont présélectionnées.
                 </Typography>
-                <TextField
-                  placeholder="Rechercher un MACCS ou mois…"
-                  value={searchSp}
-                  onChange={(e) => setSearchSp(e.target.value)}
-                  sx={T.search}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
-                  }}
-                />
-                <DensityToggleButton density={density} onCycle={cycleDensity} />
               </Box>
 
               {monthsLoading ? (
@@ -650,7 +660,7 @@ const HospitalAdminExportsPage = () => {
                 <Alert severity="error" sx={{ mb: 2 }}>Erreur lors du chargement des mois.</Alert>
               ) : filteredGroups.length === 0 ? (
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  {searchSp ? "Aucun résultat." : "Aucune validation pour cette année."}
+                  {spQuery ? "Aucun résultat." : "Aucune validation pour cette année."}
                 </Alert>
               ) : (
                 <>
@@ -975,16 +985,6 @@ const HospitalAdminExportsPage = () => {
                 <Typography sx={{ ...T.pageSub, flex: 1 }}>
                   Téléchargez le fichier Excel annuel pour chaque MACCS.
                 </Typography>
-                <TextField
-                  placeholder="Rechercher un MACCS…"
-                  value={searchExcel}
-                  onChange={(e) => setSearchExcel(e.target.value)}
-                  sx={T.search}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
-                  }}
-                />
-                <DensityToggleButton density={density} onCycle={cycleDensity} />
               </Box>
 
               {residentsLoading ? (
@@ -1010,7 +1010,7 @@ const HospitalAdminExportsPage = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {filteredResidents.map((r) => {
+                        {paginatedResidents.map((r) => {
                           const name = [r.firstname, r.lastname].filter(Boolean).join(" ") || "—";
                           const isDownloading = downloadingId === r.id;
                           return (
@@ -1062,6 +1062,17 @@ const HospitalAdminExportsPage = () => {
                       {filteredResidents.length} MACCS
                     </Typography>
                   </Box>
+                  {filteredResidents.length > excelPageSize && (
+                    <TablePagination
+                      component="div"
+                      count={filteredResidents.length}
+                      page={excelPage}
+                      rowsPerPage={excelPageSize}
+                      rowsPerPageOptions={[]}
+                      onPageChange={(_, p) => setExcelPage(p)}
+                      labelDisplayedRows={({ from, to, count }) => `${from}–${to} sur ${count}`}
+                    />
+                  )}
                 </Box>
               )}
             </>

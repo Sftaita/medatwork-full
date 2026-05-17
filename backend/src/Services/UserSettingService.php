@@ -8,6 +8,7 @@ use App\Entity\AppAdmin;
 use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\Resident;
+use App\Repository\ManagerRepository;
 use App\Repository\UserSettingRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,11 +18,22 @@ use Doctrine\ORM\EntityManagerInterface;
  * - Settings are stored as a JSON blob per (userType × userId).
  * - GET always merges stored values with defaults (new keys appear automatically).
  * - PATCH does a recursive merge: user values override defaults, patch overrides user.
+ * - Side-effect: when a manager patches notifications.compliance, Manager.receiveComplianceEmails is synced.
+ *
+ * Notification branchement status:
+ * - compliance   → synced to Manager.receiveComplianceEmails ✓
+ * - email        → stored only (no email service wired yet)
+ * - push         → stored only (no push infrastructure yet)
+ * - dailySummary → stored only (no cron yet)
+ * - validation   → stored only (prepared for future email hook)
+ * - planning     → stored only (prepared for future email hook)
+ * - staffPlanner → stored only (prepared for future email hook)
  */
 class UserSettingService
 {
     public function __construct(
         private readonly UserSettingRepository $repo,
+        private readonly ManagerRepository     $managerRepo,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -35,6 +47,7 @@ class UserSettingService
             'language' => 'fr',
             'calendar' => [
                 'defaultView'  => 'month',
+                'lastUsedView' => null,
                 'showWeekends' => true,
             ],
             'notifications' => [
@@ -42,6 +55,18 @@ class UserSettingService
                 'push'         => true,
                 'compliance'   => true,
                 'dailySummary' => false,
+                'validation'   => true,
+                'planning'     => true,
+                'staffPlanner' => true,
+            ],
+            'ui' => [
+                'sidebarCollapsed' => false,
+            ],
+            'tables' => [
+                'staffPlanner' => [
+                    'pageSize' => 25,
+                    'dense'    => false,
+                ],
             ],
         ];
     }
@@ -69,9 +94,31 @@ class UserSettingService
         $setting = $this->repo->getOrCreate($userType, $userId, $this->getDefaults());
         $merged  = array_replace_recursive($setting->getSettings(), $patch);
         $setting->setSettings($merged);
+
+        if ($userType === 'manager') {
+            $this->syncManagerCompliance($userId, $patch);
+        }
+
         $this->em->flush();
 
         return array_replace_recursive($this->getDefaults(), $merged);
+    }
+
+    // ── Side effects ─────────────────────────────────────────────────────────
+
+    /**
+     * Syncs Manager.receiveComplianceEmails when the patch touches notifications.compliance.
+     * Called before flush so both changes land in a single transaction.
+     */
+    private function syncManagerCompliance(int $managerId, array $patch): void
+    {
+        if (!isset($patch['notifications']['compliance'])) {
+            return;
+        }
+        $manager = $this->managerRepo->find($managerId);
+        if ($manager !== null) {
+            $manager->setReceiveComplianceEmails((bool) $patch['notifications']['compliance']);
+        }
     }
 
     // ── User identity resolution ──────────────────────────────────────────────

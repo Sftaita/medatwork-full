@@ -2,11 +2,15 @@
 
 ## Vue d'Ensemble
 
-26 entités Doctrine organisées autour de deux acteurs principaux (**Manager** et **Resident**), liés par une **Year** (année académique), elle-même rattachée à un **Hospital**.
+27 entités Doctrine organisées autour de deux acteurs principaux (**Manager** et **Resident**), liés par une **Year** (année académique), elle-même rattachée à un **Hospital**.
 
 **Nouvelles entités Sprint 1 (2026-04-02) :** `Hospital`, `AppAdmin`, `HospitalAdmin`, `HospitalRequest`.
 
 **Nouvelles entités Sprint 2 (2026-04-07) :** `CommunicationMessage`, `CommunicationMessageRead`.
+
+**Nouvelle entité UserSettings (2026-05-13) :** `UserSetting` — préférences utilisateur persistées en JSON (voir [USER_SETTINGS.md](./USER_SETTINGS.md)).
+
+> **Profil utilisateur (2026-05-14) :** Pas de nouvelle entité — Mon compte utilise les entités existantes (Manager, Resident, HospitalAdmin, AppAdmin) via `ProfileAccountController`. Voir [PROFILE_ACCOUNT.md](./PROFILE_ACCOUNT.md).
 
 **Nouvelles entités Sprint 3 (2026-05-06) :** `StaffPlannerExportStatus` (suivi export par MACCS × mois).
 

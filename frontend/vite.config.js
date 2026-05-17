@@ -178,6 +178,7 @@ export default defineConfig({
     }),
   ],
   optimizeDeps: {
+    include: ['jspdf'],
     esbuildOptions: {
       plugins: [muiBoxPatchEsbuild],
     },

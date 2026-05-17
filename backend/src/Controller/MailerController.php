@@ -50,4 +50,35 @@ class MailerController
 
         $this->mailer->send($email);
     }
+
+    /**
+     * Envoie un email HTML avec un PDF en pièce jointe.
+     *
+     * @param string $to
+     * @param string $subject
+     * @param string $htmlBody       Corps HTML brut (pas un template Twig)
+     * @param string $pdfBase64      PDF encodé en base64
+     * @param string $attachmentName Nom du fichier joint
+     */
+    public function sendEmailWithPdfAttachment(
+        string $to,
+        string $subject,
+        string $htmlBody,
+        string $pdfBase64,
+        string $attachmentName = 'planning.pdf'
+    ): void {
+        $text = strip_tags(html_entity_decode($htmlBody, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $text = preg_replace('/[ \t]+/', ' ', $text) ?? $text;
+
+        $email = (new Email())
+            ->from(new Address('no-reply@medatwork.be', 'MED@WORK'))
+            ->to($to)
+            ->replyTo('support@medatwork.be')
+            ->subject($subject)
+            ->text(trim($text))
+            ->html($htmlBody)
+            ->attach(base64_decode($pdfBase64), $attachmentName, 'application/pdf');
+
+        $this->mailer->send($email);
+    }
 }

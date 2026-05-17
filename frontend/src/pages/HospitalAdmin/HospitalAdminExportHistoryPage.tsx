@@ -115,7 +115,7 @@ const SnapshotDetailPanel = ({
   });
 
   return (
-    <Box sx={{ mt: 2, p: 2, bgcolor: "grey.50", borderRadius: 1, border: "1px solid", borderColor: "divider" }}>
+    <Box sx={{ mt: 2, p: 2, bgcolor: "action.hover", borderRadius: 1, border: "1px solid", borderColor: "divider" }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
         <Typography variant="subtitle2" fontWeight={700}>
           Détail snapshot #{snapshotId}
@@ -372,7 +372,7 @@ const DiffViewer = ({
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: "grey.50" }}>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
                     <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MACCS</Typography></TableCell>
                     <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MOIS</Typography></TableCell>
                     <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
@@ -440,7 +440,7 @@ const DiffViewer = ({
                         <TableRow key={`detail-${key}`}>
                           <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
                             <Collapse in={isExpanded} unmountOnExit>
-                              <Box sx={{ bgcolor: "grey.50", borderBottom: "1px solid", borderColor: "divider" }}>
+                              <Box sx={{ bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
                                 <DiffItemDetail item={item} />
                               </Box>
                             </Collapse>
@@ -545,7 +545,7 @@ const BatchDrawer = ({
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: "grey.50" }}>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
                 <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MACCS</Typography></TableCell>
                 <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MOIS</Typography></TableCell>
                 <TableCell>
@@ -762,7 +762,7 @@ const HospitalAdminExportHistoryPage = () => {
               <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ bgcolor: "grey.50" }}>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">#</Typography></TableCell>
                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">DATE</Typography></TableCell>
                       <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">ACTEUR</Typography></TableCell>

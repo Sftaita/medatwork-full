@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,7 +11,6 @@ import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Grid from "@mui/material/Grid";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -47,7 +47,6 @@ import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Collapse from "@mui/material/Collapse";
 
-import SearchIcon from "@mui/icons-material/Search";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import SendIcon from "@mui/icons-material/Send";
@@ -103,23 +102,67 @@ const NameTooltip = ({ names, emptyLabel }: { names: string[]; emptyLabel: strin
   </>
 );
 
-// ── Skeleton card ─────────────────────────────────────────────────────────────
+// ── Skeleton card — calqué sur la structure exacte de YearCard ───────────────
 
-const SkeletonCard = () => (
-  <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-    <CardContent sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1.5, p: 2.5 }}>
-      <Skeleton variant="text" width="65%" height={26} />
-      <Skeleton variant="text" width="45%" height={18} />
-      <Box flex={1} minHeight={16} />
-      <Box display="flex" gap={1}>
-        <Skeleton variant="rounded" width={90} height={26} />
-        <Skeleton variant="rounded" width={90} height={26} />
+interface SkeletonCardProps {
+  withLocation?: boolean;
+  withToken?: boolean;
+  titleWidth?: string;
+}
+
+const SkeletonCard = ({ withLocation = false, withToken = false, titleWidth = "72%" }: SkeletonCardProps) => (
+  <Card variant="outlined" sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+
+    {/* Zone cliquable */}
+    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", p: 2.5, gap: 0 }}>
+
+      {/* Titre + badge statut + menu ⋮ */}
+      <Box display="flex" alignItems="flex-start" gap={0.5} mb={1}>
+        <Box flex={1} sx={{ minHeight: "2.7em" }}>
+          <Skeleton variant="text" width={titleWidth} height={22} />
+          <Skeleton variant="text" width="50%" height={22} />
+        </Box>
+        <Skeleton variant="rounded" width={62} height={22} sx={{ borderRadius: 999, flexShrink: 0, mt: 0.25 }} />
+        <Skeleton variant="circular" width={24} height={24} sx={{ flexShrink: 0, mt: 0.25 }} />
       </Box>
-    </CardContent>
-    <Divider />
-    <Box sx={{ px: 1.5, py: 0.75 }}>
-      <Skeleton variant="text" width="70%" height={22} />
+
+      <Box flex={1} minHeight={12} />
+
+      {/* Lieu + spécialité */}
+      {withLocation && (
+        <Box display="flex" alignItems="center" gap={0.5} mb={1.5}>
+          <Skeleton variant="circular" width={14} height={14} />
+          <Skeleton variant="text" width="55%" height={16} />
+        </Box>
+      )}
+
+      {/* Chips résidents + managers */}
+      <Box display="flex" gap={1}>
+        <Skeleton variant="rounded" width={88} height={26} sx={{ borderRadius: 1 }} />
+        <Skeleton variant="rounded" width={80} height={26} sx={{ borderRadius: 1 }} />
+      </Box>
     </Box>
+
+    {/* Paramètres */}
+    <Divider />
+    <Box display="flex" alignItems="center" justifyContent="flex-end" sx={{ px: 1, py: 0.5 }}>
+      <Box display="flex" alignItems="center" gap={0.5}>
+        <Skeleton variant="circular" width={16} height={16} />
+        <Skeleton variant="text" width={72} height={18} />
+      </Box>
+    </Box>
+
+    {/* Token (optionnel) */}
+    {withToken && (
+      <>
+        <Divider />
+        <Box display="flex" alignItems="center" sx={{ px: 1.5, py: 0.75 }}>
+          <Skeleton variant="text" width="60%" height={18} sx={{ fontFamily: "monospace" }} />
+          <Box flex={1} />
+          <Skeleton variant="rounded" width={28} height={22} sx={{ borderRadius: 1 }} />
+        </Box>
+      </>
+    )}
   </Card>
 );
 
@@ -384,7 +427,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           <Box
             display="flex"
             alignItems="center"
-            sx={{ bgcolor: "grey.50", px: 1.5, py: 0.75 }}
+            sx={{ bgcolor: "action.hover", px: 1.5, py: 0.75 }}
             onClick={(e) => e.stopPropagation()}
           >
             <Typography
@@ -682,6 +725,23 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
     </Dialog>
   );
 };
+
+// ── Skeleton stat card — calqué sur StatCard ─────────────────────────────────
+
+const SkeletonStatCard = () => (
+  <Card variant="outlined" sx={{ height: "100%" }}>
+    <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 2.5, "&:last-child": { pb: 2.5 } }}>
+      {/* Icône */}
+      <Skeleton variant="rounded" width={48} height={48} sx={{ borderRadius: 2, flexShrink: 0 }} />
+      {/* Texte */}
+      <Box minWidth={0} flex={1}>
+        <Skeleton variant="text" width="40%" height={36} sx={{ mb: 0.25 }} />
+        <Skeleton variant="text" width="65%" height={18} />
+        <Skeleton variant="text" width="55%" height={15} />
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
@@ -1140,12 +1200,12 @@ const HospitalAdminDashboardPage = () => {
     queryFn: hospitalAdminApi.listMyYears,
   });
 
-  const { data: stats } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["hospital-admin-dashboard-stats"],
     queryFn: hospitalAdminApi.getDashboardStats,
   });
 
-  const [search, setSearch] = useState("");
+  const search = useTopbarSearch("Titre, résident, manager…");
   const [tab, setTab] = useState(ALL_TAB);
   const [viewMode, setViewMode] = useState<"grid" | "list">(loadView);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -1321,20 +1381,6 @@ const HospitalAdminDashboardPage = () => {
               <Tab key={p} label={p} value={p} />
             ))}
           </Tabs>
-          <TextField
-            size="small"
-            placeholder="Titre, résident, manager…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
           <ToggleButtonGroup
             value={viewMode}
             exclusive
@@ -1357,57 +1403,72 @@ const HospitalAdminDashboardPage = () => {
       </Box>
 
       {/* ── KPI Stats ────────────────────────────────────────────────────── */}
-      {stats && (
-        <Grid container spacing={2} mb={3}>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              label="MACCS actifs"
-              value={stats.maccs.active}
-              icon={<CheckCircleOutlineIcon />}
-              color="success"
-              sublabel={`${stats.maccs.total} au total · voir la liste`}
-              onClick={() => navigate("/hospital-admin/residents")}
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              label="Managers actifs"
-              value={stats.managers.active}
-              icon={<PersonOutlineIcon />}
-              color="info"
-              sublabel={`${stats.managers.total} au total · voir la liste`}
-              onClick={() => navigate("/hospital-admin/managers")}
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              label="Invitations en attente"
-              value={stats.pendingInvites}
-              icon={<HourglassEmptyIcon />}
-              color="warning"
-              sublabel={stats.pendingInvites > 0 ? "Cliquer pour gérer" : "Tout le monde a accepté"}
-              onClick={stats.pendingInvites > 0 ? () => setPendingOpen(true) : undefined}
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              label="Années de formation"
-              value={stats.totalYears}
-              icon={<CalendarMonthOutlinedIcon />}
-              color="secondary"
-              sublabel={`${stats.activeYears.length} en cours`}
-            />
-          </Grid>
-        </Grid>
-      )}
+      <Grid container spacing={2} mb={3}>
+        {statsLoading || !stats ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Grid key={i} item xs={6} sm={3}>
+              <SkeletonStatCard />
+            </Grid>
+          ))
+        ) : (
+          <>
+            <Grid item xs={6} sm={3}>
+              <StatCard
+                label="MACCS actifs"
+                value={stats.maccs.active}
+                icon={<CheckCircleOutlineIcon />}
+                color="success"
+                sublabel={`${stats.maccs.total} au total · voir la liste`}
+                onClick={() => navigate("/hospital-admin/residents")}
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <StatCard
+                label="Managers actifs"
+                value={stats.managers.active}
+                icon={<PersonOutlineIcon />}
+                color="info"
+                sublabel={`${stats.managers.total} au total · voir la liste`}
+                onClick={() => navigate("/hospital-admin/managers")}
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <StatCard
+                label="Invitations en attente"
+                value={stats.pendingInvites}
+                icon={<HourglassEmptyIcon />}
+                color="warning"
+                sublabel={stats.pendingInvites > 0 ? "Cliquer pour gérer" : "Tout le monde a accepté"}
+                onClick={stats.pendingInvites > 0 ? () => setPendingOpen(true) : undefined}
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <StatCard
+                label="Années de formation"
+                value={stats.totalYears}
+                icon={<CalendarMonthOutlinedIcon />}
+                color="secondary"
+                sublabel={`${stats.activeYears.length} en cours`}
+              />
+            </Grid>
+          </>
+        )}
+      </Grid>
 
       {/* ── Grid / List ───────────────────────────────────────────────────── */}
       {viewMode === "grid" ? (
         <Grid container spacing={2.5} alignItems="stretch">
           {isLoading
-            ? Array.from({ length: 6 }).map((_, i) => (
+            ? ([
+                { titleWidth: "75%", withLocation: true,  withToken: true  },
+                { titleWidth: "60%", withLocation: false, withToken: false },
+                { titleWidth: "80%", withLocation: true,  withToken: false },
+                { titleWidth: "55%", withLocation: false, withToken: true  },
+                { titleWidth: "70%", withLocation: true,  withToken: false },
+                { titleWidth: "65%", withLocation: false, withToken: false },
+              ] as const).map((props, i) => (
                 <Grid key={i} item xs={12} sm={6} md={4} sx={{ display: "flex" }}>
-                  <Box width="100%"><SkeletonCard /></Box>
+                  <SkeletonCard {...props} />
                 </Grid>
               ))
             : filtered.map((year) => (
@@ -1425,7 +1486,7 @@ const HospitalAdminDashboardPage = () => {
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: "grey.50" }}>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
                 <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">ANNÉE</Typography></TableCell>
                 <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">PÉRIODE</Typography></TableCell>
                 <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>

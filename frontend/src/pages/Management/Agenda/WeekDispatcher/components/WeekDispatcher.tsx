@@ -5,14 +5,10 @@ import useWeekDispatcherContext from "../../../../../hooks/useWeekDispatcherCont
 import type { Assignments, ResidentAssignment } from "@/store/weekDispatcherStore";
 
 // Material UI
-import Card from "@mui/material/Card";
-import Divider from "@mui/material/Divider";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 
 // Local components
-import ActionView from "./ActionView";
 import WeekTaskAllocation from "./WeekTaskAllocation";
 import { handleApiError } from "@/services/apiError";
 
@@ -101,24 +97,9 @@ const WeekDispatcher = () => {
   const hasYears = years.length > 0;
 
   return (
-    <Card sx={{ boxShadow: 3, width: "100%" }}>
-      {/* ── 1. Barre de contrôle : sélecteur d'année + bouton Enregistrer ── */}
-      <ActionView isLoading={isLoading} />
-
-      {/* ── 2. Titre + table (visibles seulement si des années existent) ─── */}
-      {(hasYears || isLoading) && (
-        <>
-          <Divider />
-          <Box sx={{ py: 1.25, textAlign: "center", backgroundColor: "background.paper" }}>
-            <Typography variant="h6" color="primary" fontWeight={600}>
-              Répartition des semaines
-            </Typography>
-          </Box>
-          <Divider />
-          <WeekTaskAllocation isLoading={isLoading} />
-        </>
-      )}
-    </Card>
+    <Box>
+      <WeekTaskAllocation isLoading={isLoading} />
+    </Box>
   );
 };
 

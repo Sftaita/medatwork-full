@@ -12,6 +12,10 @@ import Container from "../medium/Container";
 import { Topbar, Sidebar, Footer } from "./components";
 import useNotifications from "../../hooks/useNotifications";
 import useCommNotifications from "../../hooks/useCommNotifications";
+import { useSidebarStore } from "../../store/sidebarStore";
+
+const SIDEBAR_WIDTH      = 240;   // fidèle au design
+const SIDEBAR_MINI_WIDTH = 64;
 
 const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
   const theme = useTheme();
@@ -20,20 +24,23 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
   });
 
   const { authentication } = useAuth();
+  const { collapsed, toggle } = useSidebarStore();
 
   // Fetch notifications and populate the store — Topbar/Sidebar read from store directly
   useNotifications(authentication.role);
   useCommNotifications(authentication.role);
 
-  // side bar
+  // side bar (mobile)
   const [openSidebar, setOpenSidebar] = useState(false);
-  const handleSidebarOpen = () => {
-    setOpenSidebar(true);
-  };
-  const handleSidebarClose = () => {
-    setOpenSidebar(false);
-  };
-  const open = isMd ? false : openSidebar;
+  const handleSidebarOpen  = () => setOpenSidebar(true);
+  const handleSidebarClose = () => setOpenSidebar(false);
+  // On desktop: always open (mini or expanded). On mobile: controlled by burger.
+  const open = isMd ? true : openSidebar;
+
+  // On desktop: sidebar always takes some space (256px expanded, 64px mini)
+  const desktopPadding = isMd && authentication.isAuthenticated
+    ? collapsed ? `${SIDEBAR_MINI_WIDTH}px` : `${SIDEBAR_WIDTH}px`
+    : "0px";
 
   return (
     <Box>
@@ -54,6 +61,7 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
           onClose={handleSidebarClose}
           open={open}
           variant={isMd ? "permanent" : "temporary"}
+          collapsed={isMd && collapsed}
         />
       )}
 
@@ -61,7 +69,8 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
         <Sidebar
           onClose={handleSidebarClose}
           open={open}
-          variant={isMd ? "permanent" : "temporary"}
+          variant={"temporary"}
+          collapsed={false}
         />
       )}
 
@@ -70,7 +79,10 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
         <Box
           display="flex"
           overflow="hidden"
-          paddingLeft={{ md: authentication.isAuthenticated ? "256px" : "0px" }}
+          sx={{
+            paddingLeft: { md: desktopPadding },
+            transition: theme.transitions.create("padding-left"),
+          }}
         >
           <Box display="flex" overflow="hidden" width="100%">
             <Box height="100%" maxWidth="100%" width="100%">
@@ -81,7 +93,12 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
           </Box>
         </Box>
 
-        <Box paddingLeft={{ md: authentication.isAuthenticated ? "256px" : "0px" }}>
+        <Box
+          sx={{
+            paddingLeft: { md: desktopPadding },
+            transition: theme.transitions.create("padding-left"),
+          }}
+        >
           <Divider />
           <Box paddingX={{ xs: 2, md: 4 }} paddingY={{ xs: 0, md: 2 }}>
             <Footer />

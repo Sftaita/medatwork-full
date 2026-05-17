@@ -119,6 +119,7 @@ const S: Record<string, CSSProperties> = {
 
 interface Props {
   templates: LocalTemplate[];
+  displayTemplates: LocalTemplate[];
   currentTemplateId: number | null;
   weekendVisible: boolean;
   syncStatus: SyncStatus;
@@ -131,7 +132,7 @@ interface Props {
 }
 
 export default function TopBar({
-  templates, currentTemplateId, weekendVisible, syncStatus,
+  templates, displayTemplates, currentTemplateId, weekendVisible, syncStatus,
   onSelectTemplate, onCreateTemplate, onRenameTemplate,
   onDeleteTemplate, onDuplicateTemplate, onToggleWeekend,
 }: Props) {
@@ -210,7 +211,13 @@ export default function TopBar({
               + Nouveau
             </button>
 
-            {templates.map(tpl => {
+            {displayTemplates.length === 0 && (
+              <span style={{ fontSize: 12, color: '#94a3b8', alignSelf: 'center', paddingLeft: 4 }}>
+                Aucun modèle trouvé
+              </span>
+            )}
+
+            {displayTemplates.map(tpl => {
               const active = tpl.id === currentTemplateId;
               if (editingChipId === tpl.id) {
                 return (

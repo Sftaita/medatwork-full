@@ -20,6 +20,12 @@ vi.mock("../../services/hospitalAdminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Le champ de recherche est dans la Topbar (useTopbarSearch), pas dans le DOM de la page
+let mockTopbarSearch = "";
+vi.mock("../../hooks/useTopbarSearch", () => ({
+  useTopbarSearch: () => mockTopbarSearch,
+}));
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 // Use dates that straddle today (2026-04-05) so the auto-tab selection is predictable
 const MOCK_YEARS = [
@@ -73,7 +79,15 @@ function renderPage() {
 // ── Setup ─────────────────────────────────────────────────────────────────────
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTopbarSearch = "";
   vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue(MOCK_YEARS as any);
+  vi.mocked(hospitalAdminApi.getDashboardStats).mockResolvedValue({
+    maccs:    { active: 0, pending: 0, incomplete: 0, retired: 0, total: 0 },
+    managers: { active: 0, pending: 0, incomplete: 0, total: 0 },
+    pendingInvites: 0,
+    totalYears: 2,
+    activeYears: [],
+  } as any);
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -133,30 +147,20 @@ describe("HospitalAdminDashboardPage", () => {
   });
 
   it("shows 'Aucune année trouvée' when search has no match", async () => {
+    mockTopbarSearch = "xxxxxxxxxnotfound";
     renderPage();
-    await waitFor(() => screen.getByText("Stage cardiologie S1"));
-
-    fireEvent.change(screen.getByPlaceholderText(/Titre, résident, manager/i), {
-      target: { value: "xxxxxxxxxnotfound" },
-    });
-
     await waitFor(() =>
       expect(screen.getByText("Aucune année trouvée")).toBeInTheDocument()
     );
   });
 
   it("filters cards by title search", async () => {
+    mockTopbarSearch = "cardiologie";
     renderPage();
-    await waitFor(() => screen.getByText("Stage urgences S2"));
-
-    fireEvent.change(screen.getByPlaceholderText(/Titre, résident, manager/i), {
-      target: { value: "cardiologie" },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument();
-      expect(screen.queryByText("Stage urgences S2")).not.toBeInTheDocument();
-    });
+    await waitFor(() =>
+      expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument()
+    );
+    expect(screen.queryByText("Stage urgences S2")).not.toBeInTheDocument();
   });
 
   it("displays the enrollment token on cards that have one", async () => {

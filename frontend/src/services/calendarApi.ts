@@ -43,6 +43,10 @@ const calendarApi = {
     };
   },
 
+  sendScheduleByEmail(): ApiCall {
+    return { method: "post", url: "managers/managerCalendar/sendScheduleEmail" };
+  },
+
   /** Absorbed from ShedulerAPI — fetch data for the manager scheduler */
   fetchManagerSchedulerData(): ApiCall {
     return {

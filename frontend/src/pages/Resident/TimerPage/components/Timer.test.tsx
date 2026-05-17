@@ -41,13 +41,16 @@ vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }
 
 // Stub date pickers — they need a complex MUI/dayjs setup not relevant here
 vi.mock("../../../../components/medium/CustomDateTimeHandler", () => ({
-  default: ({ label, onChange, value }: any) => (
-    <input
-      aria-label={label}
-      data-testid={`dt-${label}`}
-      defaultValue={value?.toString?.() ?? ""}
-      onChange={(e) => onChange(e.target.value)}
-    />
+  default: ({ label, onChange, value, helperText, error }: any) => (
+    <div>
+      <input
+        aria-label={label}
+        data-testid={`dt-${label}`}
+        defaultValue={value?.toString?.() ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error && helperText && <span role="alert">{helperText}</span>}
+    </div>
   ),
 }));
 
@@ -129,6 +132,45 @@ describe("Timer — validation", () => {
     renderTimer({ years: [] });
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() => expect(mockPost).not.toHaveBeenCalled());
+  });
+
+  // ── Régression Sentry FRONTEND-9 : dateOfEnd < dateOfStart envoyait un 400 ──
+
+  it("bloque la soumission si dateOfEnd est avant dateOfStart", async () => {
+    renderTimer();
+
+    // Simuler heure début = 18:00, heure fin = 08:00 (fin < début)
+    const startInput = screen.getByTestId("dt-Début");
+    const endInput   = screen.getByTestId("dt-Fin");
+
+    // On force le composant à appeler onChange avec une valeur dayjs invalide
+    // En passant une chaîne, le composant stubé appelle onChange(value)
+    // Le Timer stocke cette valeur via handleDateChange1/2
+    fireEvent.change(startInput, { target: { value: "2026-01-01T18:00:00.000Z" } });
+    fireEvent.change(endInput,   { target: { value: "2026-01-01T08:00:00.000Z" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
+
+    // L'API ne doit pas être appelée
+    await waitFor(() => expect(mockPost).not.toHaveBeenCalled());
+  });
+
+  it("affiche un message d'erreur clair quand dateOfEnd < dateOfStart", async () => {
+    renderTimer();
+
+    const startInput = screen.getByTestId("dt-Début");
+    const endInput   = screen.getByTestId("dt-Fin");
+
+    fireEvent.change(startInput, { target: { value: "2026-01-01T18:00:00.000Z" } });
+    fireEvent.change(endInput,   { target: { value: "2026-01-01T08:00:00.000Z" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/l'heure de fin doit être après l'heure de début/i)
+      ).toBeInTheDocument()
+    );
   });
 });
 

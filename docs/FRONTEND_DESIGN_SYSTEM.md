@@ -256,7 +256,7 @@ if (jobFilter && g.job !== jobFilter) return false;
   onClick={(e) => e.stopPropagation()} // évite d'ouvrir le drawer via propagation
   anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
   transformOrigin={{ vertical: "top", horizontal: "right" }}
-  PaperProps={{ sx: { minWidth: 190, borderRadius: "10px", boxShadow: C.shadow } }}
+  PaperProps={{ sx: { minWidth: 190, borderRadius: "10px" } }}
 >
   <MenuItem onClick={() => { close(); onOpenDrawer(); }}>Voir le détail</MenuItem>
   <MenuItem onClick={() => { close(); onAddYear(); }}>Ajouter à une année</MenuItem>
@@ -305,6 +305,7 @@ const MyPage = () => {
       </Box>
 
       <Box sx={T.toolbar}>
+        {/* Recherche locale (uniquement si la page n'utilise PAS useTopbarSearch) */}
         <TextField sx={T.search} placeholder="Rechercher…" />
         <DensityToggleButton density={density} onCycle={cycleDensity} />
       </Box>
@@ -368,6 +369,170 @@ const MyPage = () => {
 | `HospitalAdminAuditLogPage` | `/hospital-admin/audit-log` | Densité, filtre Action + dates |
 | `HospitalAdminExportsPage` | `/hospital-admin/exports` | Densité, `T.table`/`T.headRow`/`bodyRowSx` dans accordéons MACCS + onglet Excel |
 | `HospitalAdminAuditTimelinePage` | `/hospital-admin/audit-timeline` | `T.card`/`T.wrap`/`T.table`, chips couleurs par event type, filtres actifs |
+
+---
+
+## Recherche via la Topbar — `useTopbarSearch`
+
+La barre de recherche de la topbar est **inactive par défaut**. Elle s'affiche uniquement lorsqu'une page l'active explicitement via le hook `useTopbarSearch`.
+
+### Fichiers concernés
+
+| Fichier | Rôle |
+|---------|------|
+| `frontend/src/store/searchStore.ts` | Store Zustand — état `active`, `placeholder`, `value` |
+| `frontend/src/hooks/useTopbarSearch.ts` | Hook d'enregistrement pour les pages |
+| `frontend/src/components/layout/components/Topbar/Topbar.tsx` | Lit le store, affiche le champ si `active === true` |
+
+### Fonctionnement
+
+```
+Page mount  →  register(placeholder)  →  champ topbar apparaît
+User tape   →  setValue(v)            →  hook retourne la valeur
+Page unmount → unregister()           →  champ topbar disparaît, value remise à ""
+```
+
+### Usage dans une page
+
+```typescript
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
+
+const MyPage = () => {
+  // Active le champ en topbar avec ce placeholder, retourne la valeur tapée
+  const search = useTopbarSearch("Titre, résident, manager…");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((item) =>
+      !q || item.title.toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
+  // Pas de TextField local — la recherche se fait depuis la topbar
+  return <Box>{/* ... */}</Box>;
+};
+```
+
+### Règles
+
+- **Ne jamais** ajouter un `TextField` de recherche local sur une page qui utilise `useTopbarSearch` — le champ topbar est la seule entrée.
+- Le placeholder doit décrire les champs filtrables : `"Nom, email, spécialité…"`.
+- La valeur est remise à `""` automatiquement lors du `register` (changement de page). Aucun reset manuel nécessaire.
+- Sur mobile (`xs`/`sm`), le champ topbar n'est pas affiché — prévoir un fallback si la recherche est critique sur mobile.
+
+### Pages connectées
+
+| Page | Route | Placeholder |
+|------|-------|-------------|
+| `HospitalAdminDashboardPage` | `/hospital-admin/dashboard` | `"Titre, résident, manager…"` |
+| `HospitalAdminResidentsPage` | `/hospital-admin/residents` | `"Nom, email, année…"` |
+| `HospitalAdminManagersPage` | `/hospital-admin/managers` | `"Nom, email, fonction…"` |
+| `HospitalAdminAuditLogPage` | `/hospital-admin/audit-log` | `"Admin, action, description…"` |
+| `HospitalAdminExportsPage` | `/hospital-admin/exports` | `"MACCS, mois…"` (tab 0) / `"Nom, email…"` (tab 1) |
+| `WeekPlannerApp` | `/manager/week-creator` | `"Rechercher un modèle…"` |
+| `CalendarView` | `/manager/calendar` | `"Rechercher un MACC…"` |
+
+> Ajouter une ligne ici à chaque nouvelle page branchée.
+
+---
+
+## Gestion des semaines — `WeekScheduleTable` + `WeekTaskAllocation`
+
+Page : `/manager/week-dispatcher`
+
+### Architecture
+
+```
+WeekDispatcher.tsx          — charge les données API, orchestre
+  └── WeekTaskAllocation.tsx — bridge données ↔ composant, mutations optimistes
+        └── WeekScheduleTable.tsx — composant pur d'affichage (styles inline)
+```
+
+### Fichiers
+
+| Fichier | Rôle |
+|---------|------|
+| `WeekDispatcher.tsx` | Fetch initial (`yearsWeekIntervals`), gestion du loading/erreur |
+| `WeekTaskAllocation.tsx` | Mapping store → props, `handleResidentAssignment`, `handleRemoveAssignment`, `handleYearChange` |
+| `WeekScheduleTable.tsx` | Rendu grille, panneau latéral, navigation cyclique "non assignées", scroll animé |
+| `store/weekDispatcherStore.ts` | Zustand : `currentYearId`, `years`, `residents`, `intervals`, `yearWeekTemplates`, `assignments` |
+
+### Données — mapping `WeekTaskAllocation`
+
+```ts
+// intervals (WeekInterval[])  →  weeks (WSTWeek[])
+{ weekIntervalId, dateOfStart, dateOfEnd, weekNumber, monthNumber, yearNumber }
+→ { idx, num, startD, startM, endD, endM, month, monthLabel, year }
+
+// yearWeekTemplates (YearWeekTemplate[])  →  postes (WSTPoste[])
+{ yearWeekTemplateId, title }  →  { id: String(yearWeekTemplateId), name: title }
+
+// residents (ResidentAssignment[])  →  people (Record<string, WSTPerson>)
+{ residentId, firstname, lastname }
+→ { [String(residentId)]: { name, initials, color: PALETTE[residentId % 12] } }
+
+// assignments (Assignments)  →  rotation (Record<string, (string|null)[]>)
+assignments[templateId][weekIntervalId]  →  rotation[String(templateId)][weekIdx]
+```
+
+### Mutations — approche optimiste
+
+Chaque clic (assignation / retrait) met à jour le store LOCAL immédiatement, puis appelle l'API sans attendre :
+
+```ts
+// Assignation
+setAssignments((prev) => { /* mise à jour optimiste */ return updated; });
+dispatchOps([{ method: "create", residentId, yearWeekTemplateId, weekIntervalId }]);
+
+// Retrait
+setAssignments((prev) => ({ ...prev, [templateId]: { ...prev[templateId], [weekIntervalId]: null } }));
+dispatchOps([{ method: "delete", residentId, yearWeekTemplateId, weekIntervalId }]);
+```
+
+**Collision** : si le résident est déjà sur un autre poste la même semaine, un `delete` de l'ancien poste est inclus dans le même appel API.
+
+### Props `WeekScheduleTable`
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `people` | `Record<string, WSTPerson>` | Résidents : `{ name, initials, color }` |
+| `postes` | `WSTPoste[]` | `{ id, name }` |
+| `weeks` | `WSTWeek[]` | `{ idx, num, startD, startM, endD, endM, month, monthLabel, year }` |
+| `rotation` | `Record<string, (string\|null)[]>` | `rotation[posteId][weekIdx]` = personId ou null |
+| `currentWeekIdx` | `number` | Index de la semaine courante (mise en relief) |
+| `onCellClick` | `(posteId, weekIdx, event) => void` | Ouvre le menu de sélection |
+| `onAddPoste` | `() => void` | Ouvre le dialog d'import |
+| `yearSelector` | `ReactNode` | Slot pour le `YearSelect` dans la toolbar |
+
+### Fonctionnalités intégrées à `WeekScheduleTable`
+
+**Largeur des colonnes** — bouton dans la toolbar, 2 modes :
+- `compact` : 110px/colonne (défaut)
+- `large` : 170px/colonne
+
+Préférence persistée dans `localStorage` sous la clé `medatwork:week-dispatcher-cell-width`.
+
+**Navigation "non assignées"** — badge rouge cliquable dans la toolbar :
+- Cycle à travers toutes les cellules vides (poste par poste, semaine par semaine)
+- Compteur `· N/total` affiché après le premier clic
+- Scroll horizontal animé (`behavior: 'smooth'`) via `scrollRef.current.scrollTo`
+- Scroll vertical via `window.scrollBy` (sans interférer avec le scroll horizontal)
+- Flash violet sur la cellule ciblée pendant 1,4s
+- Reset du curseur quand le nombre de cellules vides change
+
+**Aperçu mensuel** — tuiles cliquables dans le panneau droit :
+- Clic → scroll horizontal animé vers la semaine correspondante
+- Outline violet sur la tuile sélectionnée
+
+**Colonne sticky** — la colonne "Poste" reste fixe lors du scroll horizontal (`position: sticky; left: 0`).
+
+### Tests
+
+| Fichier | Cas couverts |
+|---------|-------------|
+| `WeekScheduleTable.test.tsx` | Rendu, cellules vides/assignées, badge cyclique, localStorage, panneau, callbacks, compteur X/N, aperçu mensuel, charge par MACC |
+| `WeekTaskAllocation.test.tsx` | Loading/vide, mapping données, `handleYearChange`, menu, `handleResidentAssignment`, `handleRemoveAssignment`, collision inter-postes, dialog import, résilience erreur API |
+| `WeekTaskAllocation.pendingChange.test.ts` | Logique `upsertPendingOp` (déduplication de slots — la fonction existe toujours mais n'est plus utilisée pour un batching différé ; les mutations sont désormais optimistes directes) |
 
 ---
 

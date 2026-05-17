@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-05-07 (session 24 — Semaines modèles / Week Creator redesign)
+**Dernière mise à jour :** 2026-05-15 (session 25 — WeekDispatcher refonte, topbar search, tests)
 
 ## Vue d'Ensemble
 
@@ -1067,21 +1067,22 @@ Timeline **horizontale** : le temps est l'axe X (06:00 → 23:00), les 7 jours s
 | `HoursCircle.test.tsx` | Label présent, cap à 100 % pour 80h |
 | `TimeSummaryBloc.test.tsx` | 7 jours, dayOfWeek string, hors plage ignoré |
 
-### Frontend — WeekDispatcher (`pages/Management/Agenda/WeekDispatcher/`) (2026-04-20)
+### Frontend — WeekDispatcher (`pages/Management/Agenda/WeekDispatcher/`) (2026-05-15 — refonte)
 
-#### Layout vertical (post-redesign)
+#### Layout (post-redesign)
 
 ```
 WeekDispatcherPage
-└── Card (boxShadow 3, width 100%)
-    ├── ActionView                 ← barre horizontale : sélecteur d'année + bouton Enregistrer
-    ├── Divider
-    ├── "Répartition des semaines" ← titre centré (affiché si au moins 1 année)
-    ├── Divider
-    └── WeekTaskAllocation         ← table pleine largeur
+└── WeekDispatcher.tsx         ← fetch initial, gestion loading/erreur
+    └── WeekTaskAllocation.tsx ← bridge données ↔ composant, mutations optimistes
+        └── WeekScheduleTable.tsx ← composant pur d'affichage (styles inline)
+                                    - sélecteur d'année (slot yearSelector)
+                                    - grille scrollable horizontalement
+                                    - panneau latéral (Charge / Aperçu mensuel)
+                                    - navigation "non assignées" cyclique
 ```
 
-Si aucune année n'est disponible : `ActionView` affiche une `Alert info` pleine largeur, la section titre/table est masquée.
+Si aucune année n'est disponible : `WeekTaskAllocation` affiche une `Alert info` pleine largeur.
 
 #### Store — `weekDispatcherStore.ts`
 
@@ -1091,26 +1092,32 @@ State Zustand partagé entre tous les composants enfants :
 |-------|------|-------------|
 | `years` | `YearSummary[]` | Résumé des années (residents, weekIntervals, yearWeekTemplates) |
 | `currentYearId` | `number \| null` | Année sélectionnée |
-| `residents` | `ResidentSummary[]` | Résidents de l'année courante |
-| `interval` | `WeekInterval[]` | Intervalles de semaines de l'année courante |
+| `residents` | `ResidentAssignment[]` | Résidents de l'année courante |
+| `intervals` | `WeekInterval[]` | Intervalles de semaines de l'année courante |
 | `yearWeekTemplates` | `YearWeekTemplate[]` | Templates liés à l'année courante |
-| `assignments` | `Assignments` | Map `[templateId][weekId] → ResidentAssignment` |
-| `pendingChange` | `PendingOp[]` | Opérations non encore enregistrées |
+| `assignments` | `Assignments` | Map `[templateId][weekIntervalId] → ResidentAssignment \| null` |
+| `pendingChange` | `unknown[]` | Réinitialisé à `[]` lors du changement d'année — les mutations sont maintenant optimistes (appel API direct par opération, voir ci-dessous) |
 
 Tous les setters supportent les **functional updaters** (`setState((prev) => ...)`) en plus de la valeur directe.
 
-#### Déduplication des changements (`upsertPendingOp`)
+#### Mutations — approche optimiste directe
 
-Un changement de slot `(yearWeekTemplateId, weekIntervalId)` remplace toujours l'opération précédente pour ce même slot — évite d'accumuler des ops redondantes.
+Chaque assignation/retrait met à jour le store local immédiatement, puis appelle `dispatchWeek` avec la ou les opérations concernées sans attendre de confirmation :
 
-`pendingChange` est réinitialisé à `[]` lors du changement d'année pour éviter d'envoyer les changements d'une année vers une autre.
+```ts
+// Après mise à jour optimiste de assignments :
+const { method, url } = calendarApi.dispatchWeek(currentYearId);
+await axiosPrivate[method](url, ops);   // fire-and-forget
+```
+
+**Collision inter-poste** : si le résident est déjà assigné à un autre poste la même semaine, un `{ method: "delete" }` de l'ancien poste est inclus dans le même appel API que le `{ method: "create" }` du nouveau.
 
 #### Endpoints backend utilisés
 
 | Route | Méthode | Description |
 |-------|---------|-------------|
 | `GET /api/managers/getYearsWeekIntervals` | GET | Résumé années + intervalles + assignments (Manager & HospitalAdmin) |
-| `POST /api/managers/dispatchWeek/{yearId}` | POST | Sauvegarde batch des assignements |
+| `POST /api/managers/dispatchWeek/{yearId}` | POST | Enregistrement direct d'une ou plusieurs opérations (optimiste) |
 
 #### Tests Vitest
 
@@ -1118,7 +1125,9 @@ Un changement de slot `(yearWeekTemplateId, weekIntervalId)` remplace toujours l
 |---------|-------|
 | `weekDispatcherStore.test.ts` | 9 tests — setters valeur directe + functional updater |
 | `WeekTemplateImport.test.tsx` | 9 tests — lazy-load, filtre, empty-state, cancel, import |
-| `WeekTaskAllocation.pendingChange.test.ts` | 6 tests — déduplication, create/delete, slots indépendants |
+| `WeekTaskAllocation.pendingChange.test.ts` | 6 tests — logique `upsertPendingOp` (déduplication de slots) |
+| `WeekScheduleTable.test.tsx` | 30 tests — rendu, cellules vides/assignées, badge cyclique, localStorage largeur, panneau latéral, callbacks, compteur X/N, aperçu mensuel, charge par MACC |
+| `WeekTaskAllocation.test.tsx` | 20 tests — états loading/vide, mapping données, `handleYearChange`, menu résidents, assignation, retrait, collision inter-postes, dialog import, résilience erreur API |
 
 ---
 
@@ -1174,7 +1183,7 @@ import YearSelect from "@/components/YearSelect";
 **Exports nommés :**
 - `sortYearsNewestFirst(years)` — tri seul (pour réutilisation hors composant)
 
-**Utilisé dans :** `HospitalAdminManagersPage` (dialog "Ajouter un manager")
+**Utilisé dans :** `HospitalAdminManagersPage` (dialog "Ajouter un manager"), `HospitalAdminResidentsPage` (filtre d'année dans la toolbar), `HospitalAdminExportsPage` (sélecteur d'année dans la toolbar commune), `WeekTaskAllocation` (slot `yearSelector` dans `WeekScheduleTable`)
 
 ### Fonctionnement
 
@@ -1212,7 +1221,7 @@ Mise à jour disponible
 | Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
 | devOptions activé (test dev) | ✅ `vite.config.js` |
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-11 (Phase 6 — Audit Timeline RH enterprise)*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-13 (Phases 1–5 UserSettings)*
 
 ---
 
@@ -1407,6 +1416,67 @@ Le champ `job` est exposé dans le JWT pour les `Manager` uniquement (valeur de 
 7. Utilisateur peut aussi basculer le statut manuellement via PATCH
 ```
 
+
+---
+
+## Profil utilisateur — Mon compte et Préférences (2026-05-14)
+
+> Documentation complète :
+> - Compte (identité, mot de passe) → [docs/PROFILE_ACCOUNT.md](./PROFILE_ACCOUNT.md)
+> - Préférences (UI, thème, calendrier) → [docs/USER_SETTINGS.md](./USER_SETTINGS.md)
+
+### Distinction des deux modules
+
+| | Mon compte `/profile/account` | Préférences `/profile/settings` |
+|---|---|---|
+| Objet | Identité, mot de passe, données métier | Comportement interface |
+| Persistance | Entités Doctrine (Manager, Resident…) | `UserSetting` JSON par utilisateur |
+| Sauvegarde | Bouton explicite | Auto-save à chaque toggle |
+| Sécurité | Vérification mot de passe actuel avant changement | Whitelist stricte + limite 4 Ko |
+
+### Mon compte — endpoints
+
+| Route | Rôle |
+|---|---|
+| `GET /api/profile/account` | Profil de l'utilisateur (champs rôle-dépendants, jamais password/token/roles) |
+| `PATCH /api/profile/account` | Mise à jour prénom/nom + champs spécifiques au rôle |
+| `PATCH /api/profile/password` | Changement de mot de passe (vérifie mot de passe actuel, min 8 chars) |
+
+Champs modifiables : Manager (+sexe, +job), Resident (+sexe, +speciality, +university, +dateOfMaster), HospitalAdmin (+rien de plus), AppAdmin (+rien de plus). Email toujours en lecture seule.
+
+### Paramètres — voir section dédiée ci-dessous
+
+## Système de Paramètres Utilisateur (2026-05-13)
+
+> Documentation complète : [docs/USER_SETTINGS.md](./USER_SETTINGS.md)
+
+Préférences par utilisateur persistées en JSON côté serveur, synchronisées via React Query et appliquées via des stores Zustand réactifs.
+
+### Entité & endpoint
+
+`UserSetting` — une ligne par utilisateur (`user_type` + `user_id`), champ `settings` en JSON, merge récursif avec les defaults à chaque lecture.
+
+| Route | Description |
+|---|---|
+| `GET /api/user/settings` | Préférences mergées avec les defaults — accessible à tous les rôles JWT |
+| `PATCH /api/user/settings` | Mise à jour partielle — body limité à 4 Ko, clés whitelistées, types validés |
+
+Side effect : patcher `notifications.compliance` pour un manager synchronise aussi `Manager.receiveComplianceEmails` dans la même transaction.
+
+### Stores frontend
+
+| Store | Clé localStorage | Piloté par |
+|---|---|---|
+| `themeStore` | `medatwork:theme` | `ThemeProvider` dynamique dans `App.tsx` |
+| `sidebarStore` | `medatwork:sidebar-collapsed` | `WithFixedSidebar` + `Sidebar` (mini-drawer 64 px) |
+
+Les deux stores écoutent `window.addEventListener("storage")` pour la **synchronisation cross-tab** (autre onglet → même store mis à jour sans rechargement).
+
+À chaque fetch réussi, les valeurs serveur écrasent localStorage (**le serveur gagne**).
+
+### Mini-drawer
+
+La sidebar desktop a deux états : 256 px (texte + icônes) et 64 px (icônes seules avec `Tooltip placement="right"`). Chaque entrée de `sidebarNavData.tsx` **doit avoir une icône SVG** — condition nécessaire au mode mini.
 
 ---
 

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
+import YearSelect from "../../components/YearSelect";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -23,7 +25,6 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Checkbox from "@mui/material/Checkbox";
 import DownloadIcon from "@mui/icons-material/Download";
 import Drawer from "@mui/material/Drawer";
@@ -39,7 +40,6 @@ import FormControl from "@mui/material/FormControl";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
 import Stack from "@mui/material/Stack";
-import SearchIcon from "@mui/icons-material/Search";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -48,6 +48,7 @@ import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import Tooltip from "@mui/material/Tooltip";
 import Avatar from "@mui/material/Avatar";
+import Skeleton from "@mui/material/Skeleton";
 import CloseIcon from "@mui/icons-material/Close";
 import LinearProgress from "@mui/material/LinearProgress";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -702,7 +703,7 @@ const HospitalAdminResidentsPage = () => {
   const { density, cycleDensity } = useTableDensity();
 
   const [mode, setMode] = useState<"current" | "history">("current");
-  const [search, setSearch] = useState("");
+  const search = useTopbarSearch("Nom, email, année…");
   const [statusFilter, setStatusFilter] = useState<MaccsStatus | "">("");
   const [yearFilter, setYearFilter] = useState<number | "">("");
   const [sortCol, setSortCol] = useState<"nom" | "email" | "annee" | "optingout" | "statut" | null>("nom");
@@ -929,14 +930,6 @@ const HospitalAdminResidentsPage = () => {
           <ToggleButton value="history">Historique</ToggleButton>
         </ToggleButtonGroup>
 
-        <TextField
-          size="small"
-          placeholder="Nom, email, année…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ ...T.search, minWidth: 200, maxWidth: 280 }}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: C.ink4 }} /></InputAdornment> }}
-        />
 
         <FormControl size="small" sx={{ minWidth: 130 }}>
           <InputLabel>Statut</InputLabel>
@@ -953,19 +946,14 @@ const HospitalAdminResidentsPage = () => {
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Année</InputLabel>
-          <Select
+        <Box sx={{ minWidth: 200 }}>
+          <YearSelect
+            years={years}
             value={yearFilter}
+            onChange={setYearFilter}
             label="Année"
-            onChange={(e) => setYearFilter(e.target.value as number | "")}
-          >
-            <MenuItem value="">Toutes</MenuItem>
-            {years.map((y) => (
-              <MenuItem key={y.id} value={y.id}>{y.title}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          />
+        </Box>
 
         <Box flex={1} />
 
@@ -999,8 +987,43 @@ const HospitalAdminResidentsPage = () => {
 
       {/* Table */}
       {isLoading ? (
-        <Box display="flex" justifyContent="center" mt={4}>
-          <CircularProgress />
+        <Box sx={T.card}>
+          <Box sx={T.wrap}>
+            <Table sx={T.table}>
+              <TableHead>
+                <TableRow sx={T.headRow}>
+                  <TableCell padding="checkbox" sx={{ pl: "18px !important" }}><Skeleton width={16} height={16} /></TableCell>
+                  {["Nom", "Email", "Année académique", "Opting-out", "Statut"].map((h) => (
+                    <TableCell key={h}><Skeleton width={80} /></TableCell>
+                  ))}
+                  <TableCell />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {[...Array(8)].map((_, i) => (
+                  <TableRow key={i} sx={{ height: 60 }}>
+                    <TableCell padding="checkbox" sx={{ pl: "18px !important" }}>
+                      <Skeleton variant="rectangular" width={16} height={16} sx={{ borderRadius: 0.5 }} />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={T.person}>
+                        <Skeleton variant="circular" width={34} height={34} />
+                        <Box>
+                          <Skeleton width={120} height={14} />
+                          <Skeleton width={160} height={12} sx={{ mt: 0.5 }} />
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell><Skeleton width={150} /></TableCell>
+                    <TableCell><Skeleton width={100} /></TableCell>
+                    <TableCell><Skeleton width={40} /></TableCell>
+                    <TableCell><Skeleton variant="rounded" width={70} height={22} sx={{ borderRadius: 999 }} /></TableCell>
+                    <TableCell><Skeleton width={24} height={24} variant="circular" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
         </Box>
       ) : filtered.length === 0 ? (
         <Alert severity="info">

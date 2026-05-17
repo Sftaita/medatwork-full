@@ -55,7 +55,6 @@ const DataManagement = () => {
             sx={{
               flexGrow: 1,
               maxWidth: isMd ? 350 : 300,
-              bgcolor: "background.paper",
             }}
           >
             <Tabs

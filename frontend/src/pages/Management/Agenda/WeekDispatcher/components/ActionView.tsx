@@ -1,21 +1,12 @@
-import React, { useState, useMemo } from "react";
-import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
-import calendarApi from "../../../../../services/calendarApi";
-import { toast } from "react-toastify";
-import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
+import React, { useMemo } from "react";
 import CustomSelect from "../../../../../components/medium/CustomSelect";
 import useWeekDispatcherContext from "../../../../../hooks/useWeekDispatcherContext";
 
 // Material UI
 import { MenuItem, Alert } from "@mui/material";
 import Box from "@mui/material/Box";
-import LoadingButton from "@mui/lab/LoadingButton";
-import { handleApiError } from "@/services/apiError";
 
 const ActionView = ({ isLoading }: { isLoading: boolean }) => {
-  const axiosPrivate = useAxiosPrivate();
-  const [isPending, setIsPending] = useState(false);
-
   const {
     years,
     currentYearId,
@@ -23,7 +14,6 @@ const ActionView = ({ isLoading }: { isLoading: boolean }) => {
     setInterval,
     setResidents,
     setYearWeekTemplates,
-    pendingChange,
     setPendingChange,
   } = useWeekDispatcherContext();
 
@@ -55,25 +45,6 @@ const ActionView = ({ isLoading }: { isLoading: boolean }) => {
     });
   }, [years]);
 
-  const handleSubmit = async () => {
-    setIsPending(true);
-    try {
-      const { method, url } = calendarApi.dispatchWeek(currentYearId);
-      await axiosPrivate[method](url, pendingChange);
-      setPendingChange([]);
-      toast.success("Mise à jour réussie.", toastSuccess);
-    } catch (error) {
-      handleApiError(error);
-      if ((error as any)?.response?.data?.message) {
-        toast.error((error as any).response.data.message, toastError);
-      } else {
-        toast.error("Oups! Une erreur s'est produite.", toastError);
-      }
-    } finally {
-      setIsPending(false);
-    }
-  };
-
   // No years and not loading → info alert (table section is also hidden)
   if (years.length === 0 && !isLoading) {
     return (
@@ -101,23 +72,13 @@ const ActionView = ({ isLoading }: { isLoading: boolean }) => {
         <CustomSelect
           label="Année"
           name="year"
-          value={currentYearId}
+          value={currentYearId ?? ""}
           onChange={handleYearChange}
           item={yearItems}
           loading={isLoading}
         />
       </Box>
 
-      {/* Save button — pinned to the right */}
-      <LoadingButton
-        variant="contained"
-        disabled={pendingChange.length === 0}
-        onClick={handleSubmit}
-        loading={isPending}
-        sx={{ flexShrink: 0 }}
-      >
-        Enregistrer
-      </LoadingButton>
     </Box>
   );
 };

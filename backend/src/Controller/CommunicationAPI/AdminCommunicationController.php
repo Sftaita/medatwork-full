@@ -22,11 +22,13 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * Super-admin endpoints for CommunicationMessage management.
  *
- * POST  /api/admin/communications                   → create message
- * GET   /api/admin/communications                   → list all global messages
- * PATCH /api/admin/communications/{id}/toggle-active → activate / deactivate
- * POST  /api/admin/communications/{id}/duplicate    → duplicate message
- * GET   /api/admin/communications/users             → list all users for specific targeting
+ * POST   /api/admin/communications                   → create message
+ * GET    /api/admin/communications                   → list all global messages
+ * PUT    /api/admin/communications/{id}              → update message
+ * DELETE /api/admin/communications/{id}              → delete message
+ * PATCH  /api/admin/communications/{id}/toggle-active → activate / deactivate
+ * POST   /api/admin/communications/{id}/duplicate    → duplicate message
+ * GET    /api/admin/communications/users             → list all users for specific targeting
  */
 #[Route('/api/admin/communications')]
 #[IsGranted('ROLE_SUPER_ADMIN')]
@@ -160,6 +162,52 @@ class AdminCommunicationController extends AbstractController
         $this->entityManager->flush();
 
         return $this->json($this->serialize($copy), 201);
+    }
+
+    #[Route('/{id}', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    public function update(int $id, Request $request): JsonResponse
+    {
+        $message = $this->messageRepo->find($id);
+        if ($message === null) {
+            return $this->json(['error' => 'Message introuvable.'], 404);
+        }
+
+        try {
+            $dto = CommunicationInputDTO::fromRequest($request);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], 422);
+        }
+
+        $message->setType($dto->type);
+        $message->setTitle($dto->title);
+        $message->setBody($dto->body);
+        $message->setImageUrl($dto->imageUrl);
+        $message->setLinkUrl($dto->linkUrl);
+        $message->setButtonLabel($dto->buttonLabel);
+        $message->setTargetUrl($dto->targetUrl);
+        $message->setPriority($dto->priority);
+        $message->setScopeType($dto->scopeType);
+        $message->setTargetRole($dto->targetRole);
+        $message->setTargetUserId($dto->targetUserId);
+        $message->setTargetUserType($dto->targetUserType);
+
+        $this->entityManager->flush();
+
+        return $this->json($this->serialize($message));
+    }
+
+    #[Route('/{id}', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    public function delete(int $id): JsonResponse
+    {
+        $message = $this->messageRepo->find($id);
+        if ($message === null) {
+            return $this->json(['error' => 'Message introuvable.'], 404);
+        }
+
+        $this->entityManager->remove($message);
+        $this->entityManager->flush();
+
+        return $this->json(null, 204);
     }
 
     #[Route('/users', methods: ['GET'])]

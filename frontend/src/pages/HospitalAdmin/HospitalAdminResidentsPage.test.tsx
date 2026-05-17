@@ -29,6 +29,12 @@ vi.mock("../../services/hospitalAdminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Le champ de recherche est dans la Topbar (useTopbarSearch), pas dans le DOM de la page
+let mockTopbarSearch = "";
+vi.mock("../../hooks/useTopbarSearch", () => ({
+  useTopbarSearch: () => mockTopbarSearch,
+}));
+
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const ALICE: any = {
@@ -77,6 +83,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTopbarSearch = "";
   vi.mocked(hospitalAdminApi.listResidents).mockResolvedValue(MOCK_ROWS);
   vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue(MOCK_YEARS);
 });
@@ -87,10 +94,11 @@ describe("HospitalAdminResidentsPage", () => {
 
   // ── Loading ──────────────────────────────────────────────────────────────
 
-  it("shows loading spinner while fetching", () => {
+  it("shows loading skeleton while fetching", () => {
     vi.mocked(hospitalAdminApi.listResidents).mockReturnValue(new Promise(() => {}));
-    renderPage();
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    const { container } = renderPage();
+    // Le composant affiche des lignes Skeleton pendant le chargement
+    expect(container.querySelector(".MuiSkeleton-root")).toBeInTheDocument();
   });
 
   // ── Table rows ─────────────────────────────────────────────────────────────
@@ -167,11 +175,8 @@ describe("HospitalAdminResidentsPage", () => {
   });
 
   it("shows 'Aucun résultat' after search with no match", async () => {
+    mockTopbarSearch = "zzzunknown";
     renderPage();
-    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Nom, email, année…"), {
-      target: { value: "zzzunknown" },
-    });
     await waitFor(() =>
       expect(screen.getByText("Aucun résultat pour cette recherche.")).toBeInTheDocument()
     );
@@ -180,32 +185,24 @@ describe("HospitalAdminResidentsPage", () => {
   // ── Search ─────────────────────────────────────────────────────────────────
 
   it("filters by name", async () => {
+    mockTopbarSearch = "alice";
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Nom, email, année…"), {
-      target: { value: "alice" },
-    });
-    expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
     expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument();
   });
 
   it("filters by email", async () => {
+    mockTopbarSearch = "bob@";
     renderPage();
     await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Nom, email, année…"), {
-      target: { value: "bob@" },
-    });
-    expect(screen.getByText("Martin Bob")).toBeInTheDocument();
     expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();
   });
 
   it("filters by year title", async () => {
+    // BOB.yearTitle = "Neurologie 2025", ALICE.yearTitle = "Cardiologie 2025"
+    mockTopbarSearch = "Neurologie";
     renderPage();
-    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Nom, email, année…"), {
-      target: { value: "Neurologie" },
-    });
-    expect(screen.getByText("Martin Bob")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
     expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();
     expect(screen.queryByText("Rossi Carla")).not.toBeInTheDocument();
   });
@@ -304,10 +301,13 @@ describe("HospitalAdminResidentsPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
     const comboboxes = screen.getAllByRole("combobox");
-    // 2nd combobox = Année
+    // 2nd combobox = YearSelect (label="Année")
     fireEvent.mouseDown(comboboxes[1]);
-    await waitFor(() => expect(screen.getByRole("option", { name: "Neurologie 2025" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("option", { name: "Neurologie 2025" }));
+    // YearSelect rend les MenuItem avec titre + location + période — utiliser regex
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /Neurologie 2025/ })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("option", { name: /Neurologie 2025/ }));
     await waitFor(() => {
       expect(screen.getByText("Martin Bob")).toBeInTheDocument();
       expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();

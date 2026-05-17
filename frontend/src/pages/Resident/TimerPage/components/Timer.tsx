@@ -150,6 +150,12 @@ const Timer = ({
     if (!timesheet.dateOfEnd) {
       errs.dateOfEnd = "Vous n'avez pas renseigné l'heure de fin";
       errs.status = true;
+    } else if (
+      timesheet.dateOfStart &&
+      dayjs(timesheet.dateOfEnd).isBefore(dayjs(timesheet.dateOfStart))
+    ) {
+      errs.dateOfEnd = "L'heure de fin doit être après l'heure de début";
+      errs.status = true;
     }
     if (errs.status) setErrors(errs);
     return errs.status;

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { T, C, statusBadgeSx, yearPillSx, bodyRowSx } from "../../styles/tableStyles";
 import { useTableDensity } from "../../hooks/useTableDensity";
 import { DensityToggleButton } from "../../components/DensityToggleButton";
@@ -524,7 +525,7 @@ const ManagerDrawer = ({
           </Box>
 
           {/* ── Tabs ───────────────────────────────────────────────────── */}
-          <Box borderBottom={1} borderColor="divider" bgcolor="grey.50">
+          <Box borderBottom={1} borderColor="divider" bgcolor="action.hover">
             <Tabs
               value={tab}
               onChange={(_, v) => setTab(v)}
@@ -610,7 +611,7 @@ const ManagerDrawer = ({
                   </List>
                 </Box>
               )}
-              <Box px={3} py={2} borderTop={1} borderColor="divider" bgcolor="grey.50" flexShrink={0}>
+              <Box px={3} py={2} borderTop={1} borderColor="divider" bgcolor="action.hover" flexShrink={0}>
                 <Button variant="outlined" startIcon={<AddIcon />} fullWidth onClick={onOpenAddYear}>
                   Ajouter à une année
                 </Button>
@@ -689,7 +690,7 @@ const HospitalAdminManagersPage = () => {
   const qc = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
-  const [search, setSearch] = useState("");
+  const search = useTopbarSearch("Nom, email, fonction…");
   const [jobFilter, setJobFilter] = useState("");
   const [sortCol, setSortCol] = useState<"nom" | "email" | "fonction" | "annees" | "statut" | null>("nom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -891,20 +892,6 @@ const HospitalAdminManagersPage = () => {
 
       {/* Toolbar */}
       <Box sx={T.toolbar}>
-        <TextField
-          size="small"
-          placeholder="Rechercher par nom, email ou fonction…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ ...T.search }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" sx={{ color: C.ink4 }} />
-              </InputAdornment>
-            ),
-          }}
-        />
 
         {/* Filtre fonction */}
         <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -924,11 +911,11 @@ const HospitalAdminManagersPage = () => {
           </Select>
         </FormControl>
 
-        <DensityToggleButton density={density} onCycle={cycleDensity} />
-
         <Typography variant="caption" sx={{ color: C.ink3, ml: "auto" }}>
           {filtered.length} manager{filtered.length !== 1 ? "s" : ""}
         </Typography>
+
+        <DensityToggleButton density={density} onCycle={cycleDensity} />
       </Box>
 
       {/* Table */}

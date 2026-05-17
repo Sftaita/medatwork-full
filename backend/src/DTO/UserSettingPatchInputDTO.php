@@ -9,9 +9,12 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Validates a partial PATCH body for user settings.
  *
- * Only known top-level keys are accepted; unknown keys are rejected.
- * Within nested objects, only known sub-keys are kept (unknown ignored).
- * All provided values are type-checked.
+ * Security:
+ * - JSON body limited to 4 096 bytes.
+ * - Only known top-level keys are accepted; unknown keys are rejected (400).
+ * - Nested objects are limited to depth 2 (top-level key → sub-key).
+ * - All provided values are type-checked; wrong types are rejected (400).
+ * - Unknown sub-keys are silently ignored (whitelist approach).
  *
  * Allowed structure:
  * {
@@ -19,18 +22,33 @@ use Symfony\Component\HttpFoundation\Request;
  *   "language": "fr"|"nl"|"en",
  *   "calendar": {
  *     "defaultView":   "month"|"week"|"day"|"list",
+ *     "lastUsedView":  "month"|"week"|"day"|"list"|null,
  *     "showWeekends":  bool
  *   },
  *   "notifications": {
  *     "email":        bool,
  *     "push":         bool,
  *     "compliance":   bool,
- *     "dailySummary": bool
+ *     "dailySummary": bool,
+ *     "validation":   bool,
+ *     "planning":     bool,
+ *     "staffPlanner": bool
+ *   },
+ *   "ui": {
+ *     "sidebarCollapsed": bool
+ *   },
+ *   "tables": {
+ *     "staffPlanner": {
+ *       "pageSize": int (25|50|100|200),
+ *       "dense":    bool
+ *     }
  *   }
  * }
  */
 final class UserSettingPatchInputDTO
 {
+    private const MAX_BODY_BYTES = 4096;
+
     private function __construct(
         public readonly array $patch,
     ) {
@@ -38,13 +56,22 @@ final class UserSettingPatchInputDTO
 
     public static function fromRequest(Request $request): self
     {
-        $data = json_decode($request->getContent(), true);
+        // ── Security: body size ───────────────────────────────────────────────
+        $content = $request->getContent();
+        if (strlen($content) > self::MAX_BODY_BYTES) {
+            throw new \InvalidArgumentException(
+                'Corps JSON trop volumineux (max ' . self::MAX_BODY_BYTES . ' octets)'
+            );
+        }
+
+        $data = json_decode($content, true);
 
         if (! is_array($data) || empty($data)) {
             throw new \InvalidArgumentException('Corps JSON invalide ou vide');
         }
 
-        $knownTopKeys = ['theme', 'language', 'calendar', 'notifications'];
+        // ── Security: known top-level keys only ───────────────────────────────
+        $knownTopKeys = ['theme', 'language', 'calendar', 'notifications', 'ui', 'tables'];
         $unknownKeys  = array_diff(array_keys($data), $knownTopKeys);
         if (! empty($unknownKeys)) {
             throw new \InvalidArgumentException(
@@ -75,12 +102,20 @@ final class UserSettingPatchInputDTO
             if (! is_array($data['calendar'])) {
                 throw new \InvalidArgumentException('calendar doit être un objet');
             }
+            $validViews = ['month', 'week', 'day', 'list'];
             $cal = [];
             if (array_key_exists('defaultView', $data['calendar'])) {
-                if (! in_array($data['calendar']['defaultView'], ['month', 'week', 'day', 'list'], true)) {
+                if (! in_array($data['calendar']['defaultView'], $validViews, true)) {
                     throw new \InvalidArgumentException('calendar.defaultView invalide');
                 }
                 $cal['defaultView'] = $data['calendar']['defaultView'];
+            }
+            if (array_key_exists('lastUsedView', $data['calendar'])) {
+                $v = $data['calendar']['lastUsedView'];
+                if ($v !== null && ! in_array($v, $validViews, true)) {
+                    throw new \InvalidArgumentException('calendar.lastUsedView invalide');
+                }
+                $cal['lastUsedView'] = $v;
             }
             if (array_key_exists('showWeekends', $data['calendar'])) {
                 if (! is_bool($data['calendar']['showWeekends'])) {
@@ -99,7 +134,8 @@ final class UserSettingPatchInputDTO
                 throw new \InvalidArgumentException('notifications doit être un objet');
             }
             $notif = [];
-            foreach (['email', 'push', 'compliance', 'dailySummary'] as $key) {
+            $notifKeys = ['email', 'push', 'compliance', 'dailySummary', 'validation', 'planning', 'staffPlanner'];
+            foreach ($notifKeys as $key) {
                 if (array_key_exists($key, $data['notifications'])) {
                     if (! is_bool($data['notifications'][$key])) {
                         throw new \InvalidArgumentException("notifications.$key doit être un booléen");
@@ -109,6 +145,55 @@ final class UserSettingPatchInputDTO
             }
             if (! empty($notif)) {
                 $patch['notifications'] = $notif;
+            }
+        }
+
+        // ── ui ────────────────────────────────────────────────────────────────
+        if (array_key_exists('ui', $data)) {
+            if (! is_array($data['ui'])) {
+                throw new \InvalidArgumentException('ui doit être un objet');
+            }
+            $ui = [];
+            if (array_key_exists('sidebarCollapsed', $data['ui'])) {
+                if (! is_bool($data['ui']['sidebarCollapsed'])) {
+                    throw new \InvalidArgumentException('ui.sidebarCollapsed doit être un booléen');
+                }
+                $ui['sidebarCollapsed'] = $data['ui']['sidebarCollapsed'];
+            }
+            if (! empty($ui)) {
+                $patch['ui'] = $ui;
+            }
+        }
+
+        // ── tables ────────────────────────────────────────────────────────────
+        if (array_key_exists('tables', $data)) {
+            if (! is_array($data['tables'])) {
+                throw new \InvalidArgumentException('tables doit être un objet');
+            }
+            $tables = [];
+            if (array_key_exists('staffPlanner', $data['tables'])) {
+                if (! is_array($data['tables']['staffPlanner'])) {
+                    throw new \InvalidArgumentException('tables.staffPlanner doit être un objet');
+                }
+                $sp = [];
+                if (array_key_exists('pageSize', $data['tables']['staffPlanner'])) {
+                    if (! in_array($data['tables']['staffPlanner']['pageSize'], [25, 50, 100, 200], true)) {
+                        throw new \InvalidArgumentException('tables.staffPlanner.pageSize doit être 25, 50, 100 ou 200');
+                    }
+                    $sp['pageSize'] = $data['tables']['staffPlanner']['pageSize'];
+                }
+                if (array_key_exists('dense', $data['tables']['staffPlanner'])) {
+                    if (! is_bool($data['tables']['staffPlanner']['dense'])) {
+                        throw new \InvalidArgumentException('tables.staffPlanner.dense doit être un booléen');
+                    }
+                    $sp['dense'] = $data['tables']['staffPlanner']['dense'];
+                }
+                if (! empty($sp)) {
+                    $tables['staffPlanner'] = $sp;
+                }
+            }
+            if (! empty($tables)) {
+                $patch['tables'] = $tables;
             }
         }
 

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Box from "@mui/material/Box";
@@ -5,7 +6,6 @@ import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
@@ -14,12 +14,15 @@ import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
 import Alert from "@mui/material/Alert";
+import Chip from "@mui/material/Chip";
 import Tooltip from "@mui/material/Tooltip";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CheckIcon from "@mui/icons-material/Check";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import TranslateIcon from "@mui/icons-material/Translate";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import TableRowsIcon from "@mui/icons-material/TableRows";
 
 import { useUserSettings, useUpdateSettings, DEFAULT_SETTINGS } from "../../hooks/useUserSettings";
 import { useTableDensity } from "../../hooks/useTableDensity";
@@ -44,7 +47,7 @@ const Section = ({
       gap={1.5}
       px={3}
       py={2}
-      sx={{ bgcolor: "grey.50" }}
+      sx={{ bgcolor: "action.hover" }}
     >
       {icon}
       <Typography variant="subtitle1" fontWeight={700}>
@@ -105,15 +108,68 @@ const LANGUAGES = [
   { value: "en", label: "English" },
 ] as const;
 
+const PAGE_SIZES = [
+  { value: 25,  label: "25 lignes" },
+  { value: 50,  label: "50 lignes" },
+  { value: 100, label: "100 lignes" },
+  { value: 200, label: "200 lignes" },
+] as const;
+
+const NOTIFICATION_ROWS = [
+  {
+    key:         "email" as const,
+    label:       "Notifications par email",
+    description: "Validations, alertes de conformité",
+  },
+  {
+    key:         "push" as const,
+    label:       "Notifications push",
+    description: "Alertes en temps réel dans l'application",
+  },
+  {
+    key:         "compliance" as const,
+    label:       "Alertes de conformité",
+    description: "Dépassements des limites légales temps de travail",
+  },
+  {
+    key:         "validation" as const,
+    label:       "Validations de période",
+    description: "Notifications lors de la validation ou du refus d'une période",
+  },
+  {
+    key:         "planning" as const,
+    label:       "Modifications de planning",
+    description: "Changements d'affectation ou de garde",
+  },
+  {
+    key:         "staffPlanner" as const,
+    label:       "Exports Staff Planner",
+    description: "Confirmation d'export et alertes de traitement",
+  },
+  {
+    key:         "dailySummary" as const,
+    label:       "Résumé quotidien",
+    description: "Récapitulatif des activités de la journée",
+  },
+] as const;
+
 const ProfileSettingsPage = () => {
   const navigate                     = useNavigate();
   const { data: settings, isLoading, isError } = useUserSettings();
-  const { mutate: update, isPending }           = useUpdateSettings();
-  const { density, cycleDensity }              = useTableDensity();
+  const { mutate: update, isPending, isSuccess } = useUpdateSettings();
+  const { density, cycleDensity }                = useTableDensity();
 
   const current = settings ?? DEFAULT_SETTINGS;
 
   const patch = (p: UserSettingsPatch) => update(p);
+
+  const [savedVisible, setSavedVisible] = useState(false);
+  useEffect(() => {
+    if (!isSuccess) return;
+    setSavedVisible(true);
+    const t = setTimeout(() => setSavedVisible(false), 2000);
+    return () => clearTimeout(t);
+  }, [isSuccess]);
 
   return (
     <Box p={3} maxWidth={760} mx="auto">
@@ -124,7 +180,7 @@ const ProfileSettingsPage = () => {
             <ArrowBackIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Box>
+        <Box flex={1}>
           <Typography variant="h5" fontWeight={700}>
             Préférences
           </Typography>
@@ -132,6 +188,18 @@ const ProfileSettingsPage = () => {
             Vos paramètres sont sauvegardés automatiquement et synchronisés entre vos appareils.
           </Typography>
         </Box>
+        {isPending && (
+          <Chip size="small" label="Sauvegarde…" variant="outlined" sx={{ color: "text.secondary" }} />
+        )}
+        {savedVisible && !isPending && (
+          <Chip
+            size="small"
+            icon={<CheckIcon fontSize="small" />}
+            label="Sauvegardé"
+            color="success"
+            variant="outlined"
+          />
+        )}
       </Box>
 
       {isError && (
@@ -184,8 +252,9 @@ const ProfileSettingsPage = () => {
               description="Certains contenus médicaux restent en français"
             >
               <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Langue</InputLabel>
+                <InputLabel id="lang-label">Langue</InputLabel>
                 <Select
+                  labelId="lang-label"
                   label="Langue"
                   value={current.language}
                   disabled={isPending}
@@ -213,8 +282,9 @@ const ProfileSettingsPage = () => {
             <>
               <SettingRow label="Vue par défaut" description="Vue appliquée à l'ouverture du calendrier">
                 <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel>Vue</InputLabel>
+                  <InputLabel id="cal-view-label">Vue</InputLabel>
                   <Select
+                    labelId="cal-view-label"
                     label="Vue"
                     value={current.calendar.defaultView}
                     disabled={isPending}
@@ -247,40 +317,62 @@ const ProfileSettingsPage = () => {
           )}
         </Section>
 
+        {/* ── Tableaux ────────────────────────────────────────────────────── */}
+        <Section icon={<TableRowsIcon color="action" />} title="Tableaux">
+          {isLoading ? (
+            <Stack spacing={1.5} py={1}>
+              <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
+            </Stack>
+          ) : (
+            <>
+              <SettingRow
+                label="Densité des tableaux"
+                description="Persistée localement — s'applique sur tous les tableaux"
+              >
+                <DensityToggleButton density={density} onCycle={cycleDensity} />
+              </SettingRow>
+
+              <Divider />
+
+              <SettingRow
+                label="Lignes par page — Staff Planner"
+                description="Nombre de lignes affichées par page dans l'export Staff Planner"
+              >
+                <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <InputLabel id="sp-pagesize-label">Lignes</InputLabel>
+                  <Select
+                    labelId="sp-pagesize-label"
+                    label="Lignes"
+                    value={current.tables.staffPlanner.pageSize}
+                    disabled={isPending}
+                    onChange={(e) =>
+                      patch({ tables: { staffPlanner: { pageSize: e.target.value as any } } })
+                    }
+                  >
+                    {PAGE_SIZES.map((p) => (
+                      <MenuItem key={p.value} value={p.value}>
+                        {p.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </SettingRow>
+            </>
+          )}
+        </Section>
+
         {/* ── Notifications ────────────────────────────────────────────────── */}
         <Section icon={<NotificationsIcon color="action" />} title="Notifications">
           {isLoading ? (
             <Stack spacing={1.5} py={1}>
-              {[...Array(4)].map((_, i) => (
+              {[...Array(7)].map((_, i) => (
                 <Skeleton key={i} variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
               ))}
             </Stack>
           ) : (
             <>
-              {(
-                [
-                  {
-                    key: "email",
-                    label: "Notifications par email",
-                    description: "Validations, alertes de conformité",
-                  },
-                  {
-                    key: "push",
-                    label: "Notifications push",
-                    description: "Alertes en temps réel dans l'application",
-                  },
-                  {
-                    key: "compliance",
-                    label: "Alertes de conformité",
-                    description: "Dépassements des limites légales temps de travail",
-                  },
-                  {
-                    key: "dailySummary",
-                    label: "Résumé quotidien",
-                    description: "Récapitulatif des activités de la journée",
-                  },
-                ] as const
-              ).map((item, idx) => (
+              {NOTIFICATION_ROWS.map((item, idx) => (
                 <Box key={item.key}>
                   {idx > 0 && <Divider />}
                   <SettingRow label={item.label} description={item.description}>

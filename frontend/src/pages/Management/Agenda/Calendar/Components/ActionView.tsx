@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import calendarApi from "../../../../../services/calendarApi";
 import useManagersCalendarContext from "../../../../../hooks/useManagersCalendarContext";
-
-// General components
-import CustomSelect from "../../../../../components/medium/CustomSelect";
+import YearSelect from "../../../../../components/YearSelect";
+import type { HospitalYear } from "../../../../../services/hospitalAdminApi";
 
 // Material components
 import { Grid, Checkbox, IconButton, Drawer } from "@mui/material";
-import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
@@ -96,8 +94,8 @@ const ActionView = ({ isMd }) => {
     }
   }, [axiosPrivate, setCurrentYear, setYearResidents, setSchedules, setSelectedResidents]);
 
-  const handleChangeYear = (event) => {
-    const yearId = event.target.value;
+  const handleChangeYear = (yearId: number | "") => {
+    if (!yearId) return;
     const selectedYear = years.find((year) => year.yearId === yearId);
     if (selectedYear) {
       setCurrentYear(selectedYear);
@@ -105,6 +103,21 @@ const ActionView = ({ isMd }) => {
     }
     loadByYearId(yearId);
   };
+
+  // Mapping format contexte → HospitalYear pour YearSelect
+  const mappedYears: HospitalYear[] = (years as any[]).map((y) => ({
+    id:           y.yearId,
+    title:        y.title ?? String(y.yearId),
+    period:       y.period   ?? null,
+    location:     y.location ?? null,
+    speciality:   y.speciality ?? null,
+    comment:      null,
+    status:       y.status ?? "active",
+    dateOfStart:  y.dateOfStart ?? null,
+    dateOfEnd:    y.dateOfEnd   ?? null,
+    residentCount: y.residents?.length ?? 0,
+    managerCount:  0,
+  }));
 
   const handleToggleResident = (residentId: number) => {
     const newSelected = selectedResidents.includes(residentId)
@@ -166,15 +179,12 @@ const ActionView = ({ isMd }) => {
         marginBottom={2}
       >
         <Grid item xs={10} md={12} width="100%">
-          <CustomSelect
-            loading={isLoading}
+          <YearSelect
+            years={mappedYears}
             value={currentYear ? parseInt(currentYear.yearId) : ""}
             onChange={handleChangeYear}
-            item={years.map((e) => (
-              <MenuItem value={e.yearId} key={e.yearId}>
-                {e.title}
-              </MenuItem>
-            ))}
+            label="Année académique"
+            disabled={isLoading}
           />
         </Grid>
 

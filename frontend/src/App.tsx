@@ -1,8 +1,9 @@
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 import { useThemeStore } from "./store/themeStore";
-import { CustomizedTheme } from "./doc/CustomizedTheme";
+import { lightTheme, darkTheme } from "./doc/CustomizedTheme";
 import ManagerRoute from "./routes/ManagerRoute";
 import CanCreateYearRoute from "./routes/CanCreateYearRoute";
 import ResidentRoute from "./routes/ResidentRoute";
@@ -88,8 +89,9 @@ const HospitalAdminAuditTimelinePage = lazy(
 const HospitalAdminExportsPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminExportsPage")
 );
-const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage"));
+const ProfilePage         = lazy(() => import("./pages/Profile/ProfilePage"));
 const ProfileSettingsPage = lazy(() => import("./pages/Profile/ProfileSettingsPage"));
+const ProfileAccountPage  = lazy(() => import("./pages/Profile/ProfileAccountPage"));
 
 // ── Manager pages ─────────────────────────────────────────────────────────────
 const ManagerYears = lazy(() => import("./pages/Management/YearsPage/ManagerYears"));
@@ -129,13 +131,11 @@ function App() {
   // Dynamic theme — reads from themeStore (initialized from localStorage, synced from server)
   // Inner ThemeProvider overrides the static one in index.tsx
   const mode = useThemeStore((s) => s.mode);
-  const dynamicTheme = useMemo(
-    () => createTheme({ ...CustomizedTheme, palette: { ...CustomizedTheme.palette, mode } }),
-    [mode],
-  );
+  const dynamicTheme = mode === "dark" ? darkTheme : lightTheme;
 
   return (
     <ThemeProvider theme={dynamicTheme}>
+    <CssBaseline />
     <div className="App">
       <QueryClientProvider client={queryClient}>
         <SentryErrorBoundary>
@@ -541,6 +541,14 @@ function App() {
                     element={
                       <Suspense fallback={<PageSkeleton />}>
                         <ProfileSettingsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/profile/account"
+                    element={
+                      <Suspense fallback={<PageSkeleton />}>
+                        <ProfileAccountPage />
                       </Suspense>
                     }
                   />
