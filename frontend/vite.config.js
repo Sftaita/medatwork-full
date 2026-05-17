@@ -226,8 +226,6 @@ export default defineConfig({
             "@fullcalendar/interaction",
             "@fullcalendar/list",
             "@fullcalendar/bootstrap5",
-            "@fullcalendar/resource",
-            "@fullcalendar/resource-timeline",
           ],
 
           // Chart libraries — only used on statistics pages
