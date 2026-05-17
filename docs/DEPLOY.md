@@ -117,10 +117,25 @@ ssh -p 65002 u929427688@147.79.98.101 \
 
 ---
 
+## ⚠️ Domaines backend — point critique
+
+Il existe **deux domaines backend** — ne pas confondre :
+
+| Domaine | Version | Usage |
+|---------|---------|-------|
+| `api-link.medatwork.be` | **v3.6.0** (actuel) | ✅ Backend déployé par `deploy.sh` — **utiliser celui-ci** |
+| `api-v2.medatwork.be` | v3.4.1 (figé) | ❌ Ancien domaine — NE PLUS UTILISER |
+
+**`.env.production` doit toujours pointer sur `api-link.medatwork.be`.**  
+Cause racine des Sentry FRONTEND-7 (404 sur admin/communication et profile/settings) : le frontend pointait sur `api-v2` (v3.4.1) qui ne connaissait pas les nouvelles routes. Corrigé le 2026-05-17.
+
+---
+
 ## Registre des mises en ligne
 
 | Date | Version | Contenu | Déployé par |
 |------|---------|---------|-------------|
+| 2026-05-17 | 3.6.0 | Préférences utilisateur, topbar search admin, corrections Sentry (5 issues), recherche topbar admin pages ; **fix critique : .env.production → api-link.medatwork.be** | Samy |
 | 2026-05-12 | 3.5.0 | Phases 1V2→6 : dirty flag, fingerprints, snapshots, historique RH, diff viewer, lock RH, audit timeline 14 event types, design system ExportsPage | Samy |
 | 2026-05-07 | 3.4.1 | Design system tableaux (densité, tri, filter chips, sidebar) ; pages Admin Manager/Residents/Years redesign | Samy |
 | *(précédentes)* | 3.4 | — | — |
