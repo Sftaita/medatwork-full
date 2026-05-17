@@ -23,6 +23,12 @@ vi.mock("../../services/adminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Le champ de recherche est dans la Topbar (useTopbarSearch), pas dans le DOM de la page
+let mockTopbarSearch = "";
+vi.mock("../../hooks/useTopbarSearch", () => ({
+  useTopbarSearch: () => mockTopbarSearch,
+}));
+
 const MOCK_RESIDENTS = [
   {
     id: 1,
@@ -50,6 +56,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTopbarSearch = "";
   vi.mocked(adminApi.listResidents).mockResolvedValue(MOCK_RESIDENTS as any);
 });
 
@@ -84,14 +91,11 @@ describe("AdminResidentsPage", () => {
     expect(screen.getByText("Non activé")).toBeInTheDocument();
   });
 
-  it("filters by name via search input", async () => {
+  it("filters by name via topbar search", async () => {
+    mockTopbarSearch = "bob";
     renderPage();
-    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom ou email…"), {
-      target: { value: "bob" },
-    });
+    await waitFor(() => expect(screen.getByText("Martin Bob")).toBeInTheDocument());
     expect(screen.queryByText("Dupont Alice")).not.toBeInTheDocument();
-    expect(screen.getByText("Martin Bob")).toBeInTheDocument();
   });
 
   it("chip 'Non activés' filtre uniquement Bob", async () => {
@@ -110,12 +114,9 @@ describe("AdminResidentsPage", () => {
     expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
   });
 
-  it("shows 'Aucun résultat' when search yields nothing", async () => {
+  it("shows 'Aucun résultat' when topbar search yields nothing", async () => {
+    mockTopbarSearch = "zzz";
     renderPage();
-    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom ou email…"), {
-      target: { value: "zzz" },
-    });
     await waitFor(() =>
       expect(screen.getByText("Aucun résultat pour cette recherche.")).toBeInTheDocument()
     );
