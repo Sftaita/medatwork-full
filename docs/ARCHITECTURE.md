@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-05-15 (session 25 — WeekDispatcher refonte, topbar search, tests)
+**Dernière mise à jour :** 2026-05-17 (v3.6.0 — préférences utilisateur, topbar search admin, suppression api-v2, corrections Sentry)
 
 ## Vue d'Ensemble
 
@@ -49,7 +49,7 @@ backend/
 │   ├── jwt/                    # Clés privée/publique JWT (non versionnées)
 │   ├── routes/
 │   └── services.yaml
-├── migrations/                 # 54 migrations Doctrine (2022-2026)
+├── migrations/                 # 74 migrations Doctrine (2022-2026)
 ├── public/
 │   ├── index.php               # Front controller
 │   └── Images/                 # Uploads

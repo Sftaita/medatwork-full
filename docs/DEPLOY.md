@@ -117,17 +117,18 @@ ssh -p 65002 u929427688@147.79.98.101 \
 
 ---
 
-## ⚠️ Domaines backend — point critique
+## Domaine backend actif
 
-Il existe **deux domaines backend** — ne pas confondre :
+Un seul backend depuis le 2026-05-17 :
 
 | Domaine | Version | Usage |
 |---------|---------|-------|
-| `api-link.medatwork.be` | **v3.6.0** (actuel) | ✅ Backend déployé par `deploy.sh` — **utiliser celui-ci** |
-| `api-v2.medatwork.be` | v3.4.1 (figé) | ❌ Ancien domaine — NE PLUS UTILISER |
+| `api-link.medatwork.be` | **v3.6.0** (actuel) | ✅ Seul backend — déployé par `deploy.sh` |
 
-**`.env.production` doit toujours pointer sur `api-link.medatwork.be`.**  
-Cause racine des Sentry FRONTEND-7 (404 sur admin/communication et profile/settings) : le frontend pointait sur `api-v2` (v3.4.1) qui ne connaissait pas les nouvelles routes. Corrigé le 2026-05-17.
+**`.env.production` doit toujours pointer sur `api-link.medatwork.be`.**
+
+> **Historique — incident résolu le 2026-05-17**  
+> `api-v2.medatwork.be` (Symfony v3.4.1) existait en parallèle. Le frontend pointait par erreur sur ce domaine figé, causant des 404 (routes absentes en v3.4.1). Corrigé via `.env.production`, puis `api-v2` a été **entièrement supprimé** (DNS + fichiers + 282 MB de backend). DNS Hostinger à retirer manuellement dans hPanel si pas encore fait.
 
 ---
 
