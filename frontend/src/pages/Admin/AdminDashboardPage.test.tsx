@@ -24,6 +24,12 @@ import adminApi from "../../services/adminApi";
 
 vi.mock("../../services/adminApi");
 
+// Le champ de recherche est dans la Topbar (useTopbarSearch), pas dans le DOM de la page
+let mockTopbarSearch = "";
+vi.mock("../../hooks/useTopbarSearch", () => ({
+  useTopbarSearch: () => mockTopbarSearch,
+}));
+
 function makeQc() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
@@ -59,6 +65,7 @@ const MOCK_HOSPITAL = {
 describe("AdminDashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTopbarSearch = "";
     vi.mocked(adminApi.listHospitals).mockResolvedValue([]);
     vi.mocked(adminApi.listRequests).mockResolvedValue([]);
   });
@@ -215,5 +222,29 @@ describe("AdminDashboardPage", () => {
       expect(screen.queryByText("Nouvel hôpital")).not.toBeInTheDocument();
     });
     expect(adminApi.createHospital).not.toHaveBeenCalled();
+  });
+
+  // ── Recherche topbar ──────────────────────────────────────────────────────
+
+  it("filtre les hôpitaux par nom via la topbar", async () => {
+    vi.mocked(adminApi.listHospitals).mockResolvedValue([
+      { id: 1, name: "CHU Liège",  city: "Liège",  country: "BE", isActive: true },
+      { id: 2, name: "CHR Namur",  city: "Namur",  country: "BE", isActive: true },
+    ] as any);
+    mockTopbarSearch = "liège";
+    renderPage();
+    await waitFor(() => expect(screen.getByText("CHU Liège")).toBeInTheDocument());
+    expect(screen.queryByText("CHR Namur")).not.toBeInTheDocument();
+  });
+
+  it("filtre les hôpitaux par ville via la topbar", async () => {
+    vi.mocked(adminApi.listHospitals).mockResolvedValue([
+      { id: 1, name: "CHU Liège",  city: "Liège",  country: "BE", isActive: true },
+      { id: 2, name: "CHR Namur",  city: "Namur",  country: "BE", isActive: true },
+    ] as any);
+    mockTopbarSearch = "namur";
+    renderPage();
+    await waitFor(() => expect(screen.getByText("CHR Namur")).toBeInTheDocument());
+    expect(screen.queryByText("CHU Liège")).not.toBeInTheDocument();
   });
 });

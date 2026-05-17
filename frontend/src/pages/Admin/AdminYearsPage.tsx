@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { T, C, bodyRowSx, yearPillSx } from "../../styles/tableStyles";
 import { useTableDensity } from "../../hooks/useTableDensity";
 import { DensityToggleButton } from "../../components/DensityToggleButton";
@@ -20,8 +21,6 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
@@ -41,6 +40,7 @@ import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import PeopleIcon from "@mui/icons-material/People";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
+
 import adminApi from "../../services/adminApi";
 import type { HospitalYear, Hospital } from "../../types/entities";
 
@@ -245,7 +245,7 @@ const AdminYearsPage = () => {
   const qc = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
-  const [search, setSearch] = useState("");
+  const search = useTopbarSearch("Titre, période, hôpital…");
   const [hospitalFilter, setHospitalFilter] = useState<number | "none" | "">("");
   const [sortCol, setSortCol] = useState<SortCol | null>("titre");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -364,21 +364,6 @@ const AdminYearsPage = () => {
 
       {/* Toolbar */}
       <Box sx={T.toolbar}>
-        <TextField
-          size="small"
-          placeholder="Rechercher par titre, période, lieu, hôpital…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={T.search}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" sx={{ color: C.ink4 }} />
-              </InputAdornment>
-            ),
-          }}
-        />
-
         {/* Filtre hôpital */}
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel sx={{ fontSize: 13 }}>Hôpital</InputLabel>

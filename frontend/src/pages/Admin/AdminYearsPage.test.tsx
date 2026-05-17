@@ -29,6 +29,12 @@ vi.mock("../../services/adminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Le champ de recherche est dans la Topbar (useTopbarSearch), pas dans le DOM de la page
+let mockTopbarSearch = "";
+vi.mock("../../hooks/useTopbarSearch", () => ({
+  useTopbarSearch: () => mockTopbarSearch,
+}));
+
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_YEARS: any[] = [
@@ -92,6 +98,7 @@ const SEARCH_PLACEHOLDER = "Rechercher par titre, période, lieu, hôpital…";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTopbarSearch = "";
   vi.mocked(adminApi.listAllYears).mockResolvedValue(MOCK_YEARS);
   vi.mocked(adminApi.listHospitals).mockResolvedValue(MOCK_HOSPITALS);
 });
@@ -165,31 +172,22 @@ describe("AdminYearsPage", () => {
   // ── Recherche ────────────────────────────────────────────────────────────
 
   it("filtre par titre", async () => {
+    mockTopbarSearch = "cardio";
     renderPage();
     await waitFor(() => expect(screen.getByText("Stage cardio S1")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText(SEARCH_PLACEHOLDER), {
-      target: { value: "cardio" },
-    });
-    expect(screen.getByText("Stage cardio S1")).toBeInTheDocument();
     expect(screen.queryByText("Stage urgences S2")).not.toBeInTheDocument();
   });
 
   it("filtre par nom d'hôpital", async () => {
+    mockTopbarSearch = "Namur";
     renderPage();
-    await waitFor(() => expect(screen.getByText("CHU Liège")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText(SEARCH_PLACEHOLDER), {
-      target: { value: "Namur" },
-    });
-    expect(screen.getByText("Stage pédiatrie S3")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Stage pédiatrie S3")).toBeInTheDocument());
     expect(screen.queryByText("Stage cardio S1")).not.toBeInTheDocument();
   });
 
   it("affiche 'Aucun résultat' si la recherche ne correspond à rien", async () => {
+    mockTopbarSearch = "zzz";
     renderPage();
-    await waitFor(() => expect(screen.getByText("Stage cardio S1")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText(SEARCH_PLACEHOLDER), {
-      target: { value: "zzz" },
-    });
     await waitFor(() =>
       expect(screen.getByText("Aucun résultat pour cette recherche.")).toBeInTheDocument()
     );

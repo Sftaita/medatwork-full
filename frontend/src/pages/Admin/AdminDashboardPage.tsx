@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
@@ -28,6 +29,7 @@ const AdminDashboardPage = () => {
   useAxiosPrivate(); // registers the Authorization interceptor for this page
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const search = useTopbarSearch("Nom d'hôpital…");
 
   const { data: hospitals = [], isLoading: loadingHospitals } = useQuery({
     queryKey: ["admin-hospitals"],
@@ -72,6 +74,15 @@ const AdminDashboardPage = () => {
     onError: (err: any) =>
       setCreateError(err?.response?.data?.message ?? "Erreur lors de la création de l'hôpital"),
   });
+
+  const hospitalSearch = search.trim().toLowerCase();
+  const filteredHospitals = hospitalSearch
+    ? (hospitals as Hospital[]).filter(
+        (h) =>
+          h.name.toLowerCase().includes(hospitalSearch) ||
+          (h.city ?? "").toLowerCase().includes(hospitalSearch)
+      )
+    : (hospitals as Hospital[]);
 
   return (
     <Box p={3} maxWidth={1200} mx="auto">
@@ -153,7 +164,7 @@ const AdminDashboardPage = () => {
       {loadingHospitals && <CircularProgress size={24} />}
 
       <Grid container spacing={2}>
-        {hospitals.map((h: Hospital) => (
+        {filteredHospitals.map((h: Hospital) => (
           <Grid item xs={12} sm={6} md={4} key={h.id}>
             <Card variant="outlined" sx={{ opacity: h.isActive ? 1 : 0.6 }}>
               <CardActionArea onClick={() => navigate(`/admin/hospitals/${h.id}`)}>
@@ -191,7 +202,7 @@ const AdminDashboardPage = () => {
                 />
               </CardActions>
             </Card>
-          </Grid>
+        </Grid>
         ))}
       </Grid>
 

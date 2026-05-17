@@ -27,6 +27,12 @@ vi.mock("../../services/adminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Le champ de recherche est dans la Topbar (useTopbarSearch), pas dans le DOM de la page
+let mockTopbarSearch = "";
+vi.mock("../../hooks/useTopbarSearch", () => ({
+  useTopbarSearch: () => mockTopbarSearch,
+}));
+
 const MOCK_STATS = { total: 3, active: 1, inactive: 0, pending: 1, notActivated: 1 };
 
 const MOCK_MANAGERS = [
@@ -75,6 +81,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTopbarSearch = "";
   vi.mocked(adminApi.getManagerStats).mockResolvedValue(MOCK_STATS);
   vi.mocked(adminApi.listManagers).mockResolvedValue(MOCK_MANAGERS as any);
 });
@@ -129,33 +136,24 @@ describe("AdminManagersPage", () => {
     expect(martin).toBeLessThan(rossi);
   });
 
-  it("filters by name via search input", async () => {
+  it("filters by name via topbar search", async () => {
+    mockTopbarSearch = "alice";
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom, email, hôpital…"), {
-      target: { value: "alice" },
-    });
-    expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
     expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument();
   });
 
-  it("filters by hospital name", async () => {
+  it("filters by hospital name via topbar search", async () => {
+    mockTopbarSearch = "Liège";
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom, email, hôpital…"), {
-      target: { value: "Liège" },
-    });
-    expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
     expect(screen.getByText("Rossi Carla")).toBeInTheDocument();
     expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument();
   });
 
-  it("shows 'Aucun résultat' alert when search yields nothing", async () => {
+  it("shows 'Aucun résultat' alert when topbar search yields nothing", async () => {
+    mockTopbarSearch = "zzz";
     renderPage();
-    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Rechercher par nom, email, hôpital…"), {
-      target: { value: "zzz" },
-    });
     await waitFor(() =>
       expect(screen.getByText("Aucun résultat pour cette recherche.")).toBeInTheDocument()
     );

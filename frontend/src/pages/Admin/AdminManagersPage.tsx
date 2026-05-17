@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
+import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { T, C, statusBadgeSx, bodyRowSx } from "../../styles/tableStyles";
 import { useTableDensity } from "../../hooks/useTableDensity";
 import { DensityToggleButton } from "../../components/DensityToggleButton";
@@ -24,11 +25,8 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Avatar from "@mui/material/Avatar";
 import Tooltip from "@mui/material/Tooltip";
-import SearchIcon from "@mui/icons-material/Search";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -191,7 +189,7 @@ const AdminManagersPage = () => {
   const qc = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
-  const [search, setSearch] = useState("");
+  const search = useTopbarSearch("Nom, email, hôpital…");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortCol, setSortCol] = useState<SortCol | null>("nom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -347,23 +345,8 @@ const AdminManagersPage = () => {
         </Box>
       )}
 
-      {/* Toolbar — recherche + chips + densité sur une seule ligne */}
+      {/* Toolbar — chips + densité */}
       <Box sx={{ display: "flex", alignItems: "center", gap: "10px", mb: "14px", flexWrap: "wrap" }}>
-        <TextField
-          size="small"
-          placeholder="Rechercher par nom, email, hôpital…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={T.search}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" sx={{ color: C.ink4 }} />
-              </InputAdornment>
-            ),
-          }}
-        />
-
         <Box sx={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
           <FilterChip label="Tous"        count={counts.all}           active={statusFilter === "all"}           onClick={() => setStatusFilter("all")} />
           <FilterChip label="Actifs"      count={counts.active}        active={statusFilter === "active"}        onClick={() => setStatusFilter("active")} />
