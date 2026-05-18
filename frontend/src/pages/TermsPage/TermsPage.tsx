@@ -38,7 +38,7 @@ const TermsPage = () => {
                   color: theme.palette.common.white,
                 }}
               >
-                Conditions d'utilisations & politique de confidentialité
+                Politique de confidentialité — MED@WORK
               </Typography>
               <Typography
                 gutterBottom
@@ -46,7 +46,7 @@ const TermsPage = () => {
                   color: theme.palette.common.white,
                 }}
               >
-                Mise à jour le <strong>23 aout, 2022</strong>
+                Dernière mise à jour : <strong>18 mai 2026</strong>
               </Typography>
             </Container>
             <Box

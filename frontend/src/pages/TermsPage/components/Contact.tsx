@@ -16,7 +16,7 @@ const Contact = () => {
           }}
           gutterBottom
         >
-          Comment nous contacter concernant nos conditions d'utilisation?
+          Questions relatives à la protection des données
         </Typography>
         <Typography
           variant={"body2"}
@@ -29,9 +29,7 @@ const Contact = () => {
           confidentialité, veuillez nous contacter.
         </Typography>
         <Typography variant={"subtitle2"}>
-          info@medatwork.be
-          <br />
-          Zaventem, Sint Stevens Woluwe 1932
+          privacy@medatwork.be
           <br />
           Belgique
         </Typography>
