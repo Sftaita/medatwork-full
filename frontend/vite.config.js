@@ -178,7 +178,7 @@ export default defineConfig({
     }),
   ],
   optimizeDeps: {
-    include: ['jspdf'],
+    include: ['jspdf', 'i18next', 'react-i18next'],
     esbuildOptions: {
       plugins: [muiBoxPatchEsbuild],
     },
