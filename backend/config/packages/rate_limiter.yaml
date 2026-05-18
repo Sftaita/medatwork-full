@@ -29,3 +29,9 @@ framework:
             policy: sliding_window
             limit: 60
             interval: '1 hour'
+
+        # Contact form: 5 messages per hour per IP
+        contact_us:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'

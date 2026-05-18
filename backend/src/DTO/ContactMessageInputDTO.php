@@ -37,20 +37,24 @@ final class ContactMessageInputDTO
         }
 
         foreach (['lastname', 'firstname', 'message'] as $field) {
-            if (! is_string($data[$field]) || $data[$field] === '') {
+            if (! is_string($data[$field]) || trim($data[$field]) === '') {
                 throw new \InvalidArgumentException("$field must be a non-empty string");
             }
         }
+
+        if (mb_strlen($data['lastname'])  > 100) throw new \InvalidArgumentException('lastname is too long');
+        if (mb_strlen($data['firstname']) > 100) throw new \InvalidArgumentException('firstname is too long');
+        if (mb_strlen($data['message'])   > 5000) throw new \InvalidArgumentException('message is too long (max 5000 characters)');
 
         if (! is_string($data['email']) || ! filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             throw new \InvalidArgumentException('email must be a valid email address');
         }
 
         return new self(
-            lastname: $data['lastname'],
-            firstname: $data['firstname'],
-            email: $data['email'],
-            message: $data['message'],
+            lastname: trim($data['lastname']),
+            firstname: trim($data['firstname']),
+            email: trim($data['email']),
+            message: trim($data['message']),
         );
     }
 }

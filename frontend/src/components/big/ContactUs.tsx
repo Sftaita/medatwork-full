@@ -32,7 +32,12 @@ const validationSchema = yup.object({
     .trim()
     .email("Veuillez saisir une adresse e-mail valide")
     .required("L'adresse e-mail est obligatoire."),
-  message: yup.string().trim().required("Veuillez spécifier votre message"),
+  message: yup
+    .string()
+    .trim()
+    .min(10, "Le message doit contenir au moins 10 caractères")
+    .max(5000, "Le message ne peut pas dépasser 5000 caractères")
+    .required("Veuillez spécifier votre message"),
 });
 
 interface ContactUsProps {
@@ -54,21 +59,20 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
     setLoading(true);
 
     try {
-      publicApi.contactUs(values);
+      await publicApi.contactUs(values);
       resetForm();
-      toast.success("Message envoyé!", {
+      toast.success("Message envoyé !", {
         position: "bottom-center",
         autoClose: 3000,
         hideProgressBar: true,
         closeOnClick: true,
         pauseOnHover: false,
         draggable: true,
-        progress: undefined,
       });
     } catch (error) {
       handleApiError(error);
       toast.error(
-        "Le message n'a pas pus être envoyé. Veulliez réessayer plus tard ou nous contacter par email.",
+        "Le message n'a pas pu être envoyé. Veuillez réessayer plus tard ou nous contacter par email.",
         {
           position: "bottom-center",
           autoClose: 5000,
@@ -76,7 +80,6 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
           closeOnClick: true,
           pauseOnHover: false,
           draggable: true,
-          progress: undefined,
         }
       );
     } finally {
@@ -159,10 +162,14 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
                 size="medium"
                 name="message"
                 fullWidth
+                inputProps={{ maxLength: 5000 }}
                 value={formik.values.message}
                 onChange={formik.handleChange}
                 error={formik.touched.message && Boolean(formik.errors.message)}
-                helperText={formik.touched.message && formik.errors.message}
+                helperText={
+                  (formik.touched.message && formik.errors.message) ||
+                  `${formik.values.message.length}/5000`
+                }
               />
             </Grid>
             <Grid item container justifyContent={"center"} xs={12}>
@@ -173,16 +180,16 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
                   color="primary"
                   size="medium"
                   type="submit"
-                  disabled={loading ? true : false}
+                  disabled={loading}
                 >
-                  Envoyer
+                  {loading ? "Envoi…" : "Envoyer"}
                 </Button>
                 <Button
                   sx={{ height: 54, minWidth: 150 }}
                   variant="outlined"
                   color="primary"
                   size="medium"
-                  disabled={loading ? true : false}
+                  disabled={loading}
                   onClick={() => navigate(-1)}
                 >
                   Retour
