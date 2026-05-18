@@ -19,15 +19,19 @@ import Badge from "@mui/material/Badge";
 import { linkTextSx, noAuth, manager, resident, superAdmin, hospitalAdmin } from "./sidebarNavData";
 import { useNotificationsStore, type NotificationsState } from "@/store/notificationsStore";
 import Logo from "../../../../../../images/logo.png";
+import Woman from "../../../../../../images/icons/Woman.png";
+import Man from "../../../../../../images/icons/Man.png";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface NavPage {
-  title:    string;
-  href:     string;
-  disabled?: boolean;
-  count?:   boolean;
-  icon?:    React.ReactNode;
+  title:      string;
+  href:       string;
+  disabled?:  boolean;
+  count?:     boolean;
+  commCount?: boolean; // false = exclude commUnreadCount from badge (default: true)
+  exact?:     boolean; // true = exact match only, no startsWith (default: false)
+  icon?:      React.ReactNode;
 }
 
 interface NavGroup {
@@ -54,16 +58,16 @@ const NavItem = ({
   onSelect:      (title: string) => void;
 }) => {
   const { commUnreadCount } = useNotificationsStore();
-  const totalCount = (notifications?.count ?? 0) + commUnreadCount;
+  const totalCount = (notifications?.count ?? 0) + (p.commCount !== false ? commUnreadCount : 0);
 
-  const inner = (
+  return (
     <Box sx={{ position: "relative", mx: "14px", my: "2px" }}>
       {/* Barre indicatrice active — absolue à gauche de la sidebar */}
       {isActive && (
         <Box
           sx={{
             position: "absolute",
-            left:   -14,   // compense le margin left de 14px → flush bord sidebar
+            left:   -14,
             top:      8,
             bottom:   8,
             width:    3,
@@ -101,16 +105,30 @@ const NavItem = ({
           },
         }}
       >
-        {p.title}
+        <Box sx={{ flex: 1, textAlign: "left" }}>{p.title}</Box>
+        {p.count && totalCount > 0 && (
+          <Box
+            sx={{
+              ml: 1,
+              bgcolor: isActive ? "primary.main" : "primary.main",
+              color: "white",
+              borderRadius: "10px",
+              px: "6px",
+              py: "1px",
+              fontSize: 10,
+              fontWeight: 700,
+              lineHeight: 1.6,
+              minWidth: 18,
+              textAlign: "center",
+              flexShrink: 0,
+            }}
+          >
+            {totalCount > 9 ? "9+" : totalCount}
+          </Box>
+        )}
       </Button>
     </Box>
   );
-
-  return p.count ? (
-    <Badge badgeContent={totalCount} max={9} color="primary" sx={{ display: "block" }}>
-      {inner}
-    </Badge>
-  ) : inner;
 };
 
 // ── Expanded group ────────────────────────────────────────────────────────────
@@ -122,7 +140,7 @@ const NavGroupComponent = ({
   onSelect,
 }: {
   item:         NavGroup;
-  isActiveHref: (href: string) => boolean;
+  isActiveHref: (href: string, exact?: boolean) => boolean;
   notifications: NotificationsState | undefined;
   onSelect:     (title: string) => void;
 }) => (
@@ -148,7 +166,7 @@ const NavGroupComponent = ({
       <NavLink to={p.href} style={linkTextSx} key={i} disabled={p.disabled}>
         <NavItem
           p={p}
-          isActive={isActiveHref(p.href)}
+          isActive={isActiveHref(p.href, p.exact)}
           notifications={notifications}
           onSelect={onSelect}
         />
@@ -171,7 +189,7 @@ const MiniNavItem = ({
   onSelect:      (title: string) => void;
 }) => {
   const { commUnreadCount } = useNotificationsStore();
-  const totalCount = (notifications?.count ?? 0) + commUnreadCount;
+  const totalCount = (notifications?.count ?? 0) + (p.commCount !== false ? commUnreadCount : 0);
 
   const iconEl = p.count ? (
     <Badge badgeContent={totalCount} max={9} color="primary">{p.icon}</Badge>
@@ -219,7 +237,10 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
   const { authentication } = useAuth();
 
   const isActiveHref = useCallback(
-    (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href + "/")),
+    (href: string, exact?: boolean) => {
+      if (exact) return pathname === href;
+      return pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+    },
     [pathname]
   );
 
@@ -275,7 +296,7 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
                 {group.pages.filter((p) => p.icon && p.href).map((p, pi) => (
                   <MiniNavItem
                     key={pi} p={p}
-                    isActive={isActiveHref(p.href)}
+                    isActive={isActiveHref(p.href, p.exact)}
                     notifications={notifications}
                     onSelect={handleSelect}
                   />
@@ -319,10 +340,36 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
         </Box>
 
         {!isMd && authentication.isAuthenticated && (
-          <Stack sx={{ display: "flex", flexDirection: "row", justifyContent: "center", mb: "4vh" }}>
-            <Avatar sx={{ width: 50, height: 50, bgcolor: "primary.main" }}>
-              {authentication.firstname?.charAt(0)}{authentication.lastname?.charAt(0)}
+          <Stack sx={{ alignItems: "center", mb: "4vh", gap: 1 }}>
+            <Avatar
+              src={authentication.avatarUrl ?? undefined}
+              sx={{ width: 50, height: 50, bgcolor: "primary.main" }}
+            >
+              {!authentication.avatarUrl && (
+                <img
+                  src={authentication.gender === "male" ? Man : Woman}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              )}
             </Avatar>
+            <Box textAlign="center">
+              <Typography variant="body2" fontWeight={600} color="text.primary" lineHeight={1.25}>
+                {authentication.firstname} {authentication.lastname}
+              </Typography>
+              {(authentication.role || authentication.hospitalName) && (
+                <Typography variant="caption" color="text.disabled" sx={{ fontSize: 11 }}>
+                  {[
+                    authentication.role === "manager" ? "Manager"
+                    : authentication.role === "resident" ? "MACCS"
+                    : authentication.role === "hospital_admin" ? "Administrateur"
+                    : authentication.role === "super_admin" ? "Super Admin"
+                    : "",
+                    authentication.hospitalName,
+                  ].filter(Boolean).join(" · ")}
+                </Typography>
+              )}
+            </Box>
           </Stack>
         )}
       </Box>

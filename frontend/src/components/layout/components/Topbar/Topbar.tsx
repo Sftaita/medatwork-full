@@ -220,7 +220,7 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           <>
             <InstallPrompt />
 
-            {/* Avatar + nom + sous-titre */}
+            {/* Avatar + nom + sous-titre — desktop */}
             <Tooltip
               open={profileHint === "later"}
               title="Cliquez sur votre avatar pour configurer votre photo de profil"
@@ -278,32 +278,69 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
                 </Badge>
               </Box>
             </Tooltip>
-
-            <Menu
-              id="account-menu"
-              anchorEl={menuAnchor}
-              open={menuOpen}
-              onClose={handleMenuClose}
-              onClick={handleMenuClose}
-              transformOrigin={{ horizontal: "right", vertical: "top" }}
-              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-              slotProps={{ paper: { elevation: 2, sx: { minWidth: 190, mt: 0.5 } } }}
-            >
-              <MenuItem onClick={handleGoToAccount}>
-                <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Mon compte</ListItemText>
-              </MenuItem>
-              <MenuItem onClick={handleGoToSettings}>
-                <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Préférences</ListItemText>
-              </MenuItem>
-              <Divider />
-              <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
-                <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
-                <ListItemText>Se déconnecter</ListItemText>
-              </MenuItem>
-            </Menu>
           </>
+        )}
+
+        {/* Menu compte — partagé desktop + mobile */}
+        {authentication.isAuthenticated && (
+          <Menu
+            id="account-menu"
+            anchorEl={menuAnchor}
+            open={menuOpen}
+            onClose={handleMenuClose}
+            onClick={handleMenuClose}
+            transformOrigin={{ horizontal: "right", vertical: "top" }}
+            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+            slotProps={{ paper: { elevation: 2, sx: { minWidth: 190, mt: 0.5 } } }}
+          >
+            <MenuItem onClick={handleGoToAccount}>
+              <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Mon compte</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={handleGoToSettings}>
+              <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Préférences</ListItemText>
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
+              <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
+              <ListItemText>Se déconnecter</ListItemText>
+            </MenuItem>
+          </Menu>
+        )}
+
+        {/* Avatar cliquable — mobile uniquement */}
+        {authentication.isAuthenticated && (
+          <Box sx={{ display: { xs: "flex", md: "none" }, alignItems: "center" }}>
+            <IconButton
+              onClick={handleMenuOpen}
+              size="small"
+              aria-label="Mon compte"
+              aria-controls={menuOpen ? "account-menu" : undefined}
+              aria-haspopup="true"
+              aria-expanded={menuOpen ? "true" : undefined}
+              sx={{ p: 0.5 }}
+            >
+              <Avatar
+                src={authentication.avatarUrl ?? undefined}
+                sx={{
+                  width: 32, height: 32,
+                  bgcolor: "primary.main",
+                  border: "2px solid",
+                  borderColor: "background.paper",
+                  boxShadow: `0 0 0 1px ${theme.palette.divider}`,
+                }}
+              >
+                {!authentication.avatarUrl && (
+                  <img
+                    src={authentication.gender === "male" ? Man : Woman}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                )}
+              </Avatar>
+            </IconButton>
+          </Box>
         )}
 
         {/* Burger mobile */}

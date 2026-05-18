@@ -32,9 +32,6 @@ const PATHS = {
   check:       "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
 };
 
-// Icône réutilisée pour l'item "Paramètres" du résident
-const settingsIcon = <Icon d={PATHS.cog} d2={PATHS.cogCircle} />;
-
 // ── noAuth ────────────────────────────────────────────────────────────────────
 
 const noAuth = [
@@ -111,8 +108,7 @@ const resident = [
     groupTitle: "Compte",
     id: "account",
     pages: [
-      { title: "Notification", href: "/maccs/notifications", disabled: false, count: true, icon: <Icon d={PATHS.bell} /> },
-      { title: "Paramètres",   href: "/maccs/parameters",    disabled: false, icon: settingsIcon },
+      { title: "Notification", href: "/maccs/notifications", disabled: false, count: true, commCount: false, icon: <Icon d={PATHS.bell} /> },
     ],
   },
 ];
@@ -124,7 +120,7 @@ const superAdmin = [
     groupTitle: "Établissements",
     id: "hospitals",
     pages: [
-      { title: "Hôpitaux", href: "/admin",       icon: <Icon d={PATHS.building} /> },
+      { title: "Hôpitaux", href: "/admin", exact: true, icon: <Icon d={PATHS.building} /> },
       { title: "Années",   href: "/admin/years",  icon: <Icon d={PATHS.calendar} /> },
     ],
   },
