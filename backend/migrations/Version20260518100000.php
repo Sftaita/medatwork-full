@@ -56,6 +56,8 @@ final class Version20260518100000 extends AbstractMigration
         // years
         $this->addSql('ALTER TABLE years CHANGE status status VARCHAR(255) DEFAULT \'active\' NOT NULL');
 
+        // refresh_tokens — recreate if missing (was dropped by a previous migration)
+        $this->addSql("CREATE TABLE IF NOT EXISTS refresh_tokens (id INT AUTO_INCREMENT NOT NULL, refresh_token VARCHAR(128) CHARACTER SET utf8mb4 NOT NULL COLLATE `utf8mb4_unicode_ci`, username VARCHAR(255) CHARACTER SET utf8mb4 NOT NULL COLLATE `utf8mb4_unicode_ci`, valid DATETIME NOT NULL, UNIQUE INDEX UNIQ_9BACE7E1C74F2195 (refresh_token), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB");
     }
 
     public function down(Schema $schema): void
