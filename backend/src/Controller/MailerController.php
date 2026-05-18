@@ -26,12 +26,16 @@ class MailerController
      * @param array<string, mixed> $parameters Variables transmises au template
      * @param string   $replyTo    Adresse Reply-To (support@ par défaut)
      */
+    /**
+     * @param string[] $ccList Additional CC addresses
+     */
     public function sendEmail(
         string $to,
         string $subject,
         string $template,
         array $parameters,
-        string $replyTo = 'support@medatwork.be'
+        string $replyTo = 'support@medatwork.be',
+        array $ccList = []
     ): void {
         $html = $this->twig->render($template, $parameters);
 
@@ -47,6 +51,10 @@ class MailerController
             ->subject($subject)
             ->text(trim($text))
             ->html($html);
+
+        foreach ($ccList as $cc) {
+            $email->addCc($cc);
+        }
 
         $this->mailer->send($email);
     }

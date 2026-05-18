@@ -55,7 +55,8 @@ const AdminManagersPage = lazy(() => import("./pages/Admin/AdminManagersPage"));
 const AdminResidentsPage = lazy(() => import("./pages/Admin/AdminResidentsPage"));
 const AdminYearsPage = lazy(() => import("./pages/Admin/AdminYearsPage"));
 const AdminHospitalAdminsPage = lazy(() => import("./pages/Admin/AdminHospitalAdminsPage"));
-const AdminLogsPage = lazy(() => import("./pages/Admin/AdminLogsPage"));
+const AdminLogsPage    = lazy(() => import("./pages/Admin/AdminLogsPage"));
+const AdminContactPage = lazy(() => import("./pages/Admin/AdminContactPage"));
 const AdminCommunicationPage = lazy(() => import("./pages/Admin/AdminCommunicationPage"));
 const MaccsSetupPage = lazy(() => import("./pages/MaccsSetup/MaccsSetupPage"));
 const ManagerSetupPage = lazy(() => import("./pages/ManagerSetup/ManagerSetupPage"));
@@ -337,6 +338,14 @@ function App() {
                       element={
                         <Suspense fallback={<PageSkeleton />}>
                           <AdminLogsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/admin/contact"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <AdminContactPage />
                         </Suspense>
                       }
                     />

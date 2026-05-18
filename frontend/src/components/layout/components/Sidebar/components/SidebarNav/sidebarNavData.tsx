@@ -137,7 +137,8 @@ const superAdmin = [
     groupTitle: "Communication",
     id: "admin-communication",
     pages: [
-      { title: "Messages", href: "/admin/communication", icon: <Icon d={PATHS.chat} /> },
+      { title: "Messages",        href: "/admin/communication", icon: <Icon d={PATHS.chat} /> },
+      { title: "Msgs contact",    href: "/admin/contact",       icon: <Icon d={PATHS.bell} /> },
     ],
   },
   {

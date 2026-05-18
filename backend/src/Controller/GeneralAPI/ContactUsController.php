@@ -6,6 +6,9 @@ namespace App\Controller\GeneralAPI;
 
 use App\Controller\MailerController;
 use App\DTO\ContactMessageInputDTO;
+use App\Entity\ContactMessage;
+use App\Repository\ContactCcConfigRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,8 +24,12 @@ class ContactUsController extends AbstractController
     }
 
     #[Route('/api/contactUs', name: 'contactUs', methods: ['POST'])]
-    public function redirectMessage(Request $request, MailerController $mailerController): JsonResponse|Response
-    {
+    public function redirectMessage(
+        Request $request,
+        MailerController $mailerController,
+        EntityManagerInterface $em,
+        ContactCcConfigRepository $ccRepo,
+    ): JsonResponse|Response {
         $limiter = $this->contactUsLimiter->create($request->getClientIp());
         if (!$limiter->consume(1)->isAccepted()) {
             return new JsonResponse(['error' => 'Trop de messages envoyés. Réessayez dans une heure.'], Response::HTTP_TOO_MANY_REQUESTS);
@@ -34,6 +41,12 @@ class ContactUsController extends AbstractController
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
 
+        // Persist to DB
+        $msg = new ContactMessage($dto->firstname, $dto->lastname, $dto->email, $dto->message);
+        $em->persist($msg);
+        $em->flush();
+
+        // Send email with active CCs
         $subject = 'MED@WORK — Contact: '.$dto->lastname.' '.$dto->firstname;
         $parameters = [
             'subject' => $subject,
@@ -47,7 +60,8 @@ class ContactUsController extends AbstractController
             $subject,
             'email/simpleEmail.html.twig',
             $parameters,
-            $dto->email   // Reply-To = l'email du visiteur
+            $dto->email,
+            $ccRepo->findActiveEmails()
         );
 
         return new Response('ok', 200);

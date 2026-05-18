@@ -187,6 +187,53 @@ const getAuditLog = (params: {
   return axiosPrivate.get(`admin/audit-log${qs ? "?" + qs : ""}`).then((r) => r.data);
 };
 
+// ── Contact messages ──────────────────────────────────────────────────────────
+
+export interface ContactMessage {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  message: string;
+  createdAt: string;
+  treatedAt: string | null;
+  treatedBy: string | null;
+  treated: boolean;
+}
+
+export interface ContactCcConfig {
+  id: number;
+  email: string;
+  name: string;
+  isActive: boolean;
+}
+
+const listContactMessages = (filter?: "treated" | "untreated"): Promise<ContactMessage[]> => {
+  const qs = filter === "treated" ? "?treated=1" : filter === "untreated" ? "?treated=0" : "";
+  return axiosPrivate.get(`admin/contact/messages${qs}`).then((r) => r.data);
+};
+
+const treatContactMessage = (id: number): Promise<{ treatedAt: string; treatedBy: string }> =>
+  axiosPrivate.patch(`admin/contact/messages/${id}/treat`).then((r) => r.data);
+
+const deleteContactMessage = (id: number): Promise<void> =>
+  axiosPrivate.delete(`admin/contact/messages/${id}`).then(() => undefined);
+
+const getContactStats = (): Promise<{ untreated: number }> =>
+  axiosPrivate.get("admin/contact/messages/stats").then((r) => r.data);
+
+const listContactCc = (): Promise<ContactCcConfig[]> =>
+  axiosPrivate.get("admin/contact/cc").then((r) => r.data);
+
+const createContactCc = (data: { email: string; name: string }): Promise<ContactCcConfig> =>
+  axiosPrivate.post("admin/contact/cc", data).then((r) => r.data);
+
+const updateContactCc = (id: number, data: Partial<{ isActive: boolean; name: string }>): Promise<ContactCcConfig> =>
+  axiosPrivate.patch(`admin/contact/cc/${id}`, data).then((r) => r.data);
+
+const deleteContactCc = (id: number): Promise<void> =>
+  axiosPrivate.delete(`admin/contact/cc/${id}`).then(() => undefined);
+
 const adminApi = {
   getHospital,
   listAllYears,
@@ -222,6 +269,14 @@ const adminApi = {
   activateManager,
   resendManagerActivation,
   getAuditLog,
+  listContactMessages,
+  treatContactMessage,
+  deleteContactMessage,
+  getContactStats,
+  listContactCc,
+  createContactCc,
+  updateContactCc,
+  deleteContactCc,
 };
 
 export default adminApi;
