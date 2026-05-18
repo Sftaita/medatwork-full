@@ -87,8 +87,7 @@ class AuthenticationSuccessListener
         if ($avatarPath === null || $avatarPath === '') {
             return null;
         }
-        // Strip /api/ suffix to reach the static files root
-        $base = rtrim(preg_replace('#/api/?$#', '', rtrim($this->apiUrl, '/')), '/');
-        return $base . '/uploads/avatars/' . $avatarPath;
+        $token = pathinfo($avatarPath, PATHINFO_FILENAME);
+        return rtrim($this->apiUrl, '/') . '/profile/avatar/' . $token;
     }
 }

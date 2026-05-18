@@ -121,9 +121,8 @@ class ProfileAccountController extends AbstractController
     {
         $avatarUrl = null;
         if (method_exists($user, 'getAvatarPath') && $user->getAvatarPath() !== null) {
-            $avatarUrl = $request->getSchemeAndHttpHost()
-                . '/uploads/avatars/'
-                . $user->getAvatarPath();
+            $token = pathinfo($user->getAvatarPath(), PATHINFO_FILENAME);
+            $avatarUrl = $request->getSchemeAndHttpHost() . '/api/profile/avatar/' . $token;
         }
 
         $base = [

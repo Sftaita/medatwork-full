@@ -68,7 +68,7 @@ final class AuthenticationSuccessListenerTest extends TestCase
 
         $data = $event->getData();
         $this->assertArrayHasKey('avatarUrl', $data);
-        $this->assertStringContainsString('/uploads/avatars/abc123def456abc1.jpg', $data['avatarUrl']);
+        $this->assertStringContainsString('/api/profile/avatar/abc123def456abc1', $data['avatarUrl']);
         $this->assertStringStartsWith('http://localhost:8000', $data['avatarUrl']);
     }
 
@@ -105,7 +105,7 @@ final class AuthenticationSuccessListenerTest extends TestCase
         $this->buildListener()->onAuthenticationSuccess($event);
 
         $data = $event->getData();
-        $this->assertStringContainsString('/uploads/avatars/11223344aabbccdd.jpg', $data['avatarUrl']);
+        $this->assertStringContainsString('/api/profile/avatar/11223344aabbccdd', $data['avatarUrl']);
     }
 
     // ── AppAdmin ──────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ final class AuthenticationSuccessListenerTest extends TestCase
         $data = $event->getData();
         $this->assertArrayHasKey('avatarUrl', $data);
         $this->assertNotNull($data['avatarUrl'], 'AppAdmin avatarUrl doit être non-null quand avatar_path est défini');
-        $this->assertStringContainsString('/uploads/avatars/deadbeef12345678.jpg', $data['avatarUrl']);
+        $this->assertStringContainsString('/api/profile/avatar/deadbeef12345678', $data['avatarUrl']);
     }
 
     public function testAppAdminWithoutAvatarReturnsNullAvatarUrl(): void
@@ -157,6 +157,6 @@ final class AuthenticationSuccessListenerTest extends TestCase
         $this->buildListener()->onAuthenticationSuccess($event);
 
         $data = $event->getData();
-        $this->assertStringContainsString('/uploads/avatars/cafebabe99887766.png', $data['avatarUrl']);
+        $this->assertStringContainsString('/api/profile/avatar/cafebabe99887766', $data['avatarUrl']);
     }
 }
