@@ -54,6 +54,7 @@ export interface AdminResident {
   firstname: string;
   lastname: string;
   validatedAt: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface AdminHospitalAdmin {

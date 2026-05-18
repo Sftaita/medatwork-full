@@ -175,4 +175,30 @@ describe("AdminResidentsPage", () => {
     fireEvent.click(await screen.findByText("Réinitialiser le mot de passe"));
     await waitFor(() => expect(adminApi.resetResidentPassword).toHaveBeenCalledWith(1));
   });
+
+  // ── avatarUrl ──────────────────────────────────────────────────────────────
+
+  it("affiche la photo de profil quand avatarUrl est fourni", async () => {
+    const withAvatar = [
+      {
+        ...MOCK_RESIDENTS[0],
+        avatarUrl: "http://localhost:8000/api/profile/avatar/11223344aabbccdd",
+      },
+      MOCK_RESIDENTS[1],
+    ];
+    vi.mocked(adminApi.listResidents).mockResolvedValue(withAvatar as any);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const img = document.querySelector('img[src="http://localhost:8000/api/profile/avatar/11223344aabbccdd"]');
+    expect(img).toBeTruthy();
+  });
+
+  it("n'affiche pas d'img quand avatarUrl est null", async () => {
+    const noAvatar = MOCK_RESIDENTS.map((r) => ({ ...r, avatarUrl: null }));
+    vi.mocked(adminApi.listResidents).mockResolvedValue(noAvatar as any);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const img = document.querySelector('img[src*="profile/avatar"]');
+    expect(img).toBeNull();
+  });
 });

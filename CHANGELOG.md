@@ -4,7 +4,25 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 
 ---
 
-## [3.6.x] — 2026-05 (en cours)
+## [3.7.0] — 2026-05-18
+
+### Ajouts
+- **Tests** : `AuthenticationSuccessListenerTest` — 6 cas (Manager, Resident, AppAdmin, HospitalAdmin avec/sans avatar)
+- **Tests** : `AdminControllerTest` — 4 cas avatarUrl sur `listManagers` et `listResidents`
+- **Tests** : `AdminManagersPage.test.tsx` et `AdminResidentsPage.test.tsx` — 2 cas avatarUrl chacun
+
+### Corrections
+- **Photo de profil — reconnexion AppAdmin** : `AuthenticationSuccessListener` retournait `avatarUrl: null` hardcodé pour AppAdmin → remplacé par `buildAvatarUrl($user->getAvatarPath())`
+- **Tableau managers (admin)** : `AdminController.listManagers` n'incluait pas `avatarUrl` → ajouté via `buildAvatarUrl`
+- **Tableau résidents (admin)** : `AdminController.listResidents` n'incluait pas `avatarUrl` → ajouté ; type `AdminResident` mis à jour ; rendu `AdminResidentsPage` utilise désormais `src={r.avatarUrl}`
+- **Sidebar surlignage admin** : flag `exact` sur `/admin` — plus de double surlignage Hôpitaux + Années
+
+### Infrastructure
+- Bump version `3.6.0 → 3.7.0` (VersionController, package.json, Footer)
+
+---
+
+## [3.6.0] — 2026-05-17/18
 
 ### Ajouts
 - **AppAdmin** : upload et suppression de photo de profil (AppAdmin)

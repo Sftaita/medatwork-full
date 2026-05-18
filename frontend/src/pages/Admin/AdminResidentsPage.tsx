@@ -271,7 +271,7 @@ const AdminResidentsPage = () => {
                       {/* Nom */}
                       <TableCell>
                         <Box sx={T.person}>
-                          <Avatar sx={T.avatar}>{initials}</Avatar>
+                          <Avatar src={r.avatarUrl ?? undefined} sx={T.avatar}>{!r.avatarUrl && initials}</Avatar>
                           <Box>
                             <Box sx={T.name}>{r.lastname} {r.firstname}</Box>
                             <Box sx={T.sub}>@{r.email.split("@")[0]}</Box>

@@ -44,6 +44,13 @@ class AdminController extends AbstractController
     ) {
     }
 
+    private function buildAvatarUrl(?string $avatarPath): ?string
+    {
+        if ($avatarPath === null) return null;
+        $token = pathinfo($avatarPath, PATHINFO_FILENAME);
+        return rtrim($this->apiUrl, '/') . '/profile/avatar/' . $token;
+    }
+
     // ── Hospitals ──────────────────────────────────────────────────────────────
 
     #[Route('/hospitals/{id}', name: 'admin_hospital_get', methods: ['GET'])]
@@ -575,6 +582,7 @@ class AdminController extends AbstractController
                 'status'      => $m->getStatus()->value,
                 'validatedAt' => $m->getValidatedAt()?->format(\DateTimeInterface::ATOM),
                 'hospitals'   => $hospitals,
+                'avatarUrl'   => $this->buildAvatarUrl($m->getAvatarPath()),
             ];
         }
 
@@ -754,6 +762,7 @@ class AdminController extends AbstractController
                 'firstname'   => $r->getFirstname(),
                 'lastname'    => $r->getLastname(),
                 'validatedAt' => $r->getValidatedAt()?->format(\DateTimeInterface::ATOM),
+                'avatarUrl'   => $this->buildAvatarUrl($r->getAvatarPath()),
             ];
         }
 

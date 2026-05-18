@@ -665,4 +665,78 @@ final class AdminControllerTest extends TestCase
         $this->assertSame('Mu',    $data[1]['lastname']);
         $this->assertSame('Zeta',  $data[2]['lastname']);
     }
+
+    // ── listManagers — avatarUrl ──────────────────────────────────────────────
+
+    public function testListManagersIncludesAvatarUrlWhenPresent(): void
+    {
+        $manager = $this->makeManagerForList(1, 'm@x.com', 'Jean', 'Dupont', \App\Enum\ManagerStatus::Active, null);
+        $manager->method('getAvatarPath')->willReturn('abc123def456abc1.jpg');
+
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('findAll')->willReturn([$manager]);
+
+        $response = $this->buildController()->listManagers($repo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertArrayHasKey('avatarUrl', $data[0]);
+        $this->assertStringContainsString('/api/profile/avatar/abc123def456abc1', $data[0]['avatarUrl']);
+    }
+
+    public function testListManagersAvatarUrlIsNullWhenNoAvatar(): void
+    {
+        $manager = $this->makeManagerForList(1, 'm@x.com', 'Jean', 'Dupont', \App\Enum\ManagerStatus::Active, null);
+        $manager->method('getAvatarPath')->willReturn(null);
+
+        $repo = $this->createMock(ManagerRepository::class);
+        $repo->method('findAll')->willReturn([$manager]);
+
+        $response = $this->buildController()->listManagers($repo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertNull($data[0]['avatarUrl']);
+    }
+
+    // ── listResidents — avatarUrl ─────────────────────────────────────────────
+
+    public function testListResidentsIncludesAvatarUrlWhenPresent(): void
+    {
+        $resident = $this->createMock(\App\Entity\Resident::class);
+        $resident->method('getId')->willReturn(5);
+        $resident->method('getEmail')->willReturn('r@x.com');
+        $resident->method('getFirstname')->willReturn('Anne');
+        $resident->method('getLastname')->willReturn('Durand');
+        $resident->method('getValidatedAt')->willReturn(null);
+        $resident->method('getAvatarPath')->willReturn('aabbccdd11223344.png');
+
+        $repo = $this->createMock(ResidentRepository::class);
+        $repo->method('findAll')->willReturn([$resident]);
+
+        $response = $this->buildController()->listResidents($repo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertArrayHasKey('avatarUrl', $data[0]);
+        $this->assertStringContainsString('/api/profile/avatar/aabbccdd11223344', $data[0]['avatarUrl']);
+    }
+
+    public function testListResidentsAvatarUrlIsNullWhenNoAvatar(): void
+    {
+        $resident = $this->createMock(\App\Entity\Resident::class);
+        $resident->method('getId')->willReturn(6);
+        $resident->method('getEmail')->willReturn('r2@x.com');
+        $resident->method('getFirstname')->willReturn('Paul');
+        $resident->method('getLastname')->willReturn('Bernard');
+        $resident->method('getValidatedAt')->willReturn(null);
+        $resident->method('getAvatarPath')->willReturn(null);
+
+        $repo = $this->createMock(ResidentRepository::class);
+        $repo->method('findAll')->willReturn([$resident]);
+
+        $response = $this->buildController()->listResidents($repo);
+        $data     = json_decode((string) $response->getContent(), true);
+
+        $this->assertNull($data[0]['avatarUrl']);
+    }
 }

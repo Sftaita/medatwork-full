@@ -50,7 +50,7 @@ class AuthenticationSuccessListener
             $data['lastname'] = $user->getLastname();
             $data['role'] = 'super_admin';
             $data['gender'] = '';
-            $data['avatarUrl'] = null;
+            $data['avatarUrl'] = $this->buildAvatarUrl($user->getAvatarPath());
         } elseif ($user instanceof HospitalAdmin) {
             $data['firstname'] = $user->getFirstname() ?? '';
             $data['lastname'] = $user->getLastname() ?? '';

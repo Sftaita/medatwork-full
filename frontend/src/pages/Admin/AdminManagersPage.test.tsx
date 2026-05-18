@@ -272,4 +272,30 @@ describe("AdminManagersPage", () => {
       expect(adminApi.resendManagerActivation).toHaveBeenCalledWith(2)
     );
   });
+
+  // ── avatarUrl ──────────────────────────────────────────────────────────────
+
+  it("affiche la photo de profil quand avatarUrl est fourni", async () => {
+    const withAvatar = [
+      {
+        ...MOCK_MANAGERS[0],
+        avatarUrl: "http://localhost:8000/api/profile/avatar/abc123def456abc1",
+      },
+      ...MOCK_MANAGERS.slice(1),
+    ];
+    vi.mocked(adminApi.listManagers).mockResolvedValue(withAvatar as any);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const img = document.querySelector('img[src="http://localhost:8000/api/profile/avatar/abc123def456abc1"]');
+    expect(img).toBeTruthy();
+  });
+
+  it("n'affiche pas d'img quand avatarUrl est null", async () => {
+    const noAvatar = MOCK_MANAGERS.map((m) => ({ ...m, avatarUrl: null }));
+    vi.mocked(adminApi.listManagers).mockResolvedValue(noAvatar as any);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
+    const img = document.querySelector('img[src*="profile/avatar"]');
+    expect(img).toBeNull();
+  });
 });
