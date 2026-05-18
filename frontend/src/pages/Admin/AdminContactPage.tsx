@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import adminApi from "../../services/adminApi";
@@ -38,6 +38,9 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import AddIcon from "@mui/icons-material/Add";
+import Pagination from "@mui/material/Pagination";
+
+const PAGE_SIZE = 25;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -105,12 +108,20 @@ const MessagesTab = () => {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "untreated" | "treated">("all");
   const [selected, setSelected] = useState<ContactMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ContactMessage | null>(null);
+  const [page, setPage] = useState(1);
 
   const { data = [], isLoading, isError } = useQuery({
     queryKey: ["admin-contact-messages", filter],
     queryFn: () => adminApi.listContactMessages(filter === "all" ? undefined : filter),
     refetchOnWindowFocus: false,
   });
+
+  const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+  const paged = useMemo(
+    () => data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [data, page]
+  );
 
   const treatMut = useMutation({
     mutationFn: adminApi.treatContactMessage,
@@ -127,6 +138,7 @@ const MessagesTab = () => {
     mutationFn: adminApi.deleteContactMessage,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-contact-messages"] });
+      setDeleteTarget(null);
       toast.success("Message supprimé");
     },
     onError: () => toast.error("Erreur lors de la suppression"),
@@ -137,7 +149,10 @@ const MessagesTab = () => {
       <Box display="flex" alignItems="center" gap={2} mb={2}>
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>Filtre</InputLabel>
-          <Select value={filter} label="Filtre" onChange={(e) => setFilter(e.target.value as typeof filter)}>
+          <Select
+            value={filter} label="Filtre"
+            onChange={(e) => { setFilter(e.target.value as typeof filter); setPage(1); }}
+          >
             <MenuItem value="all">Tous</MenuItem>
             <MenuItem value="untreated">Non traités</MenuItem>
             <MenuItem value="treated">Traités</MenuItem>
@@ -153,63 +168,68 @@ const MessagesTab = () => {
       )}
 
       {data.length > 0 && (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Expéditeur</TableCell>
-                <TableCell>Aperçu</TableCell>
-                <TableCell>Statut</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.map((msg) => (
-                <TableRow
-                  key={msg.id}
-                  hover
-                  sx={{ cursor: "pointer", opacity: msg.treated ? 0.65 : 1 }}
-                  onClick={() => setSelected(msg)}
-                >
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{fmt(msg.createdAt)}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600}>{msg.lastname} {msg.firstname}</Typography>
-                    <Typography variant="caption" color="text.secondary">{msg.email}</Typography>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 300 }}>
-                    <Typography variant="body2" color="text.secondary">{truncate(msg.message, 80)}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    {msg.treated
-                      ? <Chip label="Traité" color="success" size="small" />
-                      : <Chip label="Non traité" color="warning" size="small" />}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    {!msg.treated && (
-                      <Tooltip title="Marquer traité">
-                        <IconButton size="small" color="success" onClick={() => treatMut.mutate(msg.id)}>
-                          <CheckCircleIcon fontSize="small" />
+        <>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Expéditeur</TableCell>
+                  <TableCell>Aperçu</TableCell>
+                  <TableCell>Statut</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paged.map((msg) => (
+                  <TableRow
+                    key={msg.id}
+                    hover
+                    sx={{ cursor: "pointer", opacity: msg.treated ? 0.65 : 1 }}
+                    onClick={() => setSelected(msg)}
+                  >
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{fmt(msg.createdAt)}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>{msg.lastname} {msg.firstname}</Typography>
+                      <Typography variant="caption" color="text.secondary">{msg.email}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 300 }}>
+                      <Typography variant="body2" color="text.secondary">{truncate(msg.message, 80)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      {msg.treated
+                        ? <Chip label="Traité" color="success" size="small" />
+                        : <Chip label="Non traité" color="warning" size="small" />}
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      {!msg.treated && (
+                        <Tooltip title="Marquer traité">
+                          <IconButton size="small" color="success" onClick={() => treatMut.mutate(msg.id)}>
+                            <CheckCircleIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Supprimer">
+                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(msg)}>
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    )}
-                    <Tooltip title="Supprimer">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => {
-                          if (window.confirm("Supprimer ce message ?")) deleteMut.mutate(msg.id);
-                        }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {totalPages > 1 && (
+            <Pagination
+              count={totalPages} page={page}
+              onChange={(_, p) => setPage(p)}
+              size="small"
+              sx={{ display: "flex", justifyContent: "center", mt: 1.5 }}
+            />
+          )}
+        </>
       )}
 
       <MessageDialog
@@ -218,6 +238,27 @@ const MessagesTab = () => {
         onTreat={(id) => treatMut.mutate(id)}
         treating={treatMut.isPending}
       />
+
+      {/* Confirm delete dialog */}
+      <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: "error.main" }}>Supprimer le message</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer le message de <strong>{deleteTarget?.lastname} {deleteTarget?.firstname}</strong> ?
+            Cette action est irréversible.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Annuler</Button>
+          <Button
+            variant="contained" color="error"
+            disabled={deleteMut.isPending}
+            onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+          >
+            {deleteMut.isPending ? <CircularProgress size={20} /> : "Supprimer"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
@@ -228,6 +269,7 @@ const CcTab = () => {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<ContactCcConfig | null>(null);
 
   const { data: ccs = [], isLoading } = useQuery({
     queryKey: ["admin-contact-cc"],
@@ -254,6 +296,7 @@ const CcTab = () => {
     mutationFn: adminApi.deleteContactCc,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-contact-cc"] });
+      setDeleteTarget(null);
       toast.success("Destinataire supprimé");
     },
   });
@@ -286,13 +329,7 @@ const CcTab = () => {
             sx={{ mr: 0 }}
           />
           <Tooltip title="Supprimer">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => {
-                if (window.confirm(`Supprimer ${cc.email} des destinataires CC ?`)) deleteMut.mutate(cc.id);
-              }}
-            >
+            <IconButton size="small" color="error" onClick={() => setDeleteTarget(cc)}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -331,6 +368,26 @@ const CcTab = () => {
           Ajouter
         </Button>
       </Box>
+
+      {/* Confirm delete dialog */}
+      <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: "error.main" }}>Supprimer le destinataire</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Retirer <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) des destinataires CC ?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Annuler</Button>
+          <Button
+            variant="contained" color="error"
+            disabled={deleteMut.isPending}
+            onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+          >
+            {deleteMut.isPending ? <CircularProgress size={20} /> : "Supprimer"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

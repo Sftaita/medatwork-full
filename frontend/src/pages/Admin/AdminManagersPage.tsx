@@ -31,8 +31,11 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
+import Pagination from "@mui/material/Pagination";
 import adminApi from "../../services/adminApi";
 import type { AdminManager } from "../../types/entities";
+
+const PAGE_SIZE = 25;
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
 
@@ -194,6 +197,7 @@ const AdminManagersPage = () => {
   const [sortCol, setSortCol] = useState<SortCol | null>("nom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [deleteTarget, setDeleteTarget] = useState<AdminManager | null>(null);
+  const [page, setPage] = useState(1);
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data: stats, isLoading: loadingStats } = useQuery({
@@ -296,6 +300,9 @@ const AdminManagersPage = () => {
     });
   }, [managers, q, statusFilter, sortCol, sortDir]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   // ── Sort header helper ─────────────────────────────────────────────────────
   const SortHead = ({ col, label, width, align }: { col: SortCol; label: string; width?: number; align?: "center" | "right" }) => (
     <TableCell
@@ -385,7 +392,7 @@ const AdminManagersPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((m: AdminManager) => {
+                {paged.map((m: AdminManager) => {
                   const initials = (m.firstname[0] + m.lastname[0]).toUpperCase();
                   return (
                     <TableRow key={m.id} sx={bodyRowSx(density)}>
@@ -451,10 +458,22 @@ const AdminManagersPage = () => {
             </Table>
           </Box>
 
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              count={totalPages} page={page}
+              onChange={(_, p) => setPage(p)}
+              size="small"
+              sx={{ display: "flex", justifyContent: "center", py: 1.5 }}
+            />
+          )}
+
           {/* Footer */}
           <Box sx={T.footer}>
             <Typography variant="caption">
-              {filtered.length} sur {managers.length} manager{managers.length !== 1 ? "s" : ""}
+              {paged.length === filtered.length
+                ? `${filtered.length} manager${filtered.length !== 1 ? "s" : ""}`
+                : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} sur ${filtered.length} (${managers.length} au total)`}
             </Typography>
           </Box>
         </Box>

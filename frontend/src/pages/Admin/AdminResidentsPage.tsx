@@ -24,8 +24,11 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
+import Pagination from "@mui/material/Pagination";
 import adminApi from "../../services/adminApi";
 import type { AdminResident } from "../../types/entities";
+
+const PAGE_SIZE = 25;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -95,6 +98,7 @@ const AdminResidentsPage = () => {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "not_activated">("all");
   const [sortCol, setSortCol]     = useState<SortCol | null>("nom");
   const [sortDir, setSortDir]     = useState<"asc" | "desc">("asc");
+  const [page, setPage]           = useState(1);
 
   const { data: residents = [], isLoading } = useQuery({
     queryKey: ["admin-residents"],
@@ -164,6 +168,9 @@ const AdminResidentsPage = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [residents, q, statusFilter, sortCol, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ── Sort header helper ─────────────────────────────────────────────────────
   const SortHead = ({ col, label, width }: { col: SortCol; label: string; width?: number }) => (
@@ -263,7 +270,7 @@ const AdminResidentsPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((r: AdminResident) => {
+                {paged.map((r: AdminResident) => {
                   const initials = (r.firstname[0] + r.lastname[0]).toUpperCase();
                   return (
                     <TableRow key={r.id} sx={bodyRowSx(density)}>
@@ -305,10 +312,22 @@ const AdminResidentsPage = () => {
             </Table>
           </Box>
 
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              count={totalPages} page={page}
+              onChange={(_, p) => setPage(p)}
+              size="small"
+              sx={{ display: "flex", justifyContent: "center", py: 1.5 }}
+            />
+          )}
+
           {/* Footer */}
           <Box sx={T.footer}>
             <Typography variant="caption">
-              {filtered.length} sur {residents.length} résident{residents.length !== 1 ? "s" : ""}
+              {paged.length === filtered.length
+                ? `${filtered.length} résident${filtered.length !== 1 ? "s" : ""}`
+                : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} sur ${filtered.length} (${residents.length} au total)`}
             </Typography>
           </Box>
         </Box>
