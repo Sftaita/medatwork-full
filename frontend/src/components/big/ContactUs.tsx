@@ -94,7 +94,7 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
   });
 
   return (
-    <Box maxWidth={600} margin={"0 auto"} paddingRight={2} paddingLeft={2}>
+    <Box maxWidth={600} margin={"0 auto"}>
       <Box marginBottom={4}>
         <Typography variant={"h3"} sx={{ fontWeight: 700 }} align={"center"} gutterBottom>
           {title}
