@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import "./i18n/config"; // initialise i18next before anything else
 import { CustomizedTheme } from "./doc/CustomizedTheme";
 import "./index.css";
 import * as Sentry from "@sentry/react";

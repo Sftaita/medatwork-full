@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { NavLink, useNavigate } from "react-router-dom";
 import Logo from "../../../../images/logo.png";
 import useAuth from "../../../../hooks/useAuth";
@@ -72,6 +73,7 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
   });
 
   // ── Menu déroulant ────────────────────────────────────────────────────────
+  const { t } = useTranslation();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchor);
 
@@ -295,16 +297,16 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           >
             <MenuItem onClick={handleGoToAccount}>
               <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Mon compte</ListItemText>
+              <ListItemText>{t("topbar.myAccount")}</ListItemText>
             </MenuItem>
             <MenuItem onClick={handleGoToSettings}>
               <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Préférences</ListItemText>
+              <ListItemText>{t("topbar.preferences")}</ListItemText>
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
               <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
-              <ListItemText>Se déconnecter</ListItemText>
+              <ListItemText>{t("topbar.logout")}</ListItemText>
             </MenuItem>
           </Menu>
         )}

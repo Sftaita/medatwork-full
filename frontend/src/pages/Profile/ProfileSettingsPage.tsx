@@ -28,6 +28,8 @@ import { useUserSettings, useUpdateSettings, DEFAULT_SETTINGS } from "../../hook
 import { useTableDensity } from "../../hooks/useTableDensity";
 import { DensityToggleButton } from "../../components/DensityToggleButton";
 import useAuth from "../../hooks/useAuth";
+import { useTranslation } from "react-i18next";
+import i18n from "../../i18n/config";
 import type { UserSettingsPatch } from "../../services/settingsApi";
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
@@ -96,59 +98,33 @@ const SettingRow = ({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const CALENDAR_VIEWS = [
-  { value: "month", label: "Mois" },
-  { value: "week",  label: "Semaine" },
-  { value: "day",   label: "Jour" },
-  { value: "list",  label: "Liste" },
+const CALENDAR_VIEW_KEYS = [
+  { value: "month", labelKey: "settings.calViewMonth" },
+  { value: "week",  labelKey: "settings.calViewWeek" },
+  { value: "day",   labelKey: "settings.calViewDay" },
+  { value: "list",  labelKey: "settings.calViewList" },
 ] as const;
 
-const LANGUAGES = [
-  { value: "fr", label: "Français" },
-  { value: "nl", label: "Nederlands" },
-  { value: "en", label: "English" },
+const LANGUAGE_OPTIONS = [
+  { value: "fr", labelKey: "settings.langFr" },
+  { value: "nl", labelKey: "settings.langNl" },
+  { value: "en", labelKey: "settings.langEn" },
 ] as const;
 
-const PAGE_SIZES = [
-  { value: 25,  label: "25 lignes" },
-  { value: 50,  label: "50 lignes" },
-  { value: 100, label: "100 lignes" },
-  { value: 200, label: "200 lignes" },
+const PAGE_SIZE_KEYS = [
+  { value: 25,  labelKey: "settings.rows25" },
+  { value: 50,  labelKey: "settings.rows50" },
+  { value: 100, labelKey: "settings.rows100" },
+  { value: 200, labelKey: "settings.rows200" },
 ] as const;
 
-const NOTIFICATION_ROWS = [
-  {
-    key:         "email" as const,
-    label:       "Notifications par email",
-    description: "Validations, alertes de conformité",
-  },
-  {
-    key:         "push" as const,
-    label:       "Notifications push",
-    description: "Alertes en temps réel dans l'application",
-  },
-  {
-    key:         "compliance" as const,
-    label:       "Alertes de conformité",
-    description: "Dépassements des limites légales temps de travail",
-  },
-  {
-    key:         "validation" as const,
-    label:       "Validations de période",
-    description: "Notifications lors de la validation ou du refus d'une période",
-  },
-  {
-    key:         "planning" as const,
-    label:       "Modifications de planning",
-    description: "Changements d'affectation ou de garde",
-  },
-  // staffPlanner omis ici — filtré dynamiquement selon le rôle
-
-  {
-    key:         "dailySummary" as const,
-    label:       "Résumé quotidien",
-    description: "Récapitulatif des activités de la journée",
-  },
+const NOTIFICATION_KEYS = [
+  { key: "email"       as const, labelKey: "settings.notifEmail",        descKey: "settings.notifEmailDesc" },
+  { key: "push"        as const, labelKey: "settings.notifPush",         descKey: "settings.notifPushDesc" },
+  { key: "compliance"  as const, labelKey: "settings.notifCompliance",   descKey: "settings.notifComplianceDesc" },
+  { key: "validation"  as const, labelKey: "settings.notifValidation",   descKey: "settings.notifValidationDesc" },
+  { key: "planning"    as const, labelKey: "settings.notifPlanning",     descKey: "settings.notifPlanningDesc" },
+  { key: "dailySummary"as const, labelKey: "settings.notifDailySummary", descKey: "settings.notifDailySummaryDesc" },
 ] as const;
 
 const ProfileSettingsPage = () => {
@@ -157,6 +133,7 @@ const ProfileSettingsPage = () => {
   const { mutate: update, isPending, isSuccess } = useUpdateSettings();
   const { density, cycleDensity }                = useTableDensity();
   const { authentication }                       = useAuth();
+  const { t }                                    = useTranslation();
 
   const isHospitalAdmin = authentication.role === "hospital_admin";
 
@@ -182,21 +159,17 @@ const ProfileSettingsPage = () => {
           </IconButton>
         </Tooltip>
         <Box flex={1}>
-          <Typography variant="h5" fontWeight={700}>
-            Préférences
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Vos paramètres sont sauvegardés automatiquement et synchronisés entre vos appareils.
-          </Typography>
+          <Typography variant="h5" fontWeight={700}>{t("settings.title")}</Typography>
+          <Typography variant="body2" color="text.secondary">{t("settings.subtitle")}</Typography>
         </Box>
         {isPending && (
-          <Chip size="small" label="Sauvegarde…" variant="outlined" sx={{ color: "text.secondary" }} />
+          <Chip size="small" label={t("settings.saving")} variant="outlined" sx={{ color: "text.secondary" }} />
         )}
         {savedVisible && !isPending && (
           <Chip
             size="small"
             icon={<CheckIcon fontSize="small" />}
-            label="Sauvegardé"
+            label={t("settings.saved")}
             color="success"
             variant="outlined"
           />
@@ -204,58 +177,48 @@ const ProfileSettingsPage = () => {
       </Box>
 
       {isError && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Impossible de charger vos préférences — les valeurs par défaut sont affichées.
-        </Alert>
+        <Alert severity="warning" sx={{ mb: 3 }}>{t("settings.loadError")}</Alert>
       )}
 
       <Stack spacing={3}>
         {/* ── Apparence ───────────────────────────────────────────────────── */}
-        <Section icon={<DarkModeIcon color="action" />} title="Apparence">
+        <Section icon={<DarkModeIcon color="action" />} title={t("settings.appearance")}>
           {isLoading ? (
-            <Stack spacing={1.5} py={1}>
-              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-            </Stack>
+            <Stack spacing={1.5} py={1}><Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} /></Stack>
           ) : (
-            <>
-              <SettingRow
-                label="Mode sombre"
-                description="Appliqué immédiatement sur toute l'interface"
-              >
-                <Switch
-                  checked={current.theme === "dark"}
-                  disabled={isPending}
-                  onChange={(e) => patch({ theme: e.target.checked ? "dark" : "light" })}
-                  inputProps={{ "aria-label": "Activer le mode sombre" }}
-                />
-              </SettingRow>
-            </>
+            <SettingRow label={t("settings.darkMode")} description={t("settings.darkModeDesc")}>
+              <Switch
+                checked={current.theme === "dark"}
+                disabled={isPending}
+                onChange={(e) => patch({ theme: e.target.checked ? "dark" : "light" })}
+                inputProps={{ "aria-label": t("settings.darkMode") }}
+              />
+            </SettingRow>
           )}
         </Section>
 
         {/* ── Langue ──────────────────────────────────────────────────────── */}
-        <Section icon={<TranslateIcon color="action" />} title="Langue">
+        <Section icon={<TranslateIcon color="action" />} title={t("settings.language")}>
           {isLoading ? (
             <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
           ) : (
-            <SettingRow
-              label="Langue de l'interface"
-              description="Certains contenus médicaux restent en français"
-            >
+            <SettingRow label={t("settings.languageLabel")} description={t("settings.languageDesc")}>
               <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel id="lang-label">Langue</InputLabel>
+                <InputLabel id="lang-label">{t("settings.language")}</InputLabel>
                 <Select
                   labelId="lang-label"
-                  label="Langue"
+                  label={t("settings.language")}
                   value={current.language}
                   disabled={isPending}
-                  onChange={(e) => patch({ language: e.target.value as "fr" | "nl" | "en" })}
+                  onChange={(e) => {
+                    const lang = e.target.value as "fr" | "nl" | "en";
+                    patch({ language: lang });
+                    i18n.changeLanguage(lang);
+                    localStorage.setItem("medatwork_lang", lang);
+                  }}
                 >
-                  {LANGUAGES.map((l) => (
-                    <MenuItem key={l.value} value={l.value}>
-                      {l.label}
-                    </MenuItem>
+                  {LANGUAGE_OPTIONS.map((l) => (
+                    <MenuItem key={l.value} value={l.value}>{t(l.labelKey)}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -264,45 +227,34 @@ const ProfileSettingsPage = () => {
         </Section>
 
         {/* ── Calendrier ──────────────────────────────────────────────────── */}
-        <Section icon={<CalendarMonthIcon color="action" />} title="Calendrier">
+        <Section icon={<CalendarMonthIcon color="action" />} title={t("settings.calendar")}>
           {isLoading ? (
-            <Stack spacing={1.5} py={1}>
-              <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
-              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-            </Stack>
+            <Stack spacing={1.5} py={1}><Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1 }} /></Stack>
           ) : (
             <>
-              <SettingRow label="Vue par défaut" description="Vue appliquée à l'ouverture du calendrier">
+              <SettingRow label={t("settings.calendarView")} description={t("settings.calendarViewDesc")}>
                 <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel id="cal-view-label">Vue</InputLabel>
+                  <InputLabel id="cal-view-label">{t("settings.calendarView")}</InputLabel>
                   <Select
                     labelId="cal-view-label"
-                    label="Vue"
+                    label={t("settings.calendarView")}
                     value={current.calendar.defaultView}
                     disabled={isPending}
-                    onChange={(e) =>
-                      patch({ calendar: { defaultView: e.target.value as any } })
-                    }
+                    onChange={(e) => patch({ calendar: { defaultView: e.target.value as any } })}
                   >
-                    {CALENDAR_VIEWS.map((v) => (
-                      <MenuItem key={v.value} value={v.value}>
-                        {v.label}
-                      </MenuItem>
+                    {CALENDAR_VIEW_KEYS.map((v) => (
+                      <MenuItem key={v.value} value={v.value}>{t(v.labelKey)}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </SettingRow>
-
               <Divider />
-
-              <SettingRow label="Afficher les weekends">
+              <SettingRow label={t("settings.showWeekends")}>
                 <Switch
                   checked={current.calendar.showWeekends}
                   disabled={isPending}
-                  onChange={(e) =>
-                    patch({ calendar: { showWeekends: e.target.checked } })
-                  }
-                  inputProps={{ "aria-label": "Afficher les weekends" }}
+                  onChange={(e) => patch({ calendar: { showWeekends: e.target.checked } })}
+                  inputProps={{ "aria-label": t("settings.showWeekends") }}
                 />
               </SettingRow>
             </>
@@ -310,43 +262,29 @@ const ProfileSettingsPage = () => {
         </Section>
 
         {/* ── Tableaux ────────────────────────────────────────────────────── */}
-        <Section icon={<TableRowsIcon color="action" />} title="Tableaux">
+        <Section icon={<TableRowsIcon color="action" />} title={t("settings.tables")}>
           {isLoading ? (
-            <Stack spacing={1.5} py={1}>
-              <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
-              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-            </Stack>
+            <Stack spacing={1.5} py={1}><Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1 }} /></Stack>
           ) : (
             <>
-              <SettingRow
-                label="Densité des tableaux"
-                description="Persistée localement — s'applique sur tous les tableaux"
-              >
+              <SettingRow label={t("settings.tableDensity")} description={t("settings.tableDensityDesc")}>
                 <DensityToggleButton density={density} onCycle={cycleDensity} />
               </SettingRow>
-
               {isHospitalAdmin && (
                 <>
                   <Divider />
-                  <SettingRow
-                    label="Lignes par page — Staff Planner"
-                    description="Nombre de lignes affichées par page dans l'export Staff Planner"
-                  >
+                  <SettingRow label={t("settings.staffPlannerRows")} description={t("settings.staffPlannerDesc")}>
                     <FormControl size="small" sx={{ minWidth: 130 }}>
-                      <InputLabel id="sp-pagesize-label">Lignes</InputLabel>
+                      <InputLabel id="sp-pagesize-label">{t("settings.staffPlannerRows")}</InputLabel>
                       <Select
                         labelId="sp-pagesize-label"
-                        label="Lignes"
+                        label={t("settings.staffPlannerRows")}
                         value={current.tables.staffPlanner.pageSize}
                         disabled={isPending}
-                        onChange={(e) =>
-                          patch({ tables: { staffPlanner: { pageSize: e.target.value as any } } })
-                        }
+                        onChange={(e) => patch({ tables: { staffPlanner: { pageSize: e.target.value as any } } })}
                       >
-                        {PAGE_SIZES.map((p) => (
-                          <MenuItem key={p.value} value={p.value}>
-                            {p.label}
-                          </MenuItem>
+                        {PAGE_SIZE_KEYS.map((p) => (
+                          <MenuItem key={p.value} value={p.value}>{t(p.labelKey)}</MenuItem>
                         ))}
                       </Select>
                     </FormControl>
@@ -358,45 +296,35 @@ const ProfileSettingsPage = () => {
         </Section>
 
         {/* ── Notifications ────────────────────────────────────────────────── */}
-        <Section icon={<NotificationsIcon color="action" />} title="Notifications">
+        <Section icon={<NotificationsIcon color="action" />} title={t("settings.notifications")}>
           {isLoading ? (
             <Stack spacing={1.5} py={1}>
-              {[...Array(7)].map((_, i) => (
-                <Skeleton key={i} variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-              ))}
+              {[...Array(6)].map((_, i) => <Skeleton key={i} variant="rectangular" height={40} sx={{ borderRadius: 1 }} />)}
             </Stack>
           ) : (
             <>
-              {NOTIFICATION_ROWS.filter(() => true).map((item, idx) => (
+              {NOTIFICATION_KEYS.map((item, idx) => (
                 <Box key={item.key}>
                   {idx > 0 && <Divider />}
-                  <SettingRow label={item.label} description={item.description}>
+                  <SettingRow label={t(item.labelKey)} description={t(item.descKey)}>
                     <Switch
                       checked={current.notifications[item.key]}
                       disabled={isPending}
-                      onChange={(e) =>
-                        patch({ notifications: { [item.key]: e.target.checked } })
-                      }
-                      inputProps={{ "aria-label": item.label }}
+                      onChange={(e) => patch({ notifications: { [item.key]: e.target.checked } })}
+                      inputProps={{ "aria-label": t(item.labelKey) }}
                     />
                   </SettingRow>
                 </Box>
               ))}
-
               {isHospitalAdmin && (
                 <Box>
                   <Divider />
-                  <SettingRow
-                    label="Exports Staff Planner"
-                    description="Confirmation d'export et alertes de traitement"
-                  >
+                  <SettingRow label={t("settings.notifStaffPlanner")} description={t("settings.notifStaffPlannerDesc")}>
                     <Switch
                       checked={current.notifications.staffPlanner}
                       disabled={isPending}
-                      onChange={(e) =>
-                        patch({ notifications: { staffPlanner: e.target.checked } })
-                      }
-                      inputProps={{ "aria-label": "Exports Staff Planner" }}
+                      onChange={(e) => patch({ notifications: { staffPlanner: e.target.checked } })}
+                      inputProps={{ "aria-label": t("settings.notifStaffPlanner") }}
                     />
                   </SettingRow>
                 </Box>

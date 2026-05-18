@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import useAuth from "../../hooks/useAuth";
 import FeatureErrorBoundary from "../FeatureErrorBoundary";
 import CguModal from "../CguModal";
+import useLanguageSync from "../../hooks/useLanguageSync";
 
 // Material UI
 import { alpha, useTheme } from "@mui/material/styles";
@@ -30,6 +31,7 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
   // Fetch notifications and populate the store — Topbar/Sidebar read from store directly
   useNotifications(authentication.role);
   useCommNotifications(authentication.role);
+  useLanguageSync();
 
   // side bar (mobile)
   const [openSidebar, setOpenSidebar] = useState(false);

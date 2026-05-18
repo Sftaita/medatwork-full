@@ -1,6 +1,7 @@
 import React from "react";
 import Logo from "../../../../images/logo.png";
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import Grid from "@mui/material/Grid";
@@ -10,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 
 const Footer = () => {
+  const { t } = useTranslation();
   return (
     <Grid container spacing={0}>
       <Grid item xs={12}>
@@ -36,12 +38,12 @@ const Footer = () => {
           <Box display={"flex"} alignItems={"center"} gap={2} flexWrap="wrap">
             <NavLink to={"/cgu"} style={{ textDecoration: "none" }}>
               <Typography color="primary" variant="body2">
-                Conditions générales
+                {t("footer.terms")}
               </Typography>
             </NavLink>
             <NavLink to={"/terms"} style={{ textDecoration: "none" }}>
               <Typography color="primary" variant="body2">
-                Politique de confidentialité
+                {t("footer.privacy")}
               </Typography>
             </NavLink>
             <NavLink to={"/contactUs"} style={{ textDecoration: "none" }}>

@@ -36,18 +36,18 @@ const PATHS = {
 
 const noAuth = [
   {
-    groupTitle: "Générale",
+    groupTitle: "Générale", groupTitleKey: "nav.groups.general",
     id: "general",
     pages: [
-      { title: "Notre Service", href: "/description", disabled: false, icon: <Icon d={PATHS.building} /> },
+      { title: "Notre Service", titleKey: "nav.ourService", href: "/description", disabled: false, icon: <Icon d={PATHS.building} /> },
     ],
   },
   {
-    groupTitle: "Compte",
+    groupTitle: "Compte", groupTitleKey: "nav.groups.account",
     id: "account",
     pages: [
-      { title: "Se connecter",  href: "/login",      icon: <Icon d={PATHS.userCircle} /> },
-      { title: "S'enregistrer", href: "/connecting", icon: <Icon d={PATHS.userSingle} /> },
+      { title: "Se connecter",  titleKey: "nav.signIn",    href: "/login",      icon: <Icon d={PATHS.userCircle} /> },
+      { title: "S'enregistrer", titleKey: "nav.register",  href: "/connecting", icon: <Icon d={PATHS.userSingle} /> },
     ],
   },
 ];
@@ -56,30 +56,30 @@ const noAuth = [
 
 const manager = [
   {
-    groupTitle: "Année(s)",
+    groupTitle: "Année(s)", groupTitleKey: "nav.groups.years",
     id: "years",
     pages: [
-      { title: "Année(s)", href: "/manager/years", icon: <Icon d={PATHS.years} /> },
-      { title: "AJOUTER",  href: "/manager/year",  icon: <Icon d={PATHS.addFolder} /> },
+      { title: "Année(s)", titleKey: "nav.years", href: "/manager/years", icon: <Icon d={PATHS.years} /> },
+      { title: "AJOUTER",  titleKey: "nav.add",   href: "/manager/year",  icon: <Icon d={PATHS.addFolder} /> },
     ],
   },
   {
-    groupTitle: "Tableau de bord",
+    groupTitle: "Tableau de bord", groupTitleKey: "nav.groups.dashboard",
     id: "select-tools",
     pages: [
-      { title: "Temps réel",      href: "/manager/realtime",         icon: <Icon d={PATHS.chart} d2={PATHS.chart2} /> },
-      { title: "Enregistrements", href: "/manager/data-tracking",    icon: <Icon d={PATHS.clipboard} /> },
-      { title: "Validations",     href: "/manager/validation-story", icon: <Icon d={PATHS.check} /> },
-      { title: "Notifications",   href: "/manager/notifications", disabled: false, count: true, icon: <Icon d={PATHS.bell} /> },
+      { title: "Temps réel",      titleKey: "nav.realtime",      href: "/manager/realtime",         icon: <Icon d={PATHS.chart} d2={PATHS.chart2} /> },
+      { title: "Enregistrements", titleKey: "nav.records",       href: "/manager/data-tracking",    icon: <Icon d={PATHS.clipboard} /> },
+      { title: "Validations",     titleKey: "nav.validations",   href: "/manager/validation-story", icon: <Icon d={PATHS.check} /> },
+      { title: "Notifications",   titleKey: "nav.notifications", href: "/manager/notifications", disabled: false, count: true, icon: <Icon d={PATHS.bell} /> },
     ],
   },
   {
-    groupTitle: "Agenda",
+    groupTitle: "Agenda", groupTitleKey: "nav.groups.agenda",
     id: "agenda",
     pages: [
-      { title: "Calendrier",       href: "/manager/calendar",        icon: <Icon d={PATHS.calendar} /> },
-      { title: "Horaires",         href: "/manager/week-dispatcher", icon: <Icon d={PATHS.clock} /> },
-      { title: "Semaines modèles", href: "/manager/week-creator",    icon: <Icon d={PATHS.list} /> },
+      { title: "Calendrier",       titleKey: "nav.calendar",      href: "/manager/calendar",        icon: <Icon d={PATHS.calendar} /> },
+      { title: "Horaires",         titleKey: "nav.schedules",     href: "/manager/week-dispatcher", icon: <Icon d={PATHS.clock} /> },
+      { title: "Semaines modèles", titleKey: "nav.weekTemplates", href: "/manager/week-creator",    icon: <Icon d={PATHS.list} /> },
     ],
   },
 ];
@@ -88,27 +88,27 @@ const manager = [
 
 const resident = [
   {
-    groupTitle: "Générale",
+    groupTitle: "Générale", groupTitleKey: "nav.groups.general",
     id: "general",
     pages: [
-      { title: "Mes horaires",    href: "/maccs/timer",           icon: <Icon d={PATHS.clock} /> },
-      { title: "Mes statistiques",href: "/maccs/statistics",      icon: <Icon d={PATHS.chart} d2={PATHS.chart2} /> },
-      { title: "Mes encodages",   href: "/maccs/data-management", icon: <Icon d={PATHS.clipboard} /> },
+      { title: "Mes horaires",     titleKey: "nav.mySchedules",   href: "/maccs/timer",           icon: <Icon d={PATHS.clock} /> },
+      { title: "Mes statistiques", titleKey: "nav.myStatistics",  href: "/maccs/statistics",      icon: <Icon d={PATHS.chart} d2={PATHS.chart2} /> },
+      { title: "Mes encodages",    titleKey: "nav.myEntries",     href: "/maccs/data-management", icon: <Icon d={PATHS.clipboard} /> },
     ],
   },
   {
-    groupTitle: "Année(s)",
+    groupTitle: "Année(s)", groupTitleKey: "nav.groups.years",
     id: "years",
     pages: [
-      { title: "Mes années", href: "/maccs/years",  icon: <Icon d={PATHS.years} /> },
-      { title: "AJOUTER",    href: "/maccs/search", icon: <Icon d={PATHS.addFolder} /> },
+      { title: "Mes années", titleKey: "nav.myYears", href: "/maccs/years",  icon: <Icon d={PATHS.years} /> },
+      { title: "AJOUTER",    titleKey: "nav.add",     href: "/maccs/search", icon: <Icon d={PATHS.addFolder} /> },
     ],
   },
   {
-    groupTitle: "Compte",
+    groupTitle: "Compte", groupTitleKey: "nav.groups.account",
     id: "account",
     pages: [
-      { title: "Notification", href: "/maccs/notifications", disabled: false, count: true, commCount: false, icon: <Icon d={PATHS.bell} /> },
+      { title: "Notification", titleKey: "nav.notification", href: "/maccs/notifications", disabled: false, count: true, commCount: false, icon: <Icon d={PATHS.bell} /> },
     ],
   },
 ];
@@ -117,35 +117,35 @@ const resident = [
 
 const superAdmin = [
   {
-    groupTitle: "Établissements",
+    groupTitle: "Établissements", groupTitleKey: "nav.groups.hospitals",
     id: "hospitals",
     pages: [
-      { title: "Hôpitaux", href: "/admin", exact: true, icon: <Icon d={PATHS.building} /> },
-      { title: "Années",   href: "/admin/years",  icon: <Icon d={PATHS.calendar} /> },
+      { title: "Hôpitaux", titleKey: "nav.hospitals", href: "/admin", exact: true, icon: <Icon d={PATHS.building} /> },
+      { title: "Années",   titleKey: "nav.years",     href: "/admin/years",  icon: <Icon d={PATHS.calendar} /> },
     ],
   },
   {
-    groupTitle: "Utilisateurs",
+    groupTitle: "Utilisateurs", groupTitleKey: "nav.groups.users",
     id: "users",
     pages: [
-      { title: "Managers",       href: "/admin/managers",        icon: <Icon d={PATHS.users} /> },
-      { title: "Admins hôpital", href: "/admin/hospital-admins", icon: <Icon d={PATHS.userCircle} /> },
-      { title: "MACCS",          href: "/admin/residents",        icon: <Icon d={PATHS.check} /> },
+      { title: "Managers",       titleKey: "nav.managers",       href: "/admin/managers",        icon: <Icon d={PATHS.users} /> },
+      { title: "Admins hôpital", titleKey: "nav.hospitalAdmins", href: "/admin/hospital-admins", icon: <Icon d={PATHS.userCircle} /> },
+      { title: "MACCS",          titleKey: "nav.maccs",          href: "/admin/residents",        icon: <Icon d={PATHS.check} /> },
     ],
   },
   {
-    groupTitle: "Communication",
+    groupTitle: "Communication", groupTitleKey: "nav.groups.communication",
     id: "admin-communication",
     pages: [
-      { title: "Messages",        href: "/admin/communication", icon: <Icon d={PATHS.chat} /> },
-      { title: "Msgs contact",    href: "/admin/contact",       icon: <Icon d={PATHS.bell} /> },
+      { title: "Messages",        titleKey: "nav.messages",        href: "/admin/communication", icon: <Icon d={PATHS.chat} /> },
+      { title: "Msgs contact",    titleKey: "nav.contactMessages", href: "/admin/contact",       icon: <Icon d={PATHS.bell} /> },
     ],
   },
   {
-    groupTitle: "Système",
+    groupTitle: "Système", groupTitleKey: "nav.groups.system",
     id: "system",
     pages: [
-      { title: "Logs", href: "/admin/logs", icon: <Icon d={PATHS.doc} /> },
+      { title: "Logs", titleKey: "nav.logs", href: "/admin/logs", icon: <Icon d={PATHS.doc} /> },
     ],
   },
 ];
@@ -154,31 +154,31 @@ const superAdmin = [
 
 const hospitalAdmin = [
   {
-    groupTitle: "Admin hôpital",
+    groupTitle: "Admin hôpital", groupTitleKey: "nav.groups.hospitalAdmin",
     id: "hospital-admin",
     pages: [
-      { title: "Tableau de bord",     href: "/hospital-admin/dashboard", icon: <Icon d={PATHS.building} /> },
-      { title: "Gestion des MACCS",   href: "/hospital-admin/residents", icon: <Icon d={PATHS.users} /> },
-      { title: "Gestion des managers",href: "/hospital-admin/managers",  icon: <Icon d={PATHS.userSingle} /> },
-      { title: "Journal d'activité",  href: "/hospital-admin/audit-log", icon: <Icon d={PATHS.clipboard} /> },
-      { title: "Exports RH",          href: "/hospital-admin/exports",   icon: <Icon d={PATHS.download} /> },
+      { title: "Tableau de bord",     titleKey: "nav.dashboard",   href: "/hospital-admin/dashboard", icon: <Icon d={PATHS.building} /> },
+      { title: "Gestion des MACCS",   titleKey: "nav.maccsMgmt",   href: "/hospital-admin/residents", icon: <Icon d={PATHS.users} /> },
+      { title: "Gestion des managers",titleKey: "nav.managerMgmt", href: "/hospital-admin/managers",  icon: <Icon d={PATHS.userSingle} /> },
+      { title: "Journal d'activité",  titleKey: "nav.activityLog", href: "/hospital-admin/audit-log", icon: <Icon d={PATHS.clipboard} /> },
+      { title: "Exports RH",          titleKey: "nav.hrExports",   href: "/hospital-admin/exports",   icon: <Icon d={PATHS.download} /> },
     ],
   },
   {
-    groupTitle: "Agenda",
+    groupTitle: "Agenda", groupTitleKey: "nav.groups.agenda",
     id: "ha-agenda",
     pages: [
-      { title: "Calendrier",       href: "/manager/calendar",        icon: <Icon d={PATHS.calendar} /> },
-      { title: "Horaires",         href: "/manager/week-dispatcher", icon: <Icon d={PATHS.clock} /> },
-      { title: "Semaines modèles", href: "/manager/week-creator",    icon: <Icon d={PATHS.list} /> },
+      { title: "Calendrier",       titleKey: "nav.calendar",      href: "/manager/calendar",        icon: <Icon d={PATHS.calendar} /> },
+      { title: "Horaires",         titleKey: "nav.schedules",     href: "/manager/week-dispatcher", icon: <Icon d={PATHS.clock} /> },
+      { title: "Semaines modèles", titleKey: "nav.weekTemplates", href: "/manager/week-creator",    icon: <Icon d={PATHS.list} /> },
     ],
   },
   {
-    groupTitle: "Communication",
+    groupTitle: "Communication", groupTitleKey: "nav.groups.communication",
     id: "ha-communication",
     pages: [
-      { title: "Notifications", href: "/hospital-admin/notifications", count: true, icon: <Icon d={PATHS.bell} /> },
-      { title: "Messages",      href: "/hospital-admin/communication",              icon: <Icon d={PATHS.chat} /> },
+      { title: "Notifications", titleKey: "nav.notifications", href: "/hospital-admin/notifications", count: true, icon: <Icon d={PATHS.bell} /> },
+      { title: "Messages",      titleKey: "nav.messages",      href: "/hospital-admin/communication",              icon: <Icon d={PATHS.chat} /> },
     ],
   },
 ];

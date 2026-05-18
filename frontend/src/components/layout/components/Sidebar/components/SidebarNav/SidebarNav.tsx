@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import useAuth from "../../../../../../hooks/useAuth";
 import useNotificationContext from "../../../../../../hooks/useNotificationContext";
 
@@ -25,19 +26,21 @@ import Man from "../../../../../../images/icons/Man.png";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface NavPage {
-  title:      string;
-  href:       string;
-  disabled?:  boolean;
-  count?:     boolean;
-  commCount?: boolean; // false = exclude commUnreadCount from badge (default: true)
-  exact?:     boolean; // true = exact match only, no startsWith (default: false)
-  icon?:      React.ReactNode;
+  title:        string;
+  titleKey?:    string; // i18n key (fallback: title)
+  href:         string;
+  disabled?:    boolean;
+  count?:       boolean;
+  commCount?:   boolean;
+  exact?:       boolean;
+  icon?:        React.ReactNode;
 }
 
 interface NavGroup {
-  groupTitle: string;
-  id:         string;
-  pages:      NavPage[];
+  groupTitle:     string;
+  groupTitleKey?: string; // i18n key (fallback: groupTitle)
+  id:             string;
+  pages:          NavPage[];
 }
 
 // ── Expanded nav item ─────────────────────────────────────────────────────────
@@ -58,7 +61,9 @@ const NavItem = ({
   onSelect:      (title: string) => void;
 }) => {
   const { commUnreadCount } = useNotificationsStore();
+  const { t } = useTranslation();
   const totalCount = (notifications?.count ?? 0) + (p.commCount !== false ? commUnreadCount : 0);
+  const label = p.titleKey ? t(p.titleKey, p.title) : p.title;
 
   return (
     <Box sx={{ position: "relative", mx: "14px", my: "2px" }}>
@@ -105,7 +110,7 @@ const NavItem = ({
           },
         }}
       >
-        <Box sx={{ flex: 1, textAlign: "left" }}>{p.title}</Box>
+        <Box sx={{ flex: 1, textAlign: "left" }}>{label}</Box>
         {p.count && totalCount > 0 && (
           <Box
             sx={{
@@ -143,7 +148,10 @@ const NavGroupComponent = ({
   isActiveHref: (href: string, exact?: boolean) => boolean;
   notifications: NotificationsState | undefined;
   onSelect:     (title: string) => void;
-}) => (
+}) => {
+  const { t } = useTranslation();
+  const groupLabel = item.groupTitleKey ? t(item.groupTitleKey, item.groupTitle) : item.groupTitle;
+  return (
   <Box mb={2} mt={1.75}>
     {/* Titre de groupe — 22px horizontal, petit, gris discret */}
     <Typography
@@ -159,7 +167,7 @@ const NavGroupComponent = ({
         lineHeight: 1.4,
       }}
     >
-      {item.groupTitle}
+      {groupLabel}
     </Typography>
 
     {item.pages.map((p, i) => (
@@ -173,7 +181,8 @@ const NavGroupComponent = ({
       </NavLink>
     ))}
   </Box>
-);
+  );
+};
 
 // ── Mini (collapsed) nav item ─────────────────────────────────────────────────
 
@@ -189,21 +198,23 @@ const MiniNavItem = ({
   onSelect:      (title: string) => void;
 }) => {
   const { commUnreadCount } = useNotificationsStore();
+  const { t } = useTranslation();
   const totalCount = (notifications?.count ?? 0) + (p.commCount !== false ? commUnreadCount : 0);
+  const label = p.titleKey ? t(p.titleKey, p.title) : p.title;
 
   const iconEl = p.count ? (
     <Badge badgeContent={totalCount} max={9} color="primary">{p.icon}</Badge>
   ) : p.icon;
 
   return (
-    <Tooltip title={p.title} placement="right" arrow disableInteractive>
+    <Tooltip title={label} placement="right" arrow disableInteractive>
       <span style={{ display: "block" }}>
         <NavLink to={p.href} style={{ display: "flex", justifyContent: "center" }} disabled={p.disabled}>
           <IconButton
             size="small"
             disabled={p.disabled}
             onClick={() => onSelect(p.title)}
-            aria-label={p.title}
+            aria-label={label}
             sx={{
               width: 40, height: 40,
               color:  isActive ? "primary.main" : "text.disabled",
