@@ -893,23 +893,28 @@ const HospitalAdminManagersPage = () => {
       {/* Toolbar */}
       <Box sx={T.toolbar}>
 
-        {/* Filtre fonction */}
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel sx={{ fontSize: 13 }}>Fonction</InputLabel>
-          <Select
-            value={jobFilter}
-            label="Fonction"
-            onChange={(e) => setJobFilter(e.target.value)}
-            sx={{ fontSize: 13, height: 38, borderRadius: "8px" }}
-          >
-            <MenuItem value="" sx={{ fontSize: 13 }}>Toutes</MenuItem>
-            {jobOptions.map((job) => (
-              <MenuItem key={job} value={job} sx={{ fontSize: 13 }}>
-                {translateJob(job)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {/* Filtre fonction — chips */}
+        <Box sx={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+          <Chip
+            label="Tous"
+            size="small"
+            onClick={() => setJobFilter("")}
+            color={jobFilter === "" ? "primary" : "default"}
+            variant={jobFilter === "" ? "filled" : "outlined"}
+            sx={{ fontSize: 12, height: 26 }}
+          />
+          {jobOptions.map((job) => (
+            <Chip
+              key={job}
+              label={translateJob(job)}
+              size="small"
+              onClick={() => setJobFilter(jobFilter === job ? "" : job)}
+              color={jobFilter === job ? "primary" : "default"}
+              variant={jobFilter === job ? "filled" : "outlined"}
+              sx={{ fontSize: 12, height: 26 }}
+            />
+          ))}
+        </Box>
 
         <Typography variant="caption" sx={{ color: C.ink3, ml: "auto" }}>
           {filtered.length} manager{filtered.length !== 1 ? "s" : ""}
