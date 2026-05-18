@@ -430,11 +430,11 @@ describe("HospitalAdminManagersPage", () => {
     vi.mocked(hospitalAdminApi.listManagers).mockResolvedValue(rowsWithEnglishJobs as any);
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    // English → French translations visible in the table
-    expect(screen.getByText("Maître de stage")).toBeInTheDocument();
-    expect(screen.getByText("Médecin")).toBeInTheDocument();
+    // English → French translations visible in the table (and in filter chips — both are fine)
+    expect(screen.getAllByText("Maître de stage").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Médecin").length).toBeGreaterThanOrEqual(1);
     // Already French → unchanged
-    expect(screen.getByText("Cardiologue")).toBeInTheDocument();
+    expect(screen.getAllByText("Cardiologue").length).toBeGreaterThanOrEqual(1);
   });
 
   // ── Column headers ─────────────────────────────────────────────────────────
@@ -538,16 +538,15 @@ describe("HospitalAdminManagersPage", () => {
     );
   });
 
-  // ── Filtre Fonction ────────────────────────────────────────────────────────
+  // ── Filtre Fonction (chips) ────────────────────────────────────────────────
 
   it("filtre par fonction — n'affiche que les managers avec ce job", async () => {
     // Alice: "Chef de service", Bob: "Médecin", Carla: "Spécialiste"
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
-    // Open the Fonction select
-    fireEvent.mouseDown(screen.getByRole("combobox"));
-    await waitFor(() => expect(screen.getByRole("option", { name: "Chef de service" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("option", { name: "Chef de service" }));
+    // Click the "Chef de service" chip to filter
+    const chip = screen.getAllByRole("button", { name: "Chef de service" })[0];
+    fireEvent.click(chip);
     await waitFor(() => {
       expect(screen.getByText("Dupont Alice")).toBeInTheDocument();
       expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument();
@@ -555,18 +554,15 @@ describe("HospitalAdminManagersPage", () => {
     });
   });
 
-  it("filtre Fonction 'Toutes' réaffiche tous les managers", async () => {
+  it("filtre Fonction 'Tous' réaffiche tous les managers", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Dupont Alice")).toBeInTheDocument());
     // Filter to Chef de service
-    fireEvent.mouseDown(screen.getByRole("combobox"));
-    await waitFor(() => expect(screen.getByRole("option", { name: "Chef de service" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("option", { name: "Chef de service" }));
+    const chip = screen.getAllByRole("button", { name: "Chef de service" })[0];
+    fireEvent.click(chip);
     await waitFor(() => expect(screen.queryByText("Martin Bob")).not.toBeInTheDocument());
-    // Reset to "Toutes"
-    fireEvent.mouseDown(screen.getByRole("combobox"));
-    await waitFor(() => expect(screen.getByRole("option", { name: "Toutes" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("option", { name: "Toutes" }));
+    // Reset to "Tous"
+    fireEvent.click(screen.getByRole("button", { name: "Tous" }));
     await waitFor(() => {
       expect(screen.getByText("Martin Bob")).toBeInTheDocument();
       expect(screen.getByText("Rossi Carla")).toBeInTheDocument();

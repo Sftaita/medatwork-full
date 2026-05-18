@@ -60,6 +60,13 @@ vi.mock("../../components/DensityToggleButton", () => ({
   DensityToggleButton: () => <button>Densité</button>,
 }));
 
+let mockRole: string | null = null;
+vi.mock("../../hooks/useAuth", () => ({
+  default: () => ({
+    authentication: { role: mockRole },
+  }),
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function renderPage() {
@@ -76,6 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockIsPending = false;
   mockIsSuccess = false;
+  mockRole = null;
 });
 
 describe("ProfileSettingsPage — all sections render", () => {
@@ -113,13 +121,13 @@ describe("ProfileSettingsPage — all sections render", () => {
 describe("ProfileSettingsPage — theme switch", () => {
   it("renders theme switch unchecked for light mode", () => {
     renderPage();
-    const themeSwitch = screen.getByRole("checkbox", { name: /Activer le mode sombre/ });
+    const themeSwitch = screen.getByRole("checkbox", { name: /Mode sombre/ });
     expect(themeSwitch).not.toBeChecked();
   });
 
   it("toggling calls patch with dark", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Activer le mode sombre/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Mode sombre/ }));
     expect(mockMutate).toHaveBeenCalledWith({ theme: "dark" });
   });
 });
@@ -148,7 +156,14 @@ describe("ProfileSettingsPage — extended notifications", () => {
     expect(screen.getByRole("checkbox", { name: /Modifications de planning/ })).toBeInTheDocument();
   });
 
-  it("renders Staff Planner notification switch", () => {
+  it("does NOT render Staff Planner notification switch for non-hospital_admin", () => {
+    mockRole = "manager";
+    renderPage();
+    expect(screen.queryByRole("checkbox", { name: /Exports Staff Planner/ })).not.toBeInTheDocument();
+  });
+
+  it("renders Staff Planner notification switch for hospital_admin", () => {
+    mockRole = "hospital_admin";
     renderPage();
     expect(screen.getByRole("checkbox", { name: /Exports Staff Planner/ })).toBeInTheDocument();
   });

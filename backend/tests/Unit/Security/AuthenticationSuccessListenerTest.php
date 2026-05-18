@@ -8,10 +8,12 @@ use App\Entity\AppAdmin;
 use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\Resident;
+use App\Entity\UserSetting;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
 use App\Repository\UserSettingRepository;
 use App\Security\AuthenticationSuccessListener;
+use App\Services\CguService;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\AuthenticationSuccessEvent;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -160,5 +162,115 @@ final class AuthenticationSuccessListenerTest extends TestCase
 
         $data = $event->getData();
         $this->assertStringContainsString('/api/profile/avatar/cafebabe99887766', $data['avatarUrl']);
+    }
+
+    // ── cgvAccepted ───────────────────────────────────────────────────────────
+
+    public function testManagerResponseIncludesCgvAcceptedFalseByDefault(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getFirstname')->willReturn('Alice');
+        $manager->method('getLastname')->willReturn('Dupont');
+        $manager->method('getSexe')->willReturn(\App\Enum\Sexe::Female);
+        $manager->method('getAvatarPath')->willReturn(null);
+        $manager->method('getAdminHospital')->willReturn(null);
+        $manager->method('getRole')->willReturn('manager');
+        $manager->method('isCanCreateYear')->willReturn(false);
+        $manager->method('getJob')->willReturn(null);
+
+        // No UserSetting record → cgvAccepted must be false
+        $repo = $this->createMock(UserSettingRepository::class);
+        $repo->method('findByUser')->willReturn(null);
+
+        $listener = new AuthenticationSuccessListener(
+            tokenTtl: 3600,
+            residentRepository: $this->createMock(ResidentRepository::class),
+            managerRepository: $this->createMock(ManagerRepository::class),
+            userSettingRepo: $repo,
+            apiUrl: self::API_URL,
+        );
+
+        $event = $this->buildEvent($manager);
+        $listener->onAuthenticationSuccess($event);
+
+        $data = $event->getData();
+        $this->assertArrayHasKey('cgvAccepted', $data);
+        $this->assertFalse($data['cgvAccepted']);
+    }
+
+    public function testManagerResponseCgvAcceptedTrueWhenVersionMatches(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getFirstname')->willReturn('Bob');
+        $manager->method('getLastname')->willReturn('Martin');
+        $manager->method('getSexe')->willReturn(\App\Enum\Sexe::Male);
+        $manager->method('getAvatarPath')->willReturn(null);
+        $manager->method('getAdminHospital')->willReturn(null);
+        $manager->method('getRole')->willReturn('manager');
+        $manager->method('isCanCreateYear')->willReturn(false);
+        $manager->method('getJob')->willReturn(null);
+
+        $setting = new UserSetting('manager', 1, CguService::acceptPatch());
+        $repo = $this->createMock(UserSettingRepository::class);
+        $repo->method('findByUser')->willReturn($setting);
+
+        $listener = new AuthenticationSuccessListener(
+            tokenTtl: 3600,
+            residentRepository: $this->createMock(ResidentRepository::class),
+            managerRepository: $this->createMock(ManagerRepository::class),
+            userSettingRepo: $repo,
+            apiUrl: self::API_URL,
+        );
+
+        $event = $this->buildEvent($manager);
+        $listener->onAuthenticationSuccess($event);
+
+        $this->assertTrue($event->getData()['cgvAccepted']);
+    }
+
+    public function testResidentResponseIncludesCgvAcceptedField(): void
+    {
+        $resident = $this->createMock(Resident::class);
+        $resident->method('getFirstname')->willReturn('Claire');
+        $resident->method('getLastname')->willReturn('Leroy');
+        $resident->method('getSexe')->willReturn(\App\Enum\Sexe::Female);
+        $resident->method('getAvatarPath')->willReturn(null);
+        $resident->method('getRole')->willReturn('resident');
+
+        $event = $this->buildEvent($resident);
+        $this->buildListener()->onAuthenticationSuccess($event);
+
+        $this->assertArrayHasKey('cgvAccepted', $event->getData());
+    }
+
+    public function testAppAdminResponseIncludesCgvAcceptedField(): void
+    {
+        $admin = $this->createMock(AppAdmin::class);
+        $admin->method('getFirstname')->willReturn('Super');
+        $admin->method('getLastname')->willReturn('Admin');
+        $admin->method('getAvatarPath')->willReturn(null);
+
+        $event = $this->buildEvent($admin);
+        $this->buildListener()->onAuthenticationSuccess($event);
+
+        $this->assertArrayHasKey('cgvAccepted', $event->getData());
+    }
+
+    public function testHospitalAdminResponseIncludesCgvAcceptedField(): void
+    {
+        $hospital = $this->createMock(\App\Entity\Hospital::class);
+        $hospital->method('getId')->willReturn(1);
+        $hospital->method('getName')->willReturn('CHU Liège');
+
+        $admin = $this->createMock(HospitalAdmin::class);
+        $admin->method('getFirstname')->willReturn('Hôpital');
+        $admin->method('getLastname')->willReturn('Admin');
+        $admin->method('getHospital')->willReturn($hospital);
+        $admin->method('getAvatarPath')->willReturn(null);
+
+        $event = $this->buildEvent($admin);
+        $this->buildListener()->onAuthenticationSuccess($event);
+
+        $this->assertArrayHasKey('cgvAccepted', $event->getData());
     }
 }
