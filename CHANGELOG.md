@@ -12,8 +12,9 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 - **Tests** : `AdminManagersPage.test.tsx` et `AdminResidentsPage.test.tsx` — 2 cas avatarUrl chacun
 
 ### Corrections
+- **Photo de profil — prod (bug critique)** : `AuthenticationSuccessListener` et `ProfileAccountController` construisaient des URLs `/uploads/avatars/{file}` non servies par Apache en production (Hostinger). Uniformisation sur le format proxy `/api/profile/avatar/{token}` — fiable dans tous les environnements. Même correction appliquée à `AdminController.listManagers` et `listResidents`
 - **Photo de profil — reconnexion AppAdmin** : `AuthenticationSuccessListener` retournait `avatarUrl: null` hardcodé pour AppAdmin → remplacé par `buildAvatarUrl($user->getAvatarPath())`
-- **Tableau managers (admin)** : `AdminController.listManagers` n'incluait pas `avatarUrl` → ajouté via `buildAvatarUrl`
+- **Tableau managers (admin)** : `AdminController.listManagers` n'incluait pas `avatarUrl` → ajouté
 - **Tableau résidents (admin)** : `AdminController.listResidents` n'incluait pas `avatarUrl` → ajouté ; type `AdminResident` mis à jour ; rendu `AdminResidentsPage` utilise désormais `src={r.avatarUrl}`
 - **Sidebar surlignage admin** : flag `exact` sur `/admin` — plus de double surlignage Hôpitaux + Années
 
