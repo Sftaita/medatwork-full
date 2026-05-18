@@ -57,6 +57,7 @@ const AdminYearsPage = lazy(() => import("./pages/Admin/AdminYearsPage"));
 const AdminHospitalAdminsPage = lazy(() => import("./pages/Admin/AdminHospitalAdminsPage"));
 const AdminLogsPage    = lazy(() => import("./pages/Admin/AdminLogsPage"));
 const AdminContactPage = lazy(() => import("./pages/Admin/AdminContactPage"));
+const CguPage          = lazy(() => import("./pages/CguPage/CguPage"));
 const AdminCommunicationPage = lazy(() => import("./pages/Admin/AdminCommunicationPage"));
 const MaccsSetupPage = lazy(() => import("./pages/MaccsSetup/MaccsSetupPage"));
 const ManagerSetupPage = lazy(() => import("./pages/ManagerSetup/ManagerSetupPage"));
@@ -229,6 +230,14 @@ function App() {
                   element={
                     <Suspense fallback={<PageSkeleton />}>
                       <TermsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/cgu"
+                  element={
+                    <Suspense fallback={<PageSkeleton />}>
+                      <CguPage />
                     </Suspense>
                   }
                 />

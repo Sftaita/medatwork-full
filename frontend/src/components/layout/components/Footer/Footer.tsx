@@ -33,10 +33,15 @@ const Footer = () => {
             </Typography>
           </Box>
 
-          <Box display={"flex"} alignItems={"center"} gap={2}>
-            <NavLink to={"/terms"} style={{ textDecoration: "none" }}>
-              <Typography color="primary">
+          <Box display={"flex"} alignItems={"center"} gap={2} flexWrap="wrap">
+            <NavLink to={"/cgu"} style={{ textDecoration: "none" }}>
+              <Typography color="primary" variant="body2">
                 Conditions générales
+              </Typography>
+            </NavLink>
+            <NavLink to={"/terms"} style={{ textDecoration: "none" }}>
+              <Typography color="primary" variant="body2">
+                Politique de confidentialité
               </Typography>
             </NavLink>
             <NavLink to={"/contactUs"} style={{ textDecoration: "none" }}>
