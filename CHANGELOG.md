@@ -7,18 +7,25 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 ## [3.7.0] — 2026-05-18
 
 ### Ajouts
-- **Tests** : `AuthenticationSuccessListenerTest` — 6 cas (Manager, Resident, AppAdmin, HospitalAdmin avec/sans avatar)
-- **Tests** : `AdminControllerTest` — 4 cas avatarUrl sur `listManagers` et `listResidents`
-- **Tests** : `AdminManagersPage.test.tsx` et `AdminResidentsPage.test.tsx` — 2 cas avatarUrl chacun
+- **Super-admin — Messages contact** (`/admin/contact`) : nouvelle page de gestion des messages reçus via le formulaire public
+  - Onglet "Messages" : tableau filtrable (tous / non traités / traités), modal de lecture complète, marquage "Traité" (avec horodatage + nom du traitant), suppression
+  - Onglet "Destinataires CC" : configuration des adresses copiées à chaque soumission (ajout, activation/désactivation, suppression)
+  - Badge "X non traités" en temps réel dans l'entête de la page
+- **Formulaire contact — persistance** : chaque soumission est désormais enregistrée en base (`contact_message`) et visible dans le back-office
+- **Formulaire contact — CC** : `MailerController.sendEmail` supporte un paramètre `$ccList[]` ; les CCs actifs sont automatiquement inclus à chaque envoi
+- **Formulaire contact — sécurité** : rate limiting 5 messages/heure/IP, template Twig échappé (`|e`), longueur max 5 000 chars, trim côté DTO
+- **Formulaire contact — UX** : `await` ajouté (succès ne s'affichait jamais en cas d'erreur), bouton "Envoi…" pendant la requête, compteur 0/5 000, fautes de frappe corrigées
+- **Page contact — espacement** : centrage vertical viewport + `minHeight` calqués sur le pattern LoginPage
+- **Tests** : `AuthenticationSuccessListenerTest` (6 cas), `AdminControllerTest` (4 cas avatarUrl), `AdminManagersPage` + `AdminResidentsPage` (2 cas avatar chacun)
 
 ### Corrections
-- **Photo de profil — prod (bug critique)** : `AuthenticationSuccessListener` et `ProfileAccountController` construisaient des URLs `/uploads/avatars/{file}` non servies par Apache en production (Hostinger). Uniformisation sur le format proxy `/api/profile/avatar/{token}` — fiable dans tous les environnements. Même correction appliquée à `AdminController.listManagers` et `listResidents`
-- **Photo de profil — reconnexion AppAdmin** : `AuthenticationSuccessListener` retournait `avatarUrl: null` hardcodé pour AppAdmin → remplacé par `buildAvatarUrl($user->getAvatarPath())`
-- **Tableau managers (admin)** : `AdminController.listManagers` n'incluait pas `avatarUrl` → ajouté
-- **Tableau résidents (admin)** : `AdminController.listResidents` n'incluait pas `avatarUrl` → ajouté ; type `AdminResident` mis à jour ; rendu `AdminResidentsPage` utilise désormais `src={r.avatarUrl}`
+- **Photo de profil — prod (bug critique)** : URLs `/uploads/avatars/{file}` non servies par Apache (Hostinger) → uniformisation sur le proxy `/api/profile/avatar/{token}` dans `AuthenticationSuccessListener`, `ProfileAccountController`, `AdminController`
+- **Photo de profil — reconnexion AppAdmin** : `avatarUrl: null` hardcodé → `buildAvatarUrl(getAvatarPath())`
+- **Tableau managers / résidents (admin)** : `avatarUrl` absent des réponses API → ajouté + type `AdminResident` mis à jour
 - **Sidebar surlignage admin** : flag `exact` sur `/admin` — plus de double surlignage Hôpitaux + Années
 
 ### Infrastructure
+- Migration `Version20260518200000` — tables `contact_message` et `contact_cc_config`
 - Bump version `3.6.0 → 3.7.0` (VersionController, package.json, Footer)
 
 ---
