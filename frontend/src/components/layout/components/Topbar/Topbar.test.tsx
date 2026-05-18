@@ -65,7 +65,8 @@ function renderTopbar() {
 }
 
 function openMenu() {
-  fireEvent.click(screen.getByRole("button", { name: /Mon compte/ }));
+  // Desktop trigger (Box role="button") comes first in DOM; mobile IconButton also has same aria-label
+  fireEvent.click(screen.getAllByRole("button", { name: /Mon compte/ })[0]);
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
