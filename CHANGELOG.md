@@ -4,6 +4,18 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 
 ---
 
+## [3.7.x] — 2026-05-18 (en cours)
+
+### Ajouts
+- **Pagination admin** (client-side, `PAGE_SIZE = 25`) : managers, résidents et messages contact — affichage `X–Y sur Z`, reset automatique au changement de filtre
+- **Confirmations de suppression** : `window.confirm` remplacé par des Dialogs MUI cohérents dans `AdminContactPage` (message + destinataire CC)
+
+### Corrections
+- **AdminContactPage — bug d'affichage** : `useAxiosPrivate()` manquant → Bearer token absent → toutes les API calls retournaient 401 silencieux ; les messages ne s'affichaient pas
+- **Suite de tests AdminContactPage** : 14 cas couvrant rendu, filtres, modal, CC et gestion d'erreurs
+
+---
+
 ## [3.7.0] — 2026-05-18
 
 ### Ajouts
