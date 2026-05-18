@@ -13,6 +13,8 @@ export interface AuthState {
   canCreateYear?: boolean;
   /** Fonction du manager (null pour les non-managers) */
   job?: string | null;
+  /** false → l'utilisateur doit accepter les CGU avant d'accéder à l'app */
+  cgvAccepted?: boolean;
 }
 
 export const AUTH_INITIAL_STATE: AuthState = {
@@ -39,4 +41,5 @@ export interface RefreshTokenResponse {
   avatarUrl?: string | null;
   canCreateYear?: boolean;
   job?: string | null;
+  cgvAccepted?: boolean;
 }

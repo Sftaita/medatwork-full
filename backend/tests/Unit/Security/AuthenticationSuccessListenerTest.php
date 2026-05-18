@@ -10,6 +10,7 @@ use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
+use App\Repository\UserSettingRepository;
 use App\Security\AuthenticationSuccessListener;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\AuthenticationSuccessEvent;
 use PHPUnit\Framework\TestCase;
@@ -36,6 +37,7 @@ final class AuthenticationSuccessListenerTest extends TestCase
             tokenTtl: 3600,
             residentRepository: $this->createMock(ResidentRepository::class),
             managerRepository: $this->createMock(ManagerRepository::class),
+            userSettingRepo: $this->createMock(UserSettingRepository::class),
             apiUrl: self::API_URL,
         );
     }

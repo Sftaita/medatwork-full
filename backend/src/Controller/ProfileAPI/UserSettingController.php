@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\ProfileAPI;
 
 use App\DTO\UserSettingPatchInputDTO;
+use App\Services\CguService;
 use App\Services\UserSettingService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -77,5 +78,24 @@ class UserSettingController extends AbstractController
             'userType' => $userType,
             'settings' => $settings,
         ]);
+    }
+
+    #[Route('/accept-cgu', name: 'user_accept_cgu', methods: ['POST'])]
+    public function acceptCgu(): JsonResponse
+    {
+        $user = $this->getUser();
+        if ($user === null) {
+            return new JsonResponse(['message' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            [$userType, $userId] = $this->service->resolveIdentity($user);
+        } catch (\RuntimeException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->service->patchForUser($userType, $userId, CguService::acceptPatch());
+
+        return $this->json(['cgvAccepted' => true, 'version' => CguService::CGU_VERSION]);
     }
 }

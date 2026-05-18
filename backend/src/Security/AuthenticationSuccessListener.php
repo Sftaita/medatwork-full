@@ -10,6 +10,8 @@ use App\Entity\Manager;
 use App\Entity\Resident;
 use App\Repository\ManagerRepository;
 use App\Repository\ResidentRepository;
+use App\Repository\UserSettingRepository;
+use App\Services\CguService;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\AuthenticationSuccessEvent;
 use Symfony\Component\HttpFoundation\Cookie;
 
@@ -19,6 +21,7 @@ class AuthenticationSuccessListener
         private readonly int $tokenTtl,
         private readonly ResidentRepository $residentRepository,
         private readonly ManagerRepository $managerRepository,
+        private readonly UserSettingRepository $userSettingRepo,
         private readonly string $apiUrl = '',
     ) {
     }
@@ -45,12 +48,15 @@ class AuthenticationSuccessListener
             if ($user instanceof Manager) {
                 $data['job'] = $user->getJob()?->value;
             }
+            $userType = $user instanceof Manager ? 'manager' : 'resident';
+            $data['cgvAccepted'] = $this->isCguAccepted($userType, (int) $user->getId());
         } elseif ($user instanceof AppAdmin) {
             $data['firstname'] = $user->getFirstname();
             $data['lastname'] = $user->getLastname();
             $data['role'] = 'super_admin';
             $data['gender'] = '';
             $data['avatarUrl'] = $this->buildAvatarUrl($user->getAvatarPath());
+            $data['cgvAccepted'] = $this->isCguAccepted('app_admin', (int) $user->getId());
         } elseif ($user instanceof HospitalAdmin) {
             $data['firstname'] = $user->getFirstname() ?? '';
             $data['lastname'] = $user->getLastname() ?? '';
@@ -59,6 +65,7 @@ class AuthenticationSuccessListener
             $data['hospitalId'] = $user->getHospital()->getId();
             $data['hospitalName'] = $user->getHospital()->getName();
             $data['avatarUrl'] = $this->buildAvatarUrl($user->getAvatarPath());
+            $data['cgvAccepted'] = $this->isCguAccepted('hospital_admin', (int) $user->getId());
         } else {
             // Fallback — should not happen with the current chain provider
             return;
@@ -80,6 +87,12 @@ class AuthenticationSuccessListener
             Cookie::SAMESITE_STRICT
         ));
         $response->headers->set('Content-Type', 'application/json');
+    }
+
+    private function isCguAccepted(string $userType, int $userId): bool
+    {
+        $setting = $this->userSettingRepo->findByUser($userType, $userId);
+        return CguService::isAccepted($setting?->getSettings());
     }
 
     private function buildAvatarUrl(?string $avatarPath): ?string

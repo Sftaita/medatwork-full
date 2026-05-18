@@ -72,6 +72,7 @@ const Form = ({ status }) => {
       const hospitalName = user?.hospitalName ?? null;
       const avatarUrl = user?.avatarUrl ?? null;
       const canCreateYear = user?.canCreateYear ?? false;
+      const cgvAccepted = user?.cgvAccepted ?? false;
       setAuthentication({
         isAuthenticated: true,
         AccessToken,
@@ -83,6 +84,7 @@ const Form = ({ status }) => {
         hospitalName,
         avatarUrl,
         canCreateYear,
+        cgvAccepted,
       });
       logger.setUser({ id: user?.id ?? "unknown", role });
 

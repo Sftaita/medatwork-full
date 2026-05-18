@@ -40,8 +40,8 @@ services:
 
   App\Security\AuthenticationSuccessListener:
     arguments:
-      $tokenTtl: "%lexik_jwt_authentication.token_ttl%"
-      $apiUrl:   '%env(API_URL)%'
+      $tokenTtl:        "%lexik_jwt_authentication.token_ttl%"
+      $apiUrl:          '%env(API_URL)%'
     tags:
       - {
           name: kernel.event_listener,

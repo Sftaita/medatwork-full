@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import useAuth from "../../hooks/useAuth";
 import FeatureErrorBoundary from "../FeatureErrorBoundary";
+import CguModal from "../CguModal";
 
 // Material UI
 import { alpha, useTheme } from "@mui/material/styles";
@@ -44,6 +45,7 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
 
   return (
     <Box>
+      <CguModal />
       <AppBar
         position={"fixed"}
         sx={{
