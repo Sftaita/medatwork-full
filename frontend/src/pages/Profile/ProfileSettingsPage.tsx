@@ -27,6 +27,7 @@ import TableRowsIcon from "@mui/icons-material/TableRows";
 import { useUserSettings, useUpdateSettings, DEFAULT_SETTINGS } from "../../hooks/useUserSettings";
 import { useTableDensity } from "../../hooks/useTableDensity";
 import { DensityToggleButton } from "../../components/DensityToggleButton";
+import useAuth from "../../hooks/useAuth";
 import type { UserSettingsPatch } from "../../services/settingsApi";
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
@@ -141,11 +142,8 @@ const NOTIFICATION_ROWS = [
     label:       "Modifications de planning",
     description: "Changements d'affectation ou de garde",
   },
-  {
-    key:         "staffPlanner" as const,
-    label:       "Exports Staff Planner",
-    description: "Confirmation d'export et alertes de traitement",
-  },
+  // staffPlanner omis ici — filtré dynamiquement selon le rôle
+
   {
     key:         "dailySummary" as const,
     label:       "Résumé quotidien",
@@ -158,6 +156,9 @@ const ProfileSettingsPage = () => {
   const { data: settings, isLoading, isError } = useUserSettings();
   const { mutate: update, isPending, isSuccess } = useUpdateSettings();
   const { density, cycleDensity }                = useTableDensity();
+  const { authentication }                       = useAuth();
+
+  const isHospitalAdmin = authentication.role === "hospital_admin";
 
   const current = settings ?? DEFAULT_SETTINGS;
 
@@ -228,15 +229,6 @@ const ProfileSettingsPage = () => {
                   onChange={(e) => patch({ theme: e.target.checked ? "dark" : "light" })}
                   inputProps={{ "aria-label": "Activer le mode sombre" }}
                 />
-              </SettingRow>
-
-              <Divider />
-
-              <SettingRow
-                label="Densité des tableaux"
-                description="Persistée localement — s'applique sur tous les tableaux"
-              >
-                <DensityToggleButton density={density} onCycle={cycleDensity} />
               </SettingRow>
             </>
           )}
@@ -333,31 +325,34 @@ const ProfileSettingsPage = () => {
                 <DensityToggleButton density={density} onCycle={cycleDensity} />
               </SettingRow>
 
-              <Divider />
-
-              <SettingRow
-                label="Lignes par page — Staff Planner"
-                description="Nombre de lignes affichées par page dans l'export Staff Planner"
-              >
-                <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <InputLabel id="sp-pagesize-label">Lignes</InputLabel>
-                  <Select
-                    labelId="sp-pagesize-label"
-                    label="Lignes"
-                    value={current.tables.staffPlanner.pageSize}
-                    disabled={isPending}
-                    onChange={(e) =>
-                      patch({ tables: { staffPlanner: { pageSize: e.target.value as any } } })
-                    }
+              {isHospitalAdmin && (
+                <>
+                  <Divider />
+                  <SettingRow
+                    label="Lignes par page — Staff Planner"
+                    description="Nombre de lignes affichées par page dans l'export Staff Planner"
                   >
-                    {PAGE_SIZES.map((p) => (
-                      <MenuItem key={p.value} value={p.value}>
-                        {p.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </SettingRow>
+                    <FormControl size="small" sx={{ minWidth: 130 }}>
+                      <InputLabel id="sp-pagesize-label">Lignes</InputLabel>
+                      <Select
+                        labelId="sp-pagesize-label"
+                        label="Lignes"
+                        value={current.tables.staffPlanner.pageSize}
+                        disabled={isPending}
+                        onChange={(e) =>
+                          patch({ tables: { staffPlanner: { pageSize: e.target.value as any } } })
+                        }
+                      >
+                        {PAGE_SIZES.map((p) => (
+                          <MenuItem key={p.value} value={p.value}>
+                            {p.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </SettingRow>
+                </>
+              )}
             </>
           )}
         </Section>
@@ -372,7 +367,7 @@ const ProfileSettingsPage = () => {
             </Stack>
           ) : (
             <>
-              {NOTIFICATION_ROWS.map((item, idx) => (
+              {NOTIFICATION_ROWS.filter(() => true).map((item, idx) => (
                 <Box key={item.key}>
                   {idx > 0 && <Divider />}
                   <SettingRow label={item.label} description={item.description}>
@@ -387,6 +382,25 @@ const ProfileSettingsPage = () => {
                   </SettingRow>
                 </Box>
               ))}
+
+              {isHospitalAdmin && (
+                <Box>
+                  <Divider />
+                  <SettingRow
+                    label="Exports Staff Planner"
+                    description="Confirmation d'export et alertes de traitement"
+                  >
+                    <Switch
+                      checked={current.notifications.staffPlanner}
+                      disabled={isPending}
+                      onChange={(e) =>
+                        patch({ notifications: { staffPlanner: e.target.checked } })
+                      }
+                      inputProps={{ "aria-label": "Exports Staff Planner" }}
+                    />
+                  </SettingRow>
+                </Box>
+              )}
             </>
           )}
         </Section>
