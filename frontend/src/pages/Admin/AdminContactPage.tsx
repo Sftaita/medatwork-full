@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import adminApi from "../../services/adminApi";
 import type { ContactMessage, ContactCcConfig } from "../../services/adminApi";
+import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -337,6 +338,7 @@ const CcTab = () => {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const AdminContactPage = () => {
+  useAxiosPrivate(); // registers the Authorization interceptor for all admin API calls
   const [tab, setTab] = useState(0);
 
   const { data: stats } = useQuery({
