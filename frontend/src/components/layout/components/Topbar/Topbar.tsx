@@ -416,10 +416,10 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
 
       {/* Mobile nav drawer — visiteurs non connectés */}
       <Drawer
-        anchor="right"
+        anchor="left"
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        slotProps={{ paper: { sx: { width: 260, p: 2 } } }}
+        slotProps={{ paper: { sx: { width: "100vw", p: 2 } } }}
       >
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
           <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">

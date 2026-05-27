@@ -9,6 +9,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import Tooltip from "@mui/material/Tooltip";
 import Avatar from "@mui/material/Avatar";
 import Divider from "@mui/material/Divider";
@@ -289,6 +290,16 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
       <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">
         MED<span style={{ opacity: 0.55, margin: "0 1px" }}>@</span>WORK
       </Typography>
+      {!isMd && (
+        <IconButton
+          size="small"
+          onClick={onClose}
+          aria-label="Fermer le menu"
+          sx={{ ml: "auto" }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      )}
     </Box>
   );
 
