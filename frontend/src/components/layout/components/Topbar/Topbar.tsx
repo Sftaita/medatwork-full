@@ -250,9 +250,20 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
         )}
 
         {!authentication.isAuthenticated && !isMd && (
-          <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Menu" size="small">
-            <MenuIcon />
-          </IconButton>
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              onClick={() => navigate("/login")}
+              sx={{ fontSize: 12, px: 1.5, py: 0.6, minWidth: 0 }}
+            >
+              {t("nav.signIn")}
+            </Button>
+            <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Menu" size="small">
+              <MenuIcon />
+            </IconButton>
+          </>
         )}
 
         {!authentication.isAuthenticated && isMd && (
