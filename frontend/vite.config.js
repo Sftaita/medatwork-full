@@ -167,6 +167,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        globIgnores: ["landing/**"],
         // Le nouveau SW s'active immédiatement sans attendre la fermeture des onglets.
         // Couplé à UpdateBanner côté client pour informer l'utilisateur proprement.
         skipWaiting: true,
