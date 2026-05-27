@@ -419,7 +419,7 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
         anchor="left"
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        slotProps={{ paper: { sx: { width: "100vw", p: 2 } } }}
+        slotProps={{ paper: { sx: { width: "min(300px, 90vw)", p: 2 } } }}
       >
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
           <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">
@@ -430,28 +430,26 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           </IconButton>
         </Box>
         <Divider sx={{ mb: 1 }} />
-        {isHome && (
-          <List disablePadding>
-            {[
-              { label: t("landing.nav.audiences"), href: "#audiences" },
-              { label: t("landing.nav.features"),  href: "#planning"  },
-              { label: t("landing.nav.workflow"),   href: "#workflow"  },
-              { label: t("landing.nav.security"),   href: "#tech"      },
-            ].map((link) => (
-              <ListItem key={link.href} disablePadding>
-                <Button
-                  component="a"
-                  href={link.href}
-                  fullWidth
-                  onClick={() => setMobileNavOpen(false)}
-                  sx={{ justifyContent: "flex-start", textTransform: "none", color: "text.primary", fontWeight: 500, py: 1.2, px: 1 }}
-                >
-                  {link.label}
-                </Button>
-              </ListItem>
-            ))}
-          </List>
-        )}
+        <List disablePadding>
+          {[
+            { label: t("landing.nav.audiences"), href: "#audiences" },
+            { label: t("landing.nav.features"),  href: "#planning"  },
+            { label: t("landing.nav.workflow"),   href: "#workflow"  },
+            { label: t("landing.nav.security"),   href: "#tech"      },
+          ].map((link) => (
+            <ListItem key={link.href} disablePadding>
+              <Button
+                component="a"
+                href={isHome ? link.href : `/${link.href}`}
+                fullWidth
+                onClick={() => setMobileNavOpen(false)}
+                sx={{ justifyContent: "flex-start", textTransform: "none", color: "text.primary", fontWeight: 500, py: 1.2, px: 1 }}
+              >
+                {link.label}
+              </Button>
+            </ListItem>
+          ))}
+        </List>
         <Divider sx={{ my: 1.5 }} />
         <Box display="flex" flexDirection="column" gap={1}>
           <Button variant="contained" color="primary" fullWidth onClick={() => { setMobileNavOpen(false); navigate("/login"); }}>
