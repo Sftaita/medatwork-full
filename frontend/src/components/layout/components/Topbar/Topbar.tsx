@@ -32,6 +32,10 @@ import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import Drawer from "@mui/material/Drawer";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import CloseIcon from "@mui/icons-material/Close";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import logger from "../../../../services/logger";
 
@@ -80,6 +84,8 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
   };
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchor);
+
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => {
     if (profileHint !== "done") { localStorage.setItem(HINT_KEY, "done"); setProfileHint("done"); }
@@ -243,6 +249,12 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           <LanguageSwitcher />
         )}
 
+        {!authentication.isAuthenticated && !isMd && (
+          <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Menu" size="small">
+            <MenuIcon />
+          </IconButton>
+        )}
+
         {!authentication.isAuthenticated && isMd && (
           <>
             <NavLink to="/login" style={linkTextSx}>
@@ -390,6 +402,55 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           </Box>
         )}
       </Box>
+
+      {/* Mobile nav drawer — visiteurs non connectés */}
+      <Drawer
+        anchor="right"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        slotProps={{ paper: { sx: { width: 260, p: 2 } } }}
+      >
+        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+          <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">
+            MED<span style={{ opacity: 0.55, margin: "0 1px" }}>@</span>WORK
+          </Typography>
+          <IconButton size="small" onClick={() => setMobileNavOpen(false)} aria-label="Fermer">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+        <Divider sx={{ mb: 1 }} />
+        {isHome && (
+          <List disablePadding>
+            {[
+              { label: t("landing.nav.audiences"), href: "#audiences" },
+              { label: t("landing.nav.features"),  href: "#planning"  },
+              { label: t("landing.nav.workflow"),   href: "#workflow"  },
+              { label: t("landing.nav.security"),   href: "#tech"      },
+            ].map((link) => (
+              <ListItem key={link.href} disablePadding>
+                <Button
+                  component="a"
+                  href={link.href}
+                  fullWidth
+                  onClick={() => setMobileNavOpen(false)}
+                  sx={{ justifyContent: "flex-start", textTransform: "none", color: "text.primary", fontWeight: 500, py: 1.2, px: 1 }}
+                >
+                  {link.label}
+                </Button>
+              </ListItem>
+            ))}
+          </List>
+        )}
+        <Divider sx={{ my: 1.5 }} />
+        <Box display="flex" flexDirection="column" gap={1}>
+          <Button variant="contained" color="primary" fullWidth onClick={() => { setMobileNavOpen(false); navigate("/login"); }}>
+            {t("nav.signIn")}
+          </Button>
+          <Button variant="outlined" fullWidth onClick={() => { setMobileNavOpen(false); navigate("/connecting"); }}>
+            {t("nav.register")}
+          </Button>
+        </Box>
+      </Drawer>
 
       {/* Onboarding */}
       <Snackbar
