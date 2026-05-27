@@ -139,7 +139,7 @@ const FinalCta = () => {
                   flexShrink: 0,
                 }}
               >
-                BD
+                B
               </Box>
               <Box>
                 <Typography sx={{ color: "#fff", fontWeight: 600, fontSize: 14.5, mb: "1px" }}>
