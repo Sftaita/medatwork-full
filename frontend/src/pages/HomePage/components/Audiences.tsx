@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTheme, alpha } from "@mui/material/styles";
@@ -34,44 +35,33 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-const CARDS = [
-  {
-    tag: "MACC · Résident",
-    title: "Encoder en 30 secondes, depuis son téléphone.",
-    desc: "Heures prestées, gardes effectuées, jours de congé : tout se saisit en quelques tapotements. Notifications avant la clôture mensuelle.",
-    bullets: [
-      "App installable (PWA) — pas de store",
-      "Stats de présence et de gardes",
-      "Rejoint une année par code unique",
-    ],
-    dark: false,
-  },
-  {
-    tag: "Manager · Maître de stage",
-    title: "Planifier l'année, valider le mois, déléguer le reste.",
-    desc: "Création d'années, répartition des semaines, validation mensuelle des feuilles de temps, co-gestion par managers invités avec droits granulaires.",
-    bullets: [
-      "Gantt visuel et grille de répartition",
-      "Semaines modèles réutilisables",
-      "Co-managers invités avec droits fins",
-    ],
-    dark: true,
-  },
-  {
-    tag: "Hospital Admin · RH",
-    title: "Superviser l'hôpital, exporter en .xlsx, tracer chaque action.",
-    desc: "Tableau de bord d'hôpital, gestion des managers et MACCs, journal d'activité, exports RH centralisés et configuration des notifications.",
-    bullets: [
-      "Audit log de toutes les actions",
-      "Exports Excel centralisés",
-      "Staff Planner réservé aux admins",
-    ],
-    dark: false,
-  },
-];
-
 const Audiences = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
+  const CARDS = [
+    {
+      tag: t("landing.audiences.card0tag"),
+      title: t("landing.audiences.card0title"),
+      desc: t("landing.audiences.card0desc"),
+      bullets: [t("landing.audiences.card0b0"), t("landing.audiences.card0b1"), t("landing.audiences.card0b2")],
+      dark: false,
+    },
+    {
+      tag: t("landing.audiences.card1tag"),
+      title: t("landing.audiences.card1title"),
+      desc: t("landing.audiences.card1desc"),
+      bullets: [t("landing.audiences.card1b0"), t("landing.audiences.card1b1"), t("landing.audiences.card1b2")],
+      dark: true,
+    },
+    {
+      tag: t("landing.audiences.card2tag"),
+      title: t("landing.audiences.card2title"),
+      desc: t("landing.audiences.card2desc"),
+      bullets: [t("landing.audiences.card2b0"), t("landing.audiences.card2b1"), t("landing.audiences.card2b2")],
+      dark: false,
+    },
+  ];
 
   return (
     <Box
@@ -80,7 +70,7 @@ const Audiences = () => {
     >
       {/* Header */}
       <Box sx={{ mb: { xs: 4, md: 7 } }}>
-        <Eyebrow>Pour qui</Eyebrow>
+        <Eyebrow>{t("landing.audiences.eyebrow")}</Eyebrow>
         <Box
           sx={{
             mt: "12px",
@@ -100,11 +90,11 @@ const Audiences = () => {
               color: "text.primary",
             }}
           >
-            Trois rôles,{" "}
+            {t("landing.audiences.titleStart")}{" "}
             <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>
-              une
+              {t("landing.audiences.titleEm")}
             </Box>{" "}
-            plateforme.
+            {t("landing.audiences.titleEnd")}
           </Typography>
           <Typography
             sx={{
@@ -115,7 +105,7 @@ const Audiences = () => {
               flexShrink: 0,
             }}
           >
-            Chaque acteur du stage retrouve son propre espace — connecté en temps réel aux autres, sans dépendre des tableurs Excel ou des e-mails de validation.
+            {t("landing.audiences.sub")}
           </Typography>
         </Box>
       </Box>
@@ -130,7 +120,7 @@ const Audiences = () => {
       >
         {CARDS.map((card, i) => (
           <Box
-            key={card.tag}
+            key={i}
             data-aos="fade-up"
             data-aos-delay={i * 60}
             sx={{
@@ -142,7 +132,6 @@ const Audiences = () => {
               display: "flex",
               flexDirection: "column",
               gap: { xs: "14px", md: "18px" },
-              /* No minHeight on mobile — let content define height */
               minHeight: { sm: 340, md: 380 },
               transition: "transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s, border-color .35s",
               "&:hover": {
@@ -203,8 +192,7 @@ const Audiences = () => {
             <Box
               component="ul"
               sx={{
-                m: 0,
-                p: 0,
+                m: 0, p: 0,
                 listStyle: "none",
                 display: "flex",
                 flexDirection: "column",

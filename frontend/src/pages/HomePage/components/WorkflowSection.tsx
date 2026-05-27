@@ -1,36 +1,10 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTheme, alpha } from "@mui/material/styles";
 
 const PRIMARY = "#7B3FA0";
-
-const STEPS = [
-  {
-    num: "01",
-    title: "Encodage",
-    desc: "Le MACC saisit ses heures, gardes et absences depuis son téléphone — souvent en quittant le service.",
-    who: "MACC",
-  },
-  {
-    num: "02",
-    title: "Validation",
-    desc: "Le maître de stage valide la feuille de temps mensuelle. Traçabilité complète, ligne par ligne.",
-    who: "Manager",
-  },
-  {
-    num: "03",
-    title: "Notification RH",
-    desc: "Le service RH reçoit une notification dès la validation mensuelle, sans devoir relancer.",
-    who: "Auto",
-  },
-  {
-    num: "04",
-    title: "Export Excel",
-    desc: "Téléchargement individuel ou centralisé en .xlsx — tableaux horaires prêts à facturer.",
-    who: "RH",
-  },
-];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -47,8 +21,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
         color: "text.disabled",
         "&::before": {
           content: '""',
-          width: 6,
-          height: 6,
+          width: 6, height: 6,
           borderRadius: "50%",
           bgcolor: PRIMARY,
           flexShrink: 0,
@@ -62,6 +35,14 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 const WorkflowSection = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
+  const STEPS = [
+    { num: t("landing.workflow.step0num"), title: t("landing.workflow.step0title"), desc: t("landing.workflow.step0desc"), who: t("landing.workflow.step0who") },
+    { num: t("landing.workflow.step1num"), title: t("landing.workflow.step1title"), desc: t("landing.workflow.step1desc"), who: t("landing.workflow.step1who") },
+    { num: t("landing.workflow.step2num"), title: t("landing.workflow.step2title"), desc: t("landing.workflow.step2desc"), who: t("landing.workflow.step2who") },
+    { num: t("landing.workflow.step3num"), title: t("landing.workflow.step3title"), desc: t("landing.workflow.step3desc"), who: t("landing.workflow.step3who") },
+  ];
 
   return (
     <Box
@@ -70,7 +51,7 @@ const WorkflowSection = () => {
     >
       {/* Header */}
       <Box sx={{ mb: { xs: 4, md: 7 } }}>
-        <Eyebrow>Workflow</Eyebrow>
+        <Eyebrow>{t("landing.workflow.eyebrow")}</Eyebrow>
         <Box
           sx={{
             mt: "12px",
@@ -82,42 +63,22 @@ const WorkflowSection = () => {
           }}
         >
           <Typography
-            sx={{
-              fontSize: { xs: 26, sm: 34, md: 48 },
-              fontWeight: 700,
-              letterSpacing: "-.025em",
-              lineHeight: 1.05,
-              color: "text.primary",
-            }}
+            sx={{ fontSize: { xs: 26, sm: 34, md: 48 }, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.05, color: "text.primary" }}
           >
-            De l'encodage à l'
+            {t("landing.workflow.titleStart")}
             <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>
-              export RH
+              {t("landing.workflow.titleEm")}
             </Box>
-            , sans rupture.
+            {t("landing.workflow.titleEnd")}
           </Typography>
-          <Typography
-            sx={{
-              maxWidth: { xs: "100%", md: 360 },
-              color: "text.secondary",
-              fontSize: { xs: 14, md: 16 },
-              lineHeight: 1.65,
-              flexShrink: 0,
-            }}
-          >
-            Quatre étapes simples, tracées de bout en bout. Chaque transition déclenche les bonnes notifications aux bonnes personnes.
+          <Typography sx={{ maxWidth: { xs: "100%", md: 360 }, color: "text.secondary", fontSize: { xs: 14, md: 16 }, lineHeight: 1.65, flexShrink: 0 }}>
+            {t("landing.workflow.sub")}
           </Typography>
         </Box>
       </Box>
 
-      {/* Steps — 1 col xs, 2 col sm, 4 col md */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(4, 1fr)" },
-          gap: { xs: 2, md: 2.5 },
-        }}
-      >
+      {/* Steps */}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: { xs: 2, md: 2.5 } }}>
         {STEPS.map((step, i) => (
           <Box
             key={step.num}
@@ -137,8 +98,7 @@ const WorkflowSection = () => {
               "&::before": {
                 content: '""',
                 position: "absolute",
-                left: 0,
-                top: 0,
+                left: 0, top: 0,
                 height: "3px",
                 width: 0,
                 bgcolor: PRIMARY,
@@ -152,16 +112,7 @@ const WorkflowSection = () => {
               "&:hover::before": { width: "100%" },
             }}
           >
-            <Typography
-              sx={{
-                fontFamily: "Georgia, serif",
-                fontStyle: "italic",
-                fontSize: { xs: 36, md: 44 },
-                color: PRIMARY,
-                lineHeight: 1,
-                mb: { xs: "12px", md: "16px" },
-              }}
-            >
+            <Typography sx={{ fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: { xs: 36, md: 44 }, color: PRIMARY, lineHeight: 1, mb: { xs: "12px", md: "16px" } }}>
               {step.num}
             </Typography>
             <Typography sx={{ fontSize: { xs: 16, md: 17 }, fontWeight: 600, mb: "6px", letterSpacing: "-.012em", color: "text.primary" }}>
@@ -175,8 +126,7 @@ const WorkflowSection = () => {
               sx={{
                 display: "inline-block",
                 mt: "14px",
-                px: "10px",
-                py: "4px",
+                px: "10px", py: "4px",
                 borderRadius: "999px",
                 bgcolor: alpha(PRIMARY, 0.07),
                 fontFamily: "monospace",

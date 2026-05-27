@@ -1,18 +1,20 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CheckIcon from "@mui/icons-material/Check";
 import { useTheme, alpha } from "@mui/material/styles";
 
-const ITEMS = [
-  "Conforme cadre légal MACC",
-  "JWT & cookies HttpOnly",
-  "Export Excel prêt à facturer",
-  "Audit log complet",
-];
-
 const TrustBar = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
+  const ITEMS = [
+    t("landing.trustbar.item0"),
+    t("landing.trustbar.item1"),
+    t("landing.trustbar.item2"),
+    t("landing.trustbar.item3"),
+  ];
 
   return (
     <Box
@@ -44,7 +46,7 @@ const TrustBar = () => {
             flexShrink: 0,
           }}
         >
-          Conçu pour les hôpitaux belges
+          {t("landing.trustbar.label")}
         </Typography>
         <Box
           sx={{

@@ -1,24 +1,10 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import { useTheme } from "@mui/material/styles";
 
 const GOLD  = "#d4a017";
 const INK   = "#1a1614";
-
-const ITEMS = [
-  "Années de formation",
-  "Équipe MACCs",
-  "Agenda & calendrier",
-  "Semaines modèles",
-  "Encodage du temps",
-  "Validation numérique",
-  "Statistiques",
-  "Export Excel · RH",
-  "Notifications",
-  "Sécurité & rôles",
-  "PWA installable",
-  "Multilingue FR · NL · EN",
-];
 
 const Sep = () => (
   <Box
@@ -35,7 +21,24 @@ const Sep = () => (
 );
 
 const MarqueeStrip = () => {
-  const theme = useTheme();
+  useTheme();
+  const { t } = useTranslation();
+
+  const ITEMS = [
+    t("landing.marquee.item0"),
+    t("landing.marquee.item1"),
+    t("landing.marquee.item2"),
+    t("landing.marquee.item3"),
+    t("landing.marquee.item4"),
+    t("landing.marquee.item5"),
+    t("landing.marquee.item6"),
+    t("landing.marquee.item7"),
+    t("landing.marquee.item8"),
+    t("landing.marquee.item9"),
+    t("landing.marquee.item10"),
+    t("landing.marquee.item11"),
+  ];
+
   const doubled = [...ITEMS, ...ITEMS];
 
   return (
@@ -46,7 +49,6 @@ const MarqueeStrip = () => {
         borderBottom: "1px solid rgba(255,255,255,.07)",
         py: { xs: "14px", md: "18px" },
         overflow: "hidden",
-        /* Fade masks on left + right */
         "&::before, &::after": {
           content: '""',
           position: "absolute",

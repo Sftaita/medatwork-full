@@ -173,10 +173,10 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
         {!authentication.isAuthenticated && isMd && isHome && (
           <Box display="flex" alignItems="center" gap={0.5} ml={1}>
             {[
-              { label: "Pour qui",        href: "#audiences" },
-              { label: "Fonctionnalités", href: "#planning"  },
-              { label: "Workflow",        href: "#workflow"  },
-              { label: "Sécurité",        href: "#tech"      },
+              { label: t("landing.nav.audiences"), href: "#audiences" },
+              { label: t("landing.nav.features"),  href: "#planning"  },
+              { label: t("landing.nav.workflow"),   href: "#workflow"  },
+              { label: t("landing.nav.security"),   href: "#tech"      },
             ].map((link) => (
               <Button
                 key={link.href}

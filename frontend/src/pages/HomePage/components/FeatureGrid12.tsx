@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import EventNoteIcon from "@mui/icons-material/EventNote";
@@ -17,22 +18,21 @@ import LanguageIcon from "@mui/icons-material/Language";
 const INK = "#1a1614";
 const GOLD = "#d4a017";
 
-const CELLS = [
-  { Icon: EventNoteIcon,       title: "Années de formation",    desc: "Créez, modifiez, archivez. Période, spécialité, hôpital, maître principal." },
-  { Icon: GroupIcon,           title: "Équipe MACCs",           desc: "Invitez par code unique, suivez les statuts d'import, gérez depuis le dashboard." },
-  { Icon: CalendarMonthIcon,   title: "Agenda & calendrier",    desc: "Vue semaine / mois, événements déplaçables, gardes et absences en temps réel." },
-  { Icon: ViewWeekIcon,        title: "Semaines modèles",       desc: "Templates réutilisables pour accélérer les plannings récurrents." },
-  { Icon: AccessTimeIcon,      title: "Encodage du temps",      desc: "Heures, gardes, absences. Interface PWA. Rappels avant clôture." },
-  { Icon: FactCheckIcon,       title: "Validation numérique",   desc: "Workflow encodage → manager → RH. Traçabilité complète et notification automatique." },
-  { Icon: BarChartIcon,        title: "Statistiques",           desc: "Présence et gardes par MACC, agrégation par année, accès managers & admins." },
-  { Icon: FileDownloadIcon,    title: "Export Excel · RH",      desc: "Tableaux horaires .xlsx individuels ou centralisés, prêts à facturer." },
-  { Icon: NotificationsNoneIcon, title: "Notifications",        desc: "In-app configurables, rappels d'encodage, alertes de validation, bannières de mise à jour." },
-  { Icon: SecurityIcon,        title: "Sécurité & rôles",       desc: "JWT + cookies HttpOnly, rate limiting, hiérarchie de rôles, tokens sécurisés." },
-  { Icon: InstallMobileIcon,   title: "PWA installable",        desc: "Sans App Store, sans Google Play. Installée depuis le navigateur." },
-  { Icon: LanguageIcon,        title: "Multilingue FR/NL/EN",   desc: "i18n complet, thème clair/sombre, design responsive desktop & mobile." },
+const ICONS = [
+  EventNoteIcon, GroupIcon, CalendarMonthIcon, ViewWeekIcon,
+  AccessTimeIcon, FactCheckIcon, BarChartIcon, FileDownloadIcon,
+  NotificationsNoneIcon, SecurityIcon, InstallMobileIcon, LanguageIcon,
 ];
 
 const FeatureGrid12 = () => {
+  const { t } = useTranslation();
+
+  const CELLS = ICONS.map((Icon, i) => ({
+    Icon,
+    title: t(`landing.featureGrid.cell${i}title`),
+    desc: t(`landing.featureGrid.cell${i}desc`),
+  }));
+
   return (
     <Box component="section" sx={{ bgcolor: INK, color: "#fbf8f1" }}>
       <Box sx={{ maxWidth: 1280, mx: "auto", px: { xs: 2.5, md: 4 }, py: { xs: "56px", sm: "80px", md: "120px" } }}>
@@ -59,7 +59,7 @@ const FeatureGrid12 = () => {
               },
             }}
           >
-            Tout ce dont votre équipe a besoin
+            {t("landing.featureGrid.eyebrow")}
           </Box>
           <Box
             sx={{
@@ -71,36 +71,20 @@ const FeatureGrid12 = () => {
               gap: { xs: 2, md: 8 },
             }}
           >
-            <Typography
-              sx={{
-                fontSize: { xs: 26, sm: 34, md: 48 },
-                fontWeight: 700,
-                letterSpacing: "-.025em",
-                lineHeight: 1.05,
-                color: "#fbf8f1",
-              }}
-            >
-              Douze fonctionnalités,{" "}
+            <Typography sx={{ fontSize: { xs: 26, sm: 34, md: 48 }, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.05, color: "#fbf8f1" }}>
+              {t("landing.featureGrid.titleStart")}{" "}
               <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400, color: GOLD }}>
-                un
+                {t("landing.featureGrid.titleEm")}
               </Box>{" "}
-              cycle complet.
+              {t("landing.featureGrid.titleEnd")}
             </Typography>
-            <Typography
-              sx={{
-                maxWidth: { xs: "100%", md: 360 },
-                color: "rgba(251,248,241,.65)",
-                fontSize: { xs: 14, md: 16 },
-                lineHeight: 1.65,
-                flexShrink: 0,
-              }}
-            >
-              De la création d'une année à l'archivage, en passant par les exports RH et la communication avec les MACCs.
+            <Typography sx={{ maxWidth: { xs: "100%", md: 360 }, color: "rgba(251,248,241,.65)", fontSize: { xs: 14, md: 16 }, lineHeight: 1.65, flexShrink: 0 }}>
+              {t("landing.featureGrid.sub")}
             </Typography>
           </Box>
         </Box>
 
-        {/* Grid — 1 col xs, 2 col sm, 3 col md */}
+        {/* Grid */}
         <Box
           sx={{
             display: "grid",
@@ -114,7 +98,7 @@ const FeatureGrid12 = () => {
         >
           {CELLS.map(({ Icon, title, desc }, i) => (
             <Box
-              key={title}
+              key={i}
               data-aos="fade-up"
               data-aos-delay={(i % 3) * 60}
               sx={{

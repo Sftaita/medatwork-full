@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -9,6 +10,7 @@ const PRIMARY = "#7B3FA0";
 
 const FinalCta = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <Box sx={{ maxWidth: 1280, mx: "auto", px: { xs: 3, md: 4 }, pb: { xs: "80px", md: "120px" } }}>
@@ -60,27 +62,19 @@ const FinalCta = () => {
               },
             }}
           >
-            Prêt à arrêter les tableurs ?
+            {t("landing.finalCta.eyebrow")}
           </Box>
           <Typography
-            sx={{
-              fontSize: { xs: 36, md: 64 },
-              fontWeight: 700,
-              letterSpacing: "-.028em",
-              lineHeight: 1.02,
-              mt: "10px",
-              mb: "20px",
-              color: "#fff",
-            }}
+            sx={{ fontSize: { xs: 36, md: 64 }, fontWeight: 700, letterSpacing: "-.028em", lineHeight: 1.02, mt: "10px", mb: "20px", color: "#fff" }}
           >
-            On reprend votre{" "}
+            {t("landing.finalCta.titleStart")}{" "}
             <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>
-              gestion
+              {t("landing.finalCta.titleEm")}
             </Box>
-            {" "}des stages.
+            {" "}{t("landing.finalCta.titleEnd")}
           </Typography>
           <Typography sx={{ fontSize: 17, lineHeight: 1.6, color: "rgba(255,255,255,.82)", mb: "32px", maxWidth: 500 }}>
-            Une démo de 20 minutes suffit pour comprendre comment Med@Work peut s'adapter à votre service. On répond à vos questions, on vous montre l'outil sur vos cas concrets.
+            {t("landing.finalCta.sub")}
           </Typography>
           <Box sx={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <Button
@@ -92,13 +86,12 @@ const FinalCta = () => {
                 color: PRIMARY,
                 fontWeight: 700,
                 borderRadius: "10px",
-                px: 3,
-                py: 1.5,
+                px: 3, py: 1.5,
                 "&:hover": { bgcolor: "#f5f0fc", transform: "translateY(-2px)", boxShadow: "0 10px 24px -10px rgba(255,255,255,.4)" },
                 transition: "transform .2s, box-shadow .2s, background .2s",
               }}
             >
-              Demander une démo
+              {t("landing.finalCta.ctaDemo")}
             </Button>
             <Button
               variant="outlined"
@@ -108,12 +101,11 @@ const FinalCta = () => {
                 borderColor: "rgba(255,255,255,.35)",
                 fontWeight: 600,
                 borderRadius: "10px",
-                px: 3,
-                py: 1.5,
+                px: 3, py: 1.5,
                 "&:hover": { bgcolor: "rgba(255,255,255,.08)", borderColor: "rgba(255,255,255,.6)" },
               }}
             >
-              S'enregistrer
+              {t("landing.finalCta.ctaRegister")}
             </Button>
           </Box>
         </Box>
@@ -130,13 +122,12 @@ const FinalCta = () => {
             }}
           >
             <Typography sx={{ color: "#fff", fontSize: 16, lineHeight: 1.55, mb: "20px" }}>
-              « On a basculé toute la coordination des MACCs sur Med@Work en une semaine. Les feuilles de temps qui prenaient trois après-midis arrivent maintenant validées à la fin du mois. »
+              {t("landing.finalCta.quoteText")}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center", gap: "14px" }}>
               <Box
                 sx={{
-                  width: 42,
-                  height: 42,
+                  width: 42, height: 42,
                   borderRadius: "50%",
                   bgcolor: "#d4a017",
                   display: "flex",
@@ -152,10 +143,10 @@ const FinalCta = () => {
               </Box>
               <Box>
                 <Typography sx={{ color: "#fff", fontWeight: 600, fontSize: 14.5, mb: "1px" }}>
-                  Vincent Druez
+                  {t("landing.finalCta.quoteAuthor")}
                 </Typography>
                 <Typography sx={{ color: "rgba(255,255,255,.65)", fontSize: 12.5 }}>
-                  Maître de stage · Chirurgie générale
+                  {t("landing.finalCta.quoteRole")}
                 </Typography>
               </Box>
             </Box>

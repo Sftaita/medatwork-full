@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTheme, alpha } from "@mui/material/styles";
@@ -8,26 +9,7 @@ import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 
 const PRIMARY = "#7B3FA0";
 
-const ITEMS = [
-  {
-    Icon: SecurityIcon,
-    title: "Authentification & rôles",
-    desc: "JWT access + refresh en cookies HttpOnly, hiérarchie de rôles Symfony Security, rate limiting anti-spam.",
-    chips: ["JWT", "HttpOnly", "Symfony Security", "Rate limit"],
-  },
-  {
-    Icon: AccountBalanceIcon,
-    title: "Traçabilité & audit",
-    desc: "Journal d'activité côté Hospital Admin : chaque action tracée, chaque validation horodatée.",
-    chips: ["Audit log", "Validation mensuelle", "Historique complet"],
-  },
-  {
-    Icon: PhoneIphoneIcon,
-    title: "Confort & UX",
-    desc: "Progressive Web App, recherche globale, sélecteur d'année, density toggle, monitoring Sentry en production.",
-    chips: ["PWA", "Dark mode", "i18n FR · NL · EN", "Sentry"],
-  },
-];
+const ICONS = [SecurityIcon, AccountBalanceIcon, PhoneIphoneIcon];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -58,6 +40,19 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 const TechStrip = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
+  const ITEMS = ICONS.map((Icon, i) => ({
+    Icon,
+    title: t(`landing.tech.card${i}title`),
+    desc: t(`landing.tech.card${i}desc`),
+    chips: [
+      t(`landing.tech.card${i}chip0`),
+      t(`landing.tech.card${i}chip1`),
+      t(`landing.tech.card${i}chip2`),
+      ...(i === 0 || i === 2 ? [t(`landing.tech.card${i}chip3`)] : []),
+    ],
+  }));
 
   return (
     <Box
@@ -76,26 +71,19 @@ const TechStrip = () => {
         }}
       >
         <Box>
-          <Eyebrow>Sécurité &amp; tech</Eyebrow>
+          <Eyebrow>{t("landing.tech.eyebrow")}</Eyebrow>
           <Typography
-            sx={{
-              fontSize: { xs: 32, md: 52 },
-              fontWeight: 700,
-              letterSpacing: "-.025em",
-              lineHeight: 1.05,
-              mt: "14px",
-              color: "text.primary",
-            }}
+            sx={{ fontSize: { xs: 32, md: 52 }, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.05, mt: "14px", color: "text.primary" }}
           >
-            Conçu pour l'
+            {t("landing.tech.titleStart")}
             <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>
-              hôpital
+              {t("landing.tech.titleEm")}
             </Box>
-            , pas pour le startup-game.
+            {t("landing.tech.titleEnd")}
           </Typography>
         </Box>
         <Typography sx={{ maxWidth: 380, color: "text.secondary", fontSize: 16, lineHeight: 1.65 }}>
-          Sécurité des accès, traçabilité des actions, et une pile technique pensée pour durer.
+          {t("landing.tech.sub")}
         </Typography>
       </Box>
 
@@ -103,7 +91,7 @@ const TechStrip = () => {
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 3 }}>
         {ITEMS.map(({ Icon, title, desc, chips }, i) => (
           <Box
-            key={title}
+            key={i}
             data-aos="fade-up"
             data-aos-delay={i * 80}
             sx={{
@@ -126,8 +114,7 @@ const TechStrip = () => {
             <Typography sx={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.012em", display: "flex", alignItems: "center", gap: "10px", color: "text.primary" }}>
               <Box
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: 28, height: 28,
                   borderRadius: "8px",
                   bgcolor: alpha(PRIMARY, 0.1),
                   color: PRIMARY,
@@ -149,8 +136,7 @@ const TechStrip = () => {
                 <Box
                   key={chip}
                   sx={{
-                    px: "10px",
-                    py: "4px",
+                    px: "10px", py: "4px",
                     borderRadius: "999px",
                     bgcolor: theme.palette.mode === "dark" ? "rgba(255,255,255,.06)" : alpha(PRIMARY, 0.06),
                     fontFamily: "monospace",

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTheme, alpha } from "@mui/material/styles";
@@ -60,56 +61,11 @@ function CheckItem({ children, gold }: { children: React.ReactNode; gold?: boole
   );
 }
 
-// ── Shared section header ─────────────────────────────────────────────────────
-
-function SectionHead({
-  eyebrow,
-  title,
-  sub,
-  gold,
-  light,
-  dark,
-}: {
-  eyebrow: string;
-  title: React.ReactNode;
-  sub: string;
-  gold?: boolean;
-  light?: boolean;
-  dark?: boolean;
-}) {
-  return (
-    <Box sx={{ mb: { xs: "28px", md: "36px" } }}>
-      <Eyebrow gold={gold} light={light}>{eyebrow}</Eyebrow>
-      <Typography
-        sx={{
-          fontSize: { xs: 26, sm: 32, md: 44 },
-          fontWeight: 700,
-          letterSpacing: "-.025em",
-          lineHeight: 1.06,
-          mt: "14px",
-          mb: "18px",
-          color: dark ? "#fbf8f1" : "text.primary",
-        }}
-      >
-        {title}
-      </Typography>
-      <Typography
-        sx={{
-          fontSize: { xs: 15, md: 17 },
-          lineHeight: 1.65,
-          color: dark ? "rgba(251,248,241,.72)" : "text.secondary",
-        }}
-      >
-        {sub}
-      </Typography>
-    </Box>
-  );
-}
-
 // ── Feature 1 — Planning ──────────────────────────────────────────────────────
 
 export function FeaturePlanning() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Box
@@ -126,16 +82,23 @@ export function FeaturePlanning() {
       >
         {/* Copy */}
         <Box>
-          <SectionHead
-            eyebrow="01 · Planning"
-            title={<>Qui fait <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>quoi</Box>, semaine après semaine.</>}
-            sub="Visualisez d'un coup d'œil la répartition de vos MACCs sur les postes ouverts. Deux vues complémentaires, charge en temps réel, postes incomplets signalés."
-          />
+          <Box sx={{ mb: { xs: "28px", md: "36px" } }}>
+            <Eyebrow>{t("landing.featurePlanning.eyebrow")}</Eyebrow>
+            <Typography
+              sx={{ fontSize: { xs: 26, sm: 32, md: 44 }, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.06, mt: "14px", mb: "18px", color: "text.primary" }}
+            >
+              {t("landing.featurePlanning.titleStart")}{" "}
+              <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>{t("landing.featurePlanning.titleEm")}</Box>
+              {t("landing.featurePlanning.titleEnd")}
+            </Typography>
+            <Typography sx={{ fontSize: { xs: 15, md: 17 }, lineHeight: 1.65, color: "text.secondary" }}>
+              {t("landing.featurePlanning.sub")}
+            </Typography>
+          </Box>
           <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
-            <CheckItem><span><strong>Deux vues complémentaires</strong> — Gantt par MACC pour les trajectoires, grille par poste pour les couvertures.</span></CheckItem>
-            <CheckItem><span><strong>Charge par MACC</strong> en temps réel, semaines couvertes, postes incomplets signalés.</span></CheckItem>
-            <CheckItem><span><strong>Semaines modèles</strong> réutilisables pour accélérer les plannings récurrents.</span></CheckItem>
-            <CheckItem><span><strong>Publication en un clic</strong> — les MACCs reçoivent leur planning dès la publication.</span></CheckItem>
+            {[0, 1, 2, 3].map((i) => (
+              <CheckItem key={i}><span dangerouslySetInnerHTML={{ __html: t(`landing.featurePlanning.check${i}`) }} /></CheckItem>
+            ))}
           </Box>
         </Box>
 
@@ -150,7 +113,7 @@ export function FeaturePlanning() {
               bgcolor: "background.paper",
             }}
           >
-            <Box component="img" src="/landing/repartition.png" alt="Répartition des semaines" sx={{ width: "100%", display: "block" }} />
+            <Box component="img" src="/landing/repartition.png" alt={t("landing.featurePlanning.imgAlt")} sx={{ width: "100%", display: "block" }} />
           </Box>
         </Box>
       </Box>
@@ -161,6 +124,8 @@ export function FeaturePlanning() {
 // ── Feature 2 — Encodage (dark) ───────────────────────────────────────────────
 
 export function FeatureEncodage() {
+  const { t } = useTranslation();
+
   return (
     <Box component="section" sx={{ bgcolor: INK, color: "#fbf8f1" }}>
       <Box sx={{ maxWidth: 1280, mx: "auto", px: { xs: 2.5, md: 4 }, py: { xs: "56px", sm: "80px", md: "120px" } }}>
@@ -172,74 +137,41 @@ export function FeatureEncodage() {
             alignItems: "center",
           }}
         >
-          {/* Visual — desktop: left / mobile: bottom */}
+          {/* Visual */}
           <Box data-aos="fade-up" sx={{ order: { xs: 2, md: 1 } }}>
-            {/* Mobile : show phone only, centered */}
             <Box sx={{ display: { xs: "flex", md: "none" }, justifyContent: "center" }}>
-              <Box
-                sx={{
-                  width: 200,
-                  borderRadius: "26px",
-                  overflow: "hidden",
-                  boxShadow: "0 24px 50px -18px rgba(26,22,20,.7)",
-                  border: "6px solid #2a2421",
-                  bgcolor: "#1a1614",
-                }}
-              >
-                <Box component="img" src="/landing/encodage-mobile.png" alt="Encodage — mobile" sx={{ width: "100%", display: "block" }} />
+              <Box sx={{ width: 200, borderRadius: "26px", overflow: "hidden", boxShadow: "0 24px 50px -18px rgba(26,22,20,.7)", border: "6px solid #2a2421", bgcolor: "#1a1614" }}>
+                <Box component="img" src="/landing/encodage-mobile.png" alt={t("landing.featureEncodage.imgAltMobile")} sx={{ width: "100%", display: "block" }} />
               </Box>
             </Box>
-
-            {/* Desktop : desktop screenshot + phone overlay */}
             <Box sx={{ display: { xs: "none", md: "block" }, position: "relative", height: 540 }}>
-              <Box
-                sx={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "84%",
-                  borderRadius: "12px",
-                  overflow: "hidden",
-                  boxShadow: "0 30px 60px -28px rgba(26,22,20,.55), 0 4px 14px -6px rgba(26,22,20,.2)",
-                  border: "1px solid rgba(255,255,255,.08)",
-                }}
-              >
-                <Box component="img" src="/landing/encodage-desktop.png" alt="Encodage — desktop" sx={{ width: "100%", display: "block" }} />
+              <Box sx={{ position: "absolute", left: 0, top: 0, width: "84%", borderRadius: "12px", overflow: "hidden", boxShadow: "0 30px 60px -28px rgba(26,22,20,.55), 0 4px 14px -6px rgba(26,22,20,.2)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <Box component="img" src="/landing/encodage-desktop.png" alt={t("landing.featureEncodage.imgAltDesktop")} sx={{ width: "100%", display: "block" }} />
               </Box>
-              <Box
-                sx={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: 0,
-                  width: 210,
-                  height: 450,
-                  borderRadius: "30px",
-                  overflow: "hidden",
-                  boxShadow: "0 30px 60px -20px rgba(26,22,20,.6)",
-                  border: "7px solid #1a1614",
-                  bgcolor: "#1a1614",
-                }}
-              >
-                <Box component="img" src="/landing/encodage-mobile.png" alt="Encodage — mobile" sx={{ width: "100%", display: "block" }} />
+              <Box sx={{ position: "absolute", right: 0, bottom: 0, width: 210, height: 450, borderRadius: "30px", overflow: "hidden", boxShadow: "0 30px 60px -20px rgba(26,22,20,.6)", border: "7px solid #1a1614", bgcolor: "#1a1614" }}>
+                <Box component="img" src="/landing/encodage-mobile.png" alt={t("landing.featureEncodage.imgAltMobile")} sx={{ width: "100%", display: "block" }} />
               </Box>
             </Box>
           </Box>
 
           {/* Copy */}
           <Box sx={{ order: { xs: 1, md: 2 } }}>
-            <SectionHead
-              eyebrow="02 · Encodage du temps"
-              title={<>Vos MACCs encodent en <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400, color: GOLD }}>30 secondes.</Box></>}
-              sub="Trois onglets, trois gestes : Horaires · Gardes · Absences. Interface mobile-first, calcul automatique, rappels avant clôture."
-              gold
-              light
-              dark
-            />
+            <Box sx={{ mb: { xs: "28px", md: "36px" } }}>
+              <Eyebrow gold light>{t("landing.featureEncodage.eyebrow")}</Eyebrow>
+              <Typography sx={{ fontSize: { xs: 26, sm: 32, md: 44 }, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.06, mt: "14px", mb: "18px", color: "#fbf8f1" }}>
+                {t("landing.featureEncodage.titleStart")}{" "}
+                <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400, color: GOLD }}>{t("landing.featureEncodage.titleEm")}</Box>
+              </Typography>
+              <Typography sx={{ fontSize: { xs: 15, md: 17 }, lineHeight: 1.65, color: "rgba(251,248,241,.72)" }}>
+                {t("landing.featureEncodage.sub")}
+              </Typography>
+            </Box>
             <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
-              <CheckItem gold><span style={{ color: "rgba(251,248,241,.85)" }}><strong style={{ color: "#fbf8f1" }}>Garde appelable vs sur place</strong> avec calcul automatique de la durée.</span></CheckItem>
-              <CheckItem gold><span style={{ color: "rgba(251,248,241,.85)" }}><strong style={{ color: "#fbf8f1" }}>Notifications avant clôture</strong> — plus jamais d'oubli de saisie.</span></CheckItem>
-              <CheckItem gold><span style={{ color: "rgba(251,248,241,.85)" }}><strong style={{ color: "#fbf8f1" }}>Mode hors ligne</strong> — l'app reste utilisable sans réseau, synchronise plus tard.</span></CheckItem>
-              <CheckItem gold><span style={{ color: "rgba(251,248,241,.85)" }}><strong style={{ color: "#fbf8f1" }}>Commentaires facultatifs</strong> pour contextualiser une garde particulière.</span></CheckItem>
+              {[0, 1, 2, 3].map((i) => (
+                <CheckItem key={i} gold>
+                  <span style={{ color: "rgba(251,248,241,.85)" }} dangerouslySetInnerHTML={{ __html: t(`landing.featureEncodage.check${i}`) }} />
+                </CheckItem>
+              ))}
             </Box>
           </Box>
         </Box>
@@ -252,6 +184,7 @@ export function FeatureEncodage() {
 
 export function FeatureAnnees() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Box
@@ -268,69 +201,37 @@ export function FeatureAnnees() {
       >
         {/* Copy */}
         <Box>
-          <SectionHead
-            eyebrow="03 · Années de formation"
-            title={<>Une année <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>complète</Box> en deux étapes.</>}
-            sub="Titre, période, spécialité, hôpital : Med@Work calcule la durée, déduit le type de période, et génère un code unique. La carte d'aperçu se met à jour en direct."
-          />
+          <Box sx={{ mb: { xs: "28px", md: "36px" } }}>
+            <Eyebrow>{t("landing.featureAnnees.eyebrow")}</Eyebrow>
+            <Typography sx={{ fontSize: { xs: 26, sm: 32, md: 44 }, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.06, mt: "14px", mb: "18px", color: "text.primary" }}>
+              {t("landing.featureAnnees.titleStart")}{" "}
+              <Box component="em" sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}>{t("landing.featureAnnees.titleEm")}</Box>{" "}
+              {t("landing.featureAnnees.titleEnd")}
+            </Typography>
+            <Typography sx={{ fontSize: { xs: 15, md: 17 }, lineHeight: 1.65, color: "text.secondary" }}>
+              {t("landing.featureAnnees.sub")}
+            </Typography>
+          </Box>
           <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
-            <CheckItem><span><strong>Statuts automatiques</strong> — En cours / À venir / Archivée.</span></CheckItem>
-            <CheckItem><span><strong>Co-gestion</strong> — invitez d'autres managers avec des droits fins (validation, agenda, exports…).</span></CheckItem>
-            <CheckItem><span><strong>Code d'identification</strong> copiable — les MACCs rejoignent l'année en un coup d'œil.</span></CheckItem>
-            <CheckItem><span><strong>Statut d'import</strong> par MACC — voyez qui a déjà importé son horaire.</span></CheckItem>
+            {[0, 1, 2, 3].map((i) => (
+              <CheckItem key={i}><span dangerouslySetInnerHTML={{ __html: t(`landing.featureAnnees.check${i}`) }} /></CheckItem>
+            ))}
           </Box>
         </Box>
 
         {/* Visual */}
         <Box data-aos="fade-up">
-          {/* Mobile : phone only, centered */}
           <Box sx={{ display: { xs: "flex", md: "none" }, justifyContent: "center" }}>
-            <Box
-              sx={{
-                width: 200,
-                borderRadius: "26px",
-                overflow: "hidden",
-                boxShadow: "0 24px 50px -18px rgba(26,22,20,.35)",
-                border: `6px solid ${theme.palette.mode === "dark" ? "#333" : "#1a1614"}`,
-                bgcolor: "#1a1614",
-              }}
-            >
-              <Box component="img" src="/landing/mes-annees-mobile.png" alt="Mes années — mobile" sx={{ width: "100%", display: "block" }} />
+            <Box sx={{ width: 200, borderRadius: "26px", overflow: "hidden", boxShadow: "0 24px 50px -18px rgba(26,22,20,.35)", border: `6px solid ${theme.palette.mode === "dark" ? "#333" : "#1a1614"}`, bgcolor: "#1a1614" }}>
+              <Box component="img" src="/landing/mes-annees-mobile.png" alt={t("landing.featureAnnees.imgAltMobile")} sx={{ width: "100%", display: "block" }} />
             </Box>
           </Box>
-
-          {/* Desktop : desktop screenshot + phone overlay */}
           <Box sx={{ display: { xs: "none", md: "block" }, position: "relative", height: 500 }}>
-            <Box
-              sx={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "84%",
-                borderRadius: "12px",
-                overflow: "hidden",
-                boxShadow: "0 30px 60px -28px rgba(26,22,20,.35), 0 4px 14px -6px rgba(26,22,20,.12)",
-                border: `1px solid ${theme.palette.divider}`,
-                bgcolor: "background.paper",
-              }}
-            >
-              <Box component="img" src="/landing/mes-annees-desktop.png" alt="Mes années — desktop" sx={{ width: "100%", display: "block" }} />
+            <Box sx={{ position: "absolute", left: 0, top: 0, width: "84%", borderRadius: "12px", overflow: "hidden", boxShadow: "0 30px 60px -28px rgba(26,22,20,.35), 0 4px 14px -6px rgba(26,22,20,.12)", border: `1px solid ${theme.palette.divider}`, bgcolor: "background.paper" }}>
+              <Box component="img" src="/landing/mes-annees-desktop.png" alt={t("landing.featureAnnees.imgAltDesktop")} sx={{ width: "100%", display: "block" }} />
             </Box>
-            <Box
-              sx={{
-                position: "absolute",
-                right: 0,
-                bottom: 0,
-                width: 195,
-                height: 415,
-                borderRadius: "28px",
-                overflow: "hidden",
-                boxShadow: "0 30px 60px -20px rgba(26,22,20,.45)",
-                border: `7px solid ${theme.palette.mode === "dark" ? "#222" : "#1a1614"}`,
-                bgcolor: "#1a1614",
-              }}
-            >
-              <Box component="img" src="/landing/mes-annees-mobile.png" alt="Mes années — mobile" sx={{ width: "100%", display: "block" }} />
+            <Box sx={{ position: "absolute", right: 0, bottom: 0, width: 195, height: 415, borderRadius: "28px", overflow: "hidden", boxShadow: "0 30px 60px -20px rgba(26,22,20,.45)", border: `7px solid ${theme.palette.mode === "dark" ? "#222" : "#1a1614"}`, bgcolor: "#1a1614" }}>
+              <Box component="img" src="/landing/mes-annees-mobile.png" alt={t("landing.featureAnnees.imgAltMobile")} sx={{ width: "100%", display: "block" }} />
             </Box>
           </Box>
         </Box>

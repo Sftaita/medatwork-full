@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -9,15 +10,16 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 const GOLD = "#d4a017";
 const INK  = "#1a1614";
 
-const META = [
-  { val: "12",        label: "Grandes fonctionnalités" },
-  { val: "3",         label: "Rôles · MACC / Manager / RH" },
-  { val: "PWA",       label: "Installable · iOS & Android" },
-  { val: "FR·NL·EN",  label: "Multilingue" },
-];
-
 const Hero = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
+  const META = [
+    { val: t("landing.hero.meta0val"), label: t("landing.hero.meta0label") },
+    { val: t("landing.hero.meta1val"), label: t("landing.hero.meta1label") },
+    { val: t("landing.hero.meta2val"), label: t("landing.hero.meta2label") },
+    { val: t("landing.hero.meta3val"), label: t("landing.hero.meta3label") },
+  ];
 
   return (
     <Box sx={{ maxWidth: 1280, mx: "auto", px: { xs: 2.5, md: 4 } }}>
@@ -53,7 +55,7 @@ const Hero = () => {
               },
             }}
           >
-            Logiciel de gestion · Stages médicaux
+            {t("landing.hero.eyebrow")}
           </Box>
 
           {/* Headline */}
@@ -68,14 +70,14 @@ const Hero = () => {
               mb: { xs: "22px", md: "30px" },
             }}
           >
-            Le planning des MACCs,{" "}
+            {t("landing.hero.headline")}{" "}
             <Box
               component="em"
               sx={{ fontStyle: "italic", fontFamily: "Georgia, serif", fontWeight: 400 }}
             >
-              enfin
+              {t("landing.hero.headlineEm")}
             </Box>{" "}
-            sans tableurs.
+            {t("landing.hero.headlineEnd")}
           </Typography>
 
           {/* Subtitle */}
@@ -87,12 +89,8 @@ const Hero = () => {
               maxWidth: 560,
               mb: { xs: "30px", md: "42px" },
             }}
-          >
-            Med@Work centralise la création des années de formation, la répartition des semaines,
-            l'encodage des heures et des gardes — jusqu'à l'export RH validé. Une seule plateforme pour les{" "}
-            <strong>maîtres de stage</strong>, les <strong>MACCs</strong> et le{" "}
-            <strong>service RH</strong>.
-          </Typography>
+            dangerouslySetInnerHTML={{ __html: t("landing.hero.subtitle") }}
+          />
 
           {/* CTAs */}
           <Box sx={{ display: "flex", gap: "12px", flexWrap: "wrap", mb: { xs: "36px", md: "60px" } }}>
@@ -108,7 +106,7 @@ const Hero = () => {
                 "&:hover .MuiButton-endIcon svg": { transform: "translateX(3px)" },
               }}
             >
-              Demander une démo
+              {t("landing.hero.ctaDemo")}
             </Button>
             <Button
               variant="outlined"
@@ -117,7 +115,7 @@ const Hero = () => {
               endIcon={<KeyboardArrowDownIcon sx={{ fontSize: "16px !important" }} />}
               sx={{ px: "20px", py: "11px", borderRadius: "10px", fontWeight: 600, fontSize: 14 }}
             >
-              Voir le produit
+              {t("landing.hero.ctaProduct")}
             </Button>
           </Box>
 
@@ -168,7 +166,7 @@ const Hero = () => {
             <Box
               component="img"
               src="/landing/gantt.png"
-              alt="Vue Gantt — trajectoires MACC par semaine"
+              alt={t("landing.hero.ganttAlt")}
               sx={{ width: "100%", display: "block" }}
             />
           </Box>
@@ -207,7 +205,7 @@ const Hero = () => {
                 animation: "pulseDot 2s ease-in-out infinite",
               }}
             />
-            <span><strong>10</strong> MACCs · <strong>14</strong> semaines · <strong>56</strong> rotations</span>
+            <span dangerouslySetInnerHTML={{ __html: t("landing.hero.badgeText") }} />
           </Box>
 
           {/* Pill — bottom right */}
@@ -256,9 +254,9 @@ const Hero = () => {
               ))}
             </Box>
             <Typography sx={{ fontSize: 12.5, color: "text.secondary", lineHeight: 1.35, m: 0 }}>
-              <Box component="strong" sx={{ color: "text.primary" }}>Validation mensuelle</Box>
+              <Box component="strong" sx={{ color: "text.primary" }}>{t("landing.hero.pillTitle")}</Box>
               <br />
-              Notifiée au RH automatiquement.
+              {t("landing.hero.pillSub")}
             </Typography>
           </Box>
         </Box>
@@ -277,7 +275,7 @@ const Hero = () => {
           <Box
             component="img"
             src="/landing/gantt.png"
-            alt="Vue Gantt"
+            alt={t("landing.hero.ganttAlt")}
             sx={{ width: "100%", display: "block" }}
           />
         </Box>
