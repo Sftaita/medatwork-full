@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import useAuth from "../../../../../../hooks/useAuth";
 import useNotificationContext from "../../../../../../hooks/useNotificationContext";
@@ -10,6 +10,8 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
+import SettingsIcon from "@mui/icons-material/Settings";
+import LogoutIcon from "@mui/icons-material/Logout";
 import Tooltip from "@mui/material/Tooltip";
 import Avatar from "@mui/material/Avatar";
 import Divider from "@mui/material/Divider";
@@ -20,6 +22,8 @@ import Badge from "@mui/material/Badge";
 
 import { linkTextSx, noAuth, manager, resident, superAdmin, hospitalAdmin } from "./sidebarNavData";
 import { useNotificationsStore, type NotificationsState } from "@/store/notificationsStore";
+import useLogout from "../../../../../../hooks/useLogout";
+import logger from "../../../../../../services/logger";
 import Logo from "../../../../../../images/logo.png";
 import Woman from "../../../../../../images/icons/Woman.png";
 import Man from "../../../../../../images/icons/Man.png";
@@ -244,6 +248,15 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
   const theme  = useTheme();
   const isMd   = useMediaQuery(theme.breakpoints.up("md"), { defaultMatches: true });
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const logout   = useLogout();
+
+  const handleLogout = async () => {
+    onClose();
+    logger.clearUser();
+    await logout();
+    navigate("/login");
+  };
   const [menu, setMenu] = useState<NavGroup[]>([]);
   const { notifications } = useNotificationContext();
   const { authentication } = useAuth();
@@ -362,7 +375,7 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
         </Box>
 
         {!isMd && authentication.isAuthenticated && (
-          <Stack sx={{ alignItems: "center", mb: "4vh", gap: 1 }}>
+          <Stack sx={{ alignItems: "center", mb: "4vh", gap: 1.5 }}>
             <Avatar
               src={authentication.avatarUrl ?? undefined}
               sx={{ width: 50, height: 50, bgcolor: "primary.main" }}
@@ -391,6 +404,26 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
                   ].filter(Boolean).join(" · ")}
                 </Typography>
               )}
+            </Box>
+            <Divider flexItem />
+            <Box sx={{ width: "100%", px: "14px", display: "flex", flexDirection: "column", gap: 0.5 }}>
+              <Button
+                fullWidth
+                startIcon={<SettingsIcon fontSize="small" />}
+                onClick={() => { onClose(); navigate("/profile/settings"); }}
+                sx={{ justifyContent: "flex-start", textTransform: "none", color: "text.secondary" }}
+              >
+                {t("topbar.preferences")}
+              </Button>
+              <Button
+                fullWidth
+                color="error"
+                startIcon={<LogoutIcon fontSize="small" />}
+                onClick={handleLogout}
+                sx={{ justifyContent: "flex-start", textTransform: "none" }}
+              >
+                {t("topbar.logout")}
+              </Button>
             </Box>
           </Stack>
         )}
