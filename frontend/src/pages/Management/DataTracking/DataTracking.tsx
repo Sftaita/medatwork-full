@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useTopbarSearch } from "../../../hooks/useTopbarSearch";
 
 // Material UI
 import Typography from "@mui/material/Typography";
@@ -16,10 +18,13 @@ import Garde from "./components/Garde";
 import Absence from "./components/Absence";
 
 const DataManagement = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
   });
+
+  const search = useTopbarSearch(t("data.searchPlaceholder"));
 
   const [loading] = useState();
 
@@ -44,7 +49,7 @@ const DataManagement = () => {
           color={"secondary"}
           align={"center"}
         >
-          Activité
+          {t("data.title")}
         </Typography>
         <Typography
           variant="h4"
@@ -54,7 +59,7 @@ const DataManagement = () => {
             fontWeight: 700,
           }}
         >
-          Données encodées
+          {t("data.managerSubtitle")}
         </Typography>
 
         <Box display="flex" flexDirection={"row"} justifyContent="center">
@@ -77,9 +82,9 @@ const DataManagement = () => {
                 },
               }}
             >
-              <Tab label="Horaires" />
-              <Tab label="Gardes" />
-              <Tab label="Absences" />
+              <Tab label={t("data.tabs.schedules")} />
+              <Tab label={t("data.tabs.guards")} />
+              <Tab label={t("data.tabs.absences")} />
             </Tabs>
           </Box>
         </Box>
@@ -98,13 +103,13 @@ const DataManagement = () => {
           </Box>
         )}
         {selected === 0 && (
-          <Timesheet month={month} setMonth={setMonth} year={year} setYear={setYear} />
+          <Timesheet month={month} setMonth={setMonth} year={year} setYear={setYear} search={search} />
         )}
         {selected === 1 && (
-          <Garde month={month} setMonth={setMonth} year={year} setYear={setYear} />
+          <Garde month={month} setMonth={setMonth} year={year} setYear={setYear} search={search} />
         )}
         {selected === 2 && (
-          <Absence month={month} setMonth={setMonth} year={year} setYear={setYear} />
+          <Absence month={month} setMonth={setMonth} year={year} setYear={setYear} search={search} />
         )}
       </Box>
     </Window>

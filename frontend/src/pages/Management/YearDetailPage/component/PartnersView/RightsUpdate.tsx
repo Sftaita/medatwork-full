@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import { toast } from "react-toastify";
 import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
@@ -15,6 +16,7 @@ import { ListItem } from "@mui/material";
 import { handleApiError } from "@/services/apiError";
 
 const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedManager }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   // 1. Cherche dans managerList l'élément qui a le même id que selectedManager
   const manager = managerList.find((manager) => manager.id === selectedManager);
@@ -61,7 +63,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
     setOpen(false);
     try {
       await axiosPrivate[method](url, payload);
-      toast.success("Mise à jour réussie", toastSuccess);
+      toast.success(t("yearDetail.rightsUpdate.updated"), toastSuccess);
 
       // Mettre à jour les droits du manager dans managerList
       const updatedManagerList = managerList.map((m) =>
@@ -79,7 +81,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
 
   return (
     <Dialog open={open} onClose={() => setOpen(false)}>
-      <DialogTitle>Modifier les droits du manager</DialogTitle>
+      <DialogTitle>{t("yearDetail.rightsUpdate.title")}</DialogTitle>
       <DialogContent dividers>
         <List>
           <ListItem>
@@ -87,7 +89,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
               control={
                 <Checkbox checked={rights.admin} onChange={handleCheckboxChange} name="admin" />
               }
-              label="Administrateur"
+              label={t("yearDetail.rightsUpdate.admin")}
             />
           </ListItem>
           <ListItem>
@@ -99,7 +101,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
                   name="dataAccess"
                 />
               }
-              label="Accès aux données"
+              label={t("yearDetail.rightsUpdate.dataAccess")}
             />
           </ListItem>
           <ListItem>
@@ -111,7 +113,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
                   name="dataValidation"
                 />
               }
-              label="Validation des données"
+              label={t("yearDetail.rightsUpdate.dataValidation")}
             />
           </ListItem>
           <ListItem>
@@ -123,7 +125,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
                   name="dataDownload"
                 />
               }
-              label="Téléchargement des données"
+              label={t("yearDetail.rightsUpdate.dataDownload")}
             />
           </ListItem>
           <ListItem>
@@ -136,7 +138,7 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
                   name="canManageAgenda"
                 />
               }
-              label="Gérer l'agenda"
+              label={t("yearDetail.rightsUpdate.manageAgenda")}
             />
           </ListItem>
           <ListItem>
@@ -149,17 +151,17 @@ const RightsUpdate = ({ open, setOpen, managerList, setManagerList, selectedMana
                   name="hasAgendaAccess"
                 />
               }
-              label="Accès à l'agenda"
+              label={t("yearDetail.rightsUpdate.agendaAccess")}
             />
           </ListItem>
         </List>
       </DialogContent>
       <DialogActions>
         <Button onClick={() => setOpen(false)} color="primary">
-          Annuler
+          {t("yearDetail.rightsUpdate.cancel")}
         </Button>
         <Button onClick={updateManagerRights} color="primary">
-          Confirmer
+          {t("yearDetail.rightsUpdate.confirm")}
         </Button>
       </DialogActions>
     </Dialog>

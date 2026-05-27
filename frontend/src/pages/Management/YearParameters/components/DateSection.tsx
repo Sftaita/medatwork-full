@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // material UI
 import ListItem from "@mui/material/ListItem";
@@ -14,6 +15,7 @@ import SlideInDialog from "./SenderDialog";
 import dayjs from "@/lib/dayjs";
 
 const DateSection = ({ yearInfomrations, fetchYearInformation }) => {
+  const { t } = useTranslation();
   const [target, setTarget] = useState();
 
   const onClick = (target) => {
@@ -32,7 +34,7 @@ const DateSection = ({ yearInfomrations, fetchYearInformation }) => {
 
   return (
     <>
-      <Section title="Période de stage" subtitle="Définissent la périodes d'encodages">
+      <Section title={t("yearParams.dateSectionTitle")} subtitle={t("yearParams.dateSectionSubtitle")}>
         <ListItem
           disablePadding
           secondaryAction={
@@ -43,7 +45,7 @@ const DateSection = ({ yearInfomrations, fetchYearInformation }) => {
         >
           <ListItemButton onClick={() => onClick("dateOfStart")}>
             <ListItemText
-              primary="Date de début de stage"
+              primary={t("yearParams.dateStart")}
               secondary={dayjs(yearInfomrations?.dateOfStart).format("DD/MM/YYYY")}
             />
           </ListItemButton>
@@ -59,7 +61,7 @@ const DateSection = ({ yearInfomrations, fetchYearInformation }) => {
         >
           <ListItemButton onClick={() => onClick("dateOfEnd")}>
             <ListItemText
-              primary="Date de fin de stage"
+              primary={t("yearParams.dateEnd")}
               secondary={dayjs(yearInfomrations?.dateOfEnd).format("DD/MM/YYYY")}
             />
           </ListItemButton>
@@ -74,7 +76,7 @@ const DateSection = ({ yearInfomrations, fetchYearInformation }) => {
           }
         >
           <ListItemButton onClick={() => onClick("period")}>
-            <ListItemText primary="Période de stage" secondary={yearInfomrations?.period} />
+            <ListItemText primary={t("yearParams.period")} secondary={yearInfomrations?.period} />
           </ListItemButton>
         </ListItem>
       </Section>

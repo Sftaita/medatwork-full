@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-
+import { useTranslation } from "react-i18next";
 import useValidationContext from "../../../../../hooks/useValidationContext";
 
 //Material UI
@@ -27,6 +27,7 @@ import MessageBox from "./MessageBox";
 import dayjs from "@/lib/dayjs";
 
 const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const { residentValidationData, setResidentValidationData } = useValidationContext();
 
@@ -102,7 +103,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
         </TableCell>
         <TableCell component="th" scope="row">
           {residentReport?.residentFirstname} {residentReport?.residentLastname}{" "}
-          <Tooltip title="Notification au MACCS">
+          <Tooltip title={t("yearDetail.validation.tooltipResident")}>
             <IconButton
               onClick={() => {
                 setOpenDialog(true);
@@ -112,7 +113,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
               <MessageIcon color={isResidentNotification ? "primary" : ""} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Notification aux Managers">
+          <Tooltip title={t("yearDetail.validation.tooltipManagers")}>
             <IconButton
               onClick={() => {
                 setOpenDialog(true);
@@ -128,7 +129,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
             <FormGroup>
               <FormControlLabel
                 control={<Switch checked={isSwitchOn} onChange={handleSwitchChange} />}
-                label="Valider"
+                label={t("yearDetail.validation.validate")}
               />
             </FormGroup>
           </Grid>
@@ -145,7 +146,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
             <Grid container spacing={2} padding={(5, 2, 2, 2)}>
               <Grid item xs={12} md={12}>
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Informations générales
+                  {t("yearDetail.validation.generalInfo")}
                 </Typography>
                 <Divider />
 
@@ -153,7 +154,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                   <TableBody>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Opting Out:
+                        {t("yearDetail.validation.optingOut")}
                       </TableCell>
                       <TableCell align="center" style={{ border: "none", width: 20 }}>
                         <Chip
@@ -165,7 +166,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                     </TableRow>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Temps de travail maximum:
+                        {t("yearDetail.validation.maxWork")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -182,7 +183,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Temps de travail maximum absolue:
+                        {t("yearDetail.validation.maxWorkAbsolute")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -197,7 +198,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Nombre d'interval:
+                        {t("yearDetail.validation.intervalCount")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -214,19 +215,19 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
                 {residentReport?.periodsinfo?.map((period, index) => (
                   <Alert key={index} severity="primary" sx={{ marginTop: 1 }}>
-                    <Typography>Période n° {period?.periodNumber}</Typography>
+                    <Typography>{t("yearDetail.validation.period")}{period?.periodNumber}</Typography>
                     <Typography>
-                      Début d'interval: {dayjs(period?.periodStart).format("DD-MM-YYYY")}
+                      {t("yearDetail.validation.intervalStart")} {dayjs(period?.periodStart).format("DD-MM-YYYY")}
                     </Typography>
                     <Typography>
-                      Fin d'interval: {dayjs(period?.periodEnd).format("DD-MM-YYYY")}
+                      {t("yearDetail.validation.intervalEnd")} {dayjs(period?.periodEnd).format("DD-MM-YYYY")}
                     </Typography>
                   </Alert>
                 ))}
               </Grid>
               <Grid item xs={12} md={12}>
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Heures prestées
+                  {t("yearDetail.validation.workedHours")}
                 </Typography>
                 <Divider />
 
@@ -234,7 +235,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                   <TableBody>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Lissage des heures respecté?{" "}
+                        {t("yearDetail.validation.smoothedOk")}
                       </TableCell>
                       <TableCell align="center" style={{ border: "none", width: 20 }}>
                         <Chip
@@ -247,7 +248,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                     </TableRow>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Respect des heures maximum autorisé?
+                        {t("yearDetail.validation.maxOk")}
                       </TableCell>
                       <TableCell align="center" style={{ border: "none" }}>
                         <Chip
@@ -274,7 +275,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                     </TableRow>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Respect des heures maximum absolue?
+                        {t("yearDetail.validation.maxAbsoluteOk")}
                       </TableCell>
                       <TableCell align="center" style={{ border: "none", width: 20 }}>
                         <Chip
@@ -305,14 +306,14 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
               <Grid item xs={12} md={12} className="absences">
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Absences
+                  {t("yearDetail.validation.absences")}
                 </Typography>
                 <Divider />
                 <Table size={"small"}>
                   <TableBody>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Nombre total (jours):
+                        {t("yearDetail.validation.totalDays")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -343,7 +344,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                           <Typography>{absenceTypeList[leaveType]}:</Typography>
                           <Typography color={theme.palette.primary.main}>
                             {" "}
-                            {numberOfDays} jour(s)
+                            {numberOfDays} {t("yearDetail.validation.days")}
                           </Typography>
                         </Stack>
                       )
@@ -354,14 +355,14 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
               <Grid item xs={12} md={12} className="Garde">
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Gardes
+                  {t("yearDetail.validation.guards")}
                 </Typography>
                 <Divider />
                 <Table size={"small"}>
                   <TableBody>
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Nombre de garde appelable:
+                        {t("yearDetail.validation.callableGuards")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -379,7 +380,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Nombre de garde sur place:
+                        {t("yearDetail.validation.hospitalGuards")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -395,7 +396,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
                     <TableRow>
                       <TableCell align="left" style={{ border: "none" }}>
-                        Conflit de garde?
+                        {t("yearDetail.validation.shiftConflict")}
                       </TableCell>
                       <TableCell
                         align="center"
@@ -417,7 +418,7 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
 
               <Grid item xs={12} md={12} className="Alerte">
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Alerte
+                  {t("yearDetail.validation.alerts")}
                 </Typography>
                 <Divider />
                 {residentReport?.warnings?.map((warning, i) => (
@@ -426,43 +427,43 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                     severity={warning?.warningType === "minLimit" ? "info" : "error"}
                     sx={{ marginTop: 1 }}
                   >
-                    <Typography>Type d'erreur: {warningList[warning?.warningType]}</Typography>
+                    <Typography>{t("yearDetail.validation.errorType")} {warningList[warning?.warningType]}</Typography>
                     {warning?.warningType === "minLimit" && (
                       <>
                         {" "}
                         <Typography>
-                          Nombre d'heures: {convertDecimalToHours(warning?.NumberOfHours)}
+                          {t("yearDetail.validation.hours")} {convertDecimalToHours(warning?.NumberOfHours)}
                         </Typography>
-                        <Typography>Numéro de la semaine: {warning?.week}</Typography>
+                        <Typography>{t("yearDetail.validation.weekNum")} {warning?.week}</Typography>
                         <Typography>
-                          Début de semaine: {dayjs(warning?.startDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.weekStart")} {dayjs(warning?.startDate).format("DD-MM-YYYY")}
                         </Typography>
                         <Typography>
-                          Fin de semaine: {dayjs(warning?.endDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.weekEnd")} {dayjs(warning?.endDate).format("DD-MM-YYYY")}
                         </Typography>
                       </>
                     )}
                     {warning?.warningType === "overruns" && (
                       <>
                         {" "}
-                        <Typography>Période: N°{warning?.period}</Typography>
+                        <Typography>{t("yearDetail.validation.periodLabel")} N°{warning?.period}</Typography>
                         <Typography>
-                          Début de période: {dayjs(warning?.startDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.periodStart")} {dayjs(warning?.startDate).format("DD-MM-YYYY")}
                         </Typography>
                         <Typography>
-                          Fin de période: {dayjs(warning?.endDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.periodEnd")} {dayjs(warning?.endDate).format("DD-MM-YYYY")}
                         </Typography>
                       </>
                     )}
                     {warning?.warningType === "smoothing" && (
                       <>
                         {" "}
-                        <Typography>Période: N°{warning?.period}</Typography>
+                        <Typography>{t("yearDetail.validation.periodLabel")} N°{warning?.period}</Typography>
                         <Typography>
-                          Début de période: {dayjs(warning?.startDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.periodStart")} {dayjs(warning?.startDate).format("DD-MM-YYYY")}
                         </Typography>
                         <Typography>
-                          Fin de période: {dayjs(warning?.endDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.periodEnd")} {dayjs(warning?.endDate).format("DD-MM-YYYY")}
                         </Typography>
                       </>
                     )}
@@ -470,14 +471,14 @@ const Row = ({ residentReport, index, openRowId, setOpenRowId }) => {
                       <>
                         {" "}
                         <Typography>
-                          Nombre d'heures: {convertDecimalToHours(warning?.NumberOfHours)}
+                          {t("yearDetail.validation.hours")} {convertDecimalToHours(warning?.NumberOfHours)}
                         </Typography>
-                        <Typography>Numéro de la semaine: {warning?.week}</Typography>
+                        <Typography>{t("yearDetail.validation.weekNum")} {warning?.week}</Typography>
                         <Typography>
-                          Début de semaine: {dayjs(warning?.startDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.weekStart")} {dayjs(warning?.startDate).format("DD-MM-YYYY")}
                         </Typography>
                         <Typography>
-                          Fin de semaine: {dayjs(warning?.endDate).format("DD-MM-YYYY")}
+                          {t("yearDetail.validation.weekEnd")} {dayjs(warning?.endDate).format("DD-MM-YYYY")}
                         </Typography>
                       </>
                     )}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import { useTheme } from "@mui/material/styles";
@@ -10,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import WeekDispatcher from "./components/WeekDispatcher";
 
 const WeekDispatcherPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -31,7 +33,7 @@ const WeekDispatcherPage = () => {
               fontWeight: 700,
             }}
           >
-            Horaire prévisionnel
+            {t("weekDisp.pageTitle")}
           </Typography>
         </Box>
       </Box>

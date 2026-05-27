@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import Container from "@mui/material/Container";
@@ -12,6 +13,7 @@ import { Typography } from "@mui/material";
 import useResidentYears from "../../../hooks/data/useResidentYears";
 
 const YearsResidentPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const { years, loading, setLoading } = useResidentYears();
 
@@ -28,7 +30,7 @@ const YearsResidentPage = () => {
         paddingTop={theme.spacing(2)}
       >
         <Typography variant={"h3"} sx={{ marginBottom: theme.spacing(4) }}>
-          Mes année(s)
+          {t("years.title")}
         </Typography>
         <Box maxWidth={"100%"} display={"flex"} justifyContent={"center"}>
           {loading && (

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import { toast } from "react-toastify";
 import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
@@ -28,7 +29,6 @@ const PALETTE = [
   '#e8853b', '#3F7A4E', '#7b3fa0', '#E8625A',
 ];
 
-const MONTHS_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 
 // ── Pending op helpers ────────────────────────────────────────────────────────
 
@@ -225,6 +225,8 @@ function WeekDispatcherSkeleton() {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
+  const { t } = useTranslation();
+  const MONTHS = t("weekDisp.months", { returnObjects: true }) as string[];
   const axiosPrivate = useAxiosPrivate();
   const {
     residents, intervals, yearWeekTemplates, assignments,
@@ -269,11 +271,11 @@ const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
         idx,
         num:        iv.weekNumber,
         startD:     s.date(),
-        startM:     MONTHS_FR[s.month()],
+        startM:     MONTHS[s.month()],
         endD:       e.date(),
-        endM:       MONTHS_FR[e.month()],
+        endM:       MONTHS[e.month()],
         month:      s.month(),
-        monthLabel: MONTHS_FR[s.month()],
+        monthLabel: MONTHS[s.month()],
         year:       String(iv.yearNumber ?? s.year()).slice(-2),
       };
     }),
@@ -339,7 +341,7 @@ const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
       await axiosPrivate[method](url, ops);
     } catch (error) {
       handleApiError(error);
-      toast.error("Erreur lors de la mise à jour.", toastError);
+      toast.error(t("weekDisp.allocation.updateError"), toastError);
     }
   };
 
@@ -407,7 +409,7 @@ const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
       years={(years as any[]).map((y) => ({ id: y.yearId, title: y.yearInfo?.title ?? y.title ?? '', period: y.yearInfo?.period ?? y.period, location: y.yearInfo?.location ?? y.location, dateOfStart: y.yearInfo?.dateOfStart ?? y.dateOfStart, dateOfEnd: y.yearInfo?.dateOfEnd ?? y.dateOfEnd, status: y.status }))}
       value={currentYearId ?? ""}
       onChange={handleYearChange}
-      label="Année"
+      label={t("calendar.yearLabel")}
       disabled={isLoading}
     />
   );
@@ -415,9 +417,7 @@ const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
   if (!isLoading && (years as any[]).length === 0) {
     return (
       <Box p={3}>
-        <Alert severity="info">
-          Vous n'avez actuellement aucune année en cours. Seules les années en cours ou à venir sont susceptibles d'être planifiées.
-        </Alert>
+        <Alert severity="info">{t("weekDisp.allocation.noYear")}</Alert>
       </Box>
     );
   }
@@ -447,7 +447,7 @@ const WeekTaskAllocation = ({ isLoading }: { isLoading: boolean }) => {
         {cellHasAssignment && [
           <Divider key="div" />,
           <MenuItem key="remove" sx={{ color: "error.main" }} onClick={handleRemoveAssignment}>
-            Retirer l'assignation
+            {t("weekDisp.allocation.removeAssignment")}
           </MenuItem>,
         ]}
       </Menu>

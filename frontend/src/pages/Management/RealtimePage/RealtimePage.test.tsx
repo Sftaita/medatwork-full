@@ -19,6 +19,33 @@ vi.mock("../../../hooks/useAxiosPrivate", () => ({
   default: () => stableAxios,
 }));
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      if (key === "stats.months") {
+        return ["", "JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
+      }
+      const map: Record<string, string> = {
+        "stats.title":       "Activité par mois",
+        "stats.subtitle":    "En temps réel",
+        "stats.noMaccs":     "Aucun MACCS n'est enregistré pour cette année",
+        "stats.searchDates": "Dates recherchées",
+        "stats.month":       "Mois",
+        "stats.year":        "Année",
+        "common.cancel":     "Annuler",
+        "common.confirm":    "Valider",
+        "stats.overview":    "Vue d'ensemble",
+        "stats.hoursPerWeek":"Heures / semaine",
+        "stats.hours":       "Heures",
+        "stats.week":        "Semaine",
+        "stats.weekShort":   "S",
+      };
+      return map[key] ?? key;
+    },
+    i18n: { language: "fr" },
+  }),
+}));
+
 vi.mock("../../../hooks/useAuth", () => ({
   default: () => ({ authentication: { AccessToken: "fake-token" } }),
 }));

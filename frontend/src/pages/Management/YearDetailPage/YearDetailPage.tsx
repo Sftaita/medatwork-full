@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 // Material UI
@@ -22,6 +23,7 @@ import ResidentParameters from "./component/ParametersViews/ResidentParameters";
 import Compliance from "./component/Compliance";
 
 const YearDetailPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -70,10 +72,10 @@ const YearDetailPage = () => {
         >
           <Grid container direction="row" justifyContent="space-between" alignItems="flex-start">
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              Tableau de bord
+              {t("yearDetail.title")}
             </Typography>
             <Button variant="outlined" onClick={() => returnPoint()}>
-              Retour
+              {t("yearDetail.back")}
             </Button>
           </Grid>
           <Typography variant="h6" sx={{ color: "primary.main" }}>
@@ -110,7 +112,7 @@ const YearDetailPage = () => {
             </Card>
             <Box marginTop={4} marginBottom={4}>
               <Button variant="outlined" onClick={() => returnPoint()}>
-                Retour
+                {t("yearDetail.back")}
               </Button>
             </Box>
           </Grid>

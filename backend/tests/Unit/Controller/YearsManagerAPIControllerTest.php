@@ -6,6 +6,7 @@ namespace App\Tests\Unit\Controller;
 
 use App\Controller\YearsAPI\ManagersAPI\YearsManagerAPIController;
 use App\Entity\Hospital;
+use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\Years;
 use App\Enum\ManagerJob;
@@ -23,6 +24,11 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Unit tests for YearsManagerAPIController.
+ *
+ * getManagerHospitals covers:
+ * - Manager with multiple linked hospitals → 200 + list (id, name, city)
+ * - Manager with no linked hospitals → 200 + []
+ * - HospitalAdmin user → 200 + their single hospital
  *
  * getHospitalManagersForYear covers:
  * - Year not found → 404
@@ -82,6 +88,94 @@ final class YearsManagerAPIControllerTest extends TestCase
         $m->method('getHospital')->willReturn('CHU Liège');
 
         return $m;
+    }
+
+    // ── getManagerHospitals — Manager ─────────────────────────────────────────
+
+    private function makeHospitalEntity(int $id, string $name, ?string $city): Hospital
+    {
+        $h = $this->createMock(Hospital::class);
+        $h->method('getId')->willReturn($id);
+        $h->method('getName')->willReturn($name);
+        $h->method('getCity')->willReturn($city);
+        return $h;
+    }
+
+    public function testGetManagerHospitalsReturnsLinkedHospitals(): void
+    {
+        $h1 = $this->makeHospitalEntity(1, 'CHU Liège', 'Liège');
+        $h2 = $this->makeHospitalEntity(2, 'CHR Namur', 'Namur');
+
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getHospitals')->willReturn(new ArrayCollection([$h1, $h2]));
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($manager);
+
+        $response = $this->buildController()->getManagerHospitals($security);
+        $data = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(2, $data);
+        $this->assertSame(1, $data[0]['id']);
+        $this->assertSame('CHU Liège', $data[0]['name']);
+        $this->assertSame('Liège', $data[0]['city']);
+        $this->assertSame(2, $data[1]['id']);
+        $this->assertSame('CHR Namur', $data[1]['name']);
+    }
+
+    public function testGetManagerHospitalsReturnsEmptyArrayWhenNoHospitals(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getHospitals')->willReturn(new ArrayCollection([]));
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($manager);
+
+        $response = $this->buildController()->getManagerHospitals($security);
+        $data = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame([], $data);
+    }
+
+    public function testGetManagerHospitalsWithNullCityReturnsNull(): void
+    {
+        $h = $this->makeHospitalEntity(3, 'Hôpital X', null);
+
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getHospitals')->willReturn(new ArrayCollection([$h]));
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($manager);
+
+        $response = $this->buildController()->getManagerHospitals($security);
+        $data = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertNull($data[0]['city']);
+    }
+
+    // ── getManagerHospitals — HospitalAdmin ────────────────────────────────────
+
+    public function testGetManagerHospitalsForHospitalAdminReturnsSingleHospital(): void
+    {
+        $hospital = $this->makeHospitalEntity(5, 'Clinique Saint-Luc', 'Bruxelles');
+
+        $admin = $this->createMock(HospitalAdmin::class);
+        $admin->method('getHospital')->willReturn($hospital);
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($admin);
+
+        $response = $this->buildController()->getManagerHospitals($security);
+        $data = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(1, $data);
+        $this->assertSame(5, $data[0]['id']);
+        $this->assertSame('Clinique Saint-Luc', $data[0]['name']);
+        $this->assertSame('Bruxelles', $data[0]['city']);
     }
 
     // ── Year not found ─────────────────────────────────────────────────────────

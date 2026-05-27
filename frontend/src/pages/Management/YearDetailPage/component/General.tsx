@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import periodsApi from "../../../../services/periodsApi";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import { monthList } from "../../../../doc/lists";
@@ -18,6 +19,7 @@ import ResidentValidation from "./ValidationView/ResidentValidation";
 import { handleApiError } from "@/services/apiError";
 
 const General = ({ yearId, _adminRights }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
 
   const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ const General = ({ yearId, _adminRights }) => {
       ) : periods.length === 0 ? (
         <Grid item xs={12}>
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="20vh">
-            <Typography color="text.secondary">Aucune période de validation disponible.</Typography>
+            <Typography color="text.secondary">{t("yearDetail.noPeriods")}</Typography>
           </Box>
         </Grid>
       ) : (

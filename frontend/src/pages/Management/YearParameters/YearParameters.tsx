@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import yearsApi from "../../../services/yearsApi";
 import useAxiosPrivate from "../../../hooks/useAxiosPrivate";
 import { useLocation } from "react-router";
@@ -20,6 +21,7 @@ import GeneralInformation from "./components/GeneralInformation";
 import { handleApiError } from "@/services/apiError";
 
 const YearParameters = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -60,7 +62,7 @@ const YearParameters = () => {
           color={"secondary"}
           align={"center"}
         >
-          Paramètres
+          {t("yearParams.pageTitle")}
         </Typography>
         <Typography
           variant="h4"
@@ -70,7 +72,7 @@ const YearParameters = () => {
             fontWeight: 700,
           }}
         >
-          Informations de l'année
+          {t("yearParams.pageSubtitle")}
         </Typography>
       </Box>
 

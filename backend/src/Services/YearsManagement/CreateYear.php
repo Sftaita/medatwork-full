@@ -66,9 +66,9 @@ class CreateYear
             $yearWeekInterval = new YearsWeekIntervals();
             $yearWeekInterval->setDateOfStart(new DateTime($weekInterval['dateOfStart']));
             $yearWeekInterval->setDateOfEnd(new DateTime($weekInterval['dateOfEnd']));
-            $yearWeekInterval->setWeekNumber($weekInterval['weekNumber']);
-            $yearWeekInterval->setMonthNumber($weekInterval['monthNumber']);
-            $yearWeekInterval->setYearNumber($weekInterval['yearNumber']);
+            $yearWeekInterval->setWeekNumber((int) $weekInterval['weekNumber']);
+            $yearWeekInterval->setMonthNumber((int) $weekInterval['monthNumber']);
+            $yearWeekInterval->setYearNumber((int) $weekInterval['yearNumber']);
             $yearWeekInterval->setDeleted($weekInterval['deleted']);
             $yearWeekInterval->setYear($year);
 

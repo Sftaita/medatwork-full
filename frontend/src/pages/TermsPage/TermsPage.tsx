@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 
 // Material UI
@@ -12,6 +13,7 @@ import Content from "./components/Content";
 import Contact from "./components/Contact";
 
 const TermsPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
 
   useEffect(() => {
@@ -38,7 +40,7 @@ const TermsPage = () => {
                   color: theme.palette.common.white,
                 }}
               >
-                Politique de confidentialité — MED@WORK
+                {t("terms.title")}
               </Typography>
               <Typography
                 gutterBottom
@@ -46,7 +48,7 @@ const TermsPage = () => {
                   color: theme.palette.common.white,
                 }}
               >
-                Dernière mise à jour : <strong>18 mai 2026</strong>
+                {t("terms.lastUpdate")}
               </Typography>
             </Container>
             <Box

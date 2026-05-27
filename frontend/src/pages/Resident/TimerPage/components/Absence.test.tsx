@@ -5,10 +5,9 @@
  * - Renders correctly
  * - Validation: year, type, dateOfStart required
  * - Validation multidate: dateOfEnd required; end before/same as start
- * - Success: toast shown, form reset (year preserved, multidate reset to false) — regression #4
- * - Error: handleApiError called once, no crash on network error (no response) — regression #2
- * - Stale closure fix: state updates use functional updaters
- * - Dialog opens for sickLeave / paternityLeave / maternityLeave
+ * - Success: toast shown, form reset (year preserved, multidate reset to false)
+ * - Error: handleApiError called once, no crash on network error — regression #2
+ * - Inline banners (not dialogs) for sickLeave / paternityLeave / maternityLeave
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -25,44 +24,20 @@ vi.mock("../../../../hooks/useAxiosPrivate", () => ({ default: () => stableAxios
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-// Stub DateHandler — date pickers are too heavy for unit tests
-vi.mock("../../../../components/medium/DateHandler", () => ({
-  default: ({ label, onChange, value, helperText }: any) => (
-    <>
-      <input
-        aria-label={label}
-        data-testid={`date-${label}`}
-        defaultValue={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {helperText && <span role="note">{helperText}</span>}
-    </>
-  ),
-}));
-
-// Stub CustomDialog — not under test here
-vi.mock("../../../../components/medium/CustomDialog", () => ({
-  default: ({ open, title }: any) =>
-    open ? <div role="dialog" aria-label={title}>{title}</div> : null,
-}));
-
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const YEARS = [{ id: 1, title: "Stage 2025-2026" }];
 
 function renderAbsence(props: Partial<React.ComponentProps<typeof Absence>> = {}) {
   return render(
     <MemoryRouter>
-      <Absence years={YEARS} yearsLoading={false} {...props} />
+      <Absence years={YEARS} yearsLoading={false} compact={false} {...props} />
     </MemoryRouter>
   );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function selectType(typeText: string) {
-  fireEvent.mouseDown(screen.getByLabelText(/type d'absence/i));
-  return waitFor(() => {
-    fireEvent.click(screen.getByText(typeText));
-  });
+function selectAbsenceType(value: string) {
+  fireEvent.change(screen.getByLabelText(/type d'absence/i), { target: { value } });
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -87,8 +62,7 @@ describe("Absence — rendu", () => {
 
   it("affiche le champ fin quand multidate est activé", () => {
     renderAbsence();
-    const switchInput = screen.getByRole("checkbox");
-    fireEvent.click(switchInput);
+    fireEvent.click(screen.getByRole("checkbox"));
     expect(screen.getByLabelText(/fin de l'absence/i)).toBeInTheDocument();
   });
 });
@@ -100,7 +74,7 @@ describe("Absence — validation", () => {
     renderAbsence({ years: [] });
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné l'année/i)).toBeInTheDocument()
+      expect(screen.getByText(/sélectionner une année/i)).toBeInTheDocument()
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -109,7 +83,7 @@ describe("Absence — validation", () => {
     renderAbsence();
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné le type/i)).toBeInTheDocument()
+      expect(screen.getByText(/sélectionner le type d'absence/i)).toBeInTheDocument()
     );
   });
 
@@ -117,7 +91,7 @@ describe("Absence — validation", () => {
     renderAbsence();
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné la date de début/i)).toBeInTheDocument()
+      expect(screen.getByText(/renseigner la date de début/i)).toBeInTheDocument()
     );
   });
 
@@ -125,15 +99,13 @@ describe("Absence — validation", () => {
     renderAbsence();
     fireEvent.click(screen.getByRole("checkbox")); // activer multidate
 
-    // Remplir début
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
 
-    await selectType("Congé annuel");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné la date de fin/i)).toBeInTheDocument()
+      expect(screen.getByText(/renseigner la date de fin/i)).toBeInTheDocument()
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -154,10 +126,9 @@ describe("Absence — soumission réussie", () => {
   it("appelle POST avec les bons champs", async () => {
     renderAbsence();
 
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
 
-    await selectType("Congé annuel");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() => expect(mockPost).toHaveBeenCalledOnce());
@@ -172,33 +143,28 @@ describe("Absence — soumission réussie", () => {
     const { toast } = await import("react-toastify");
     renderAbsence();
 
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
 
-    await selectType("Congé annuel");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Enregistrement validé!", expect.anything())
+      expect(toast.success).toHaveBeenCalledWith("Enregistrement validé !", expect.anything())
     );
   });
 
-  it("réinitialise multidate à false après succès (régression #4)", async () => {
+  it("réinitialise multidate à false après succès", async () => {
     renderAbsence();
 
-    // Activer multidate
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("checkbox")); // activer multidate
     expect(screen.getByLabelText(/fin de l'absence/i)).toBeInTheDocument();
 
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
-    const endInput = screen.getByLabelText(/fin de l'absence/i);
-    fireEvent.change(endInput, { target: { value: "2025-03-12" } });
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    fireEvent.change(screen.getByLabelText(/fin de l'absence/i), { target: { value: "2025-03-12" } });
+    selectAbsenceType("annualLeave");
 
-    await selectType("Congé annuel");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
-    // Après succès, le champ fin disparaît (multidate = false)
     await waitFor(() =>
       expect(screen.queryByLabelText(/fin de l'absence/i)).not.toBeInTheDocument()
     );
@@ -207,15 +173,12 @@ describe("Absence — soumission réussie", () => {
   it("préserve l'année sélectionnée après reset", async () => {
     renderAbsence();
 
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
 
-    await selectType("Congé annuel");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() => expect(mockPost).toHaveBeenCalled());
-
-    // L'année reste affichée
     expect(screen.getByText("Stage 2025-2026")).toBeInTheDocument();
   });
 });
@@ -227,10 +190,8 @@ describe("Absence — gestion d'erreur", () => {
     mockPost.mockRejectedValueOnce({ response: { status: 400, data: { message: "Overlap" } } });
 
     renderAbsence();
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
-
-    await selectType("Congé annuel");
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() => expect(mockHandleApiError).toHaveBeenCalledOnce());
@@ -241,54 +202,51 @@ describe("Absence — gestion d'erreur", () => {
     mockPost.mockRejectedValueOnce({ response: { status: 400, data: { message: "Overlap" } } });
 
     renderAbsence();
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
-
-    await selectType("Congé annuel");
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() => expect(mockHandleApiError).toHaveBeenCalledOnce());
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it("ne plante pas sur erreur réseau sans objet response (régression #2)", async () => {
+  it("ne plante pas sur erreur réseau sans objet response", async () => {
     mockPost.mockRejectedValueOnce(new Error("Network Error"));
 
     renderAbsence();
-    const startInput = screen.getByLabelText(/début de l'absence/i);
-    fireEvent.change(startInput, { target: { value: "2025-03-10" } });
-
-    await selectType("Congé annuel");
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "2025-03-10" } });
+    selectAbsenceType("annualLeave");
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() => expect(mockHandleApiError).toHaveBeenCalledOnce());
   });
 });
 
-describe("Absence — dialog certificat", () => {
+describe("Absence — banners types sensibles", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("ouvre le dialog Certificat médical pour congé maladie", async () => {
+  it("affiche la note Certificat médical pour congé maladie", () => {
     renderAbsence();
-    await selectType("Congé maladie");
-    await waitFor(() =>
-      expect(screen.getByRole("dialog", { name: /Certificat médical/i })).toBeInTheDocument()
-    );
+    selectAbsenceType("sickLeave");
+    expect(screen.getByText("Certificat médical")).toBeInTheDocument();
   });
 
-  it("ouvre le dialog Certificat de naissance pour congé paternité", async () => {
+  it("affiche la note Certificat de naissance pour congé paternité", () => {
     renderAbsence();
-    await selectType("Congé paternité");
-    await waitFor(() =>
-      expect(screen.getByRole("dialog", { name: /Certificat de naissance/i })).toBeInTheDocument()
-    );
+    selectAbsenceType("paternityLeave");
+    expect(screen.getByText("Certificat de naissance")).toBeInTheDocument();
   });
 
-  it("n'ouvre pas de dialog pour congé annuel", async () => {
+  it("affiche la note Certificat de naissance pour congé maternité", () => {
     renderAbsence();
-    await selectType("Congé annuel");
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-    );
+    selectAbsenceType("maternityLeave");
+    expect(screen.getByText("Certificat de naissance")).toBeInTheDocument();
+  });
+
+  it("n'affiche pas de note pour congé annuel", () => {
+    renderAbsence();
+    selectAbsenceType("annualLeave");
+    expect(screen.queryByText("Certificat médical")).not.toBeInTheDocument();
+    expect(screen.queryByText("Certificat de naissance")).not.toBeInTheDocument();
   });
 });

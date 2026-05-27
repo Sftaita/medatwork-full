@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import { NavLink } from "react-router-dom";
 
@@ -14,35 +15,25 @@ import Encoder from "../../../images/Encoder";
 import Stats from "../../../images/Stats";
 import HumanResouce from "../../../images/HumanRessource";
 
-const mock = [
-  {
-    title: "MACCS",
-    description:
-      "L'application s'intalle facilement sur smartphone et permet un encodage rapide des heures prestées, gardes effectuées et jours de congé disponibles. L'assistant Med@Work peut être activé afin de vous avertir en cas d'oubli d'encodage. Vous restez ainsi à jour.",
-    illustration: <Encoder width={"100%"} height={"100%"} />,
-    link: "/jobDetail/Residents",
-  },
-  {
-    title: "Maître de stage et collaborateurs",
-    description:
-      "Permettre une gestion des horaires en temps réel afin de respecter le cadre légal. Assurer la rotation des MACCS afin de maintenir l'équilibre. Faire participer votre service des Ressources Humaines pour la validation à temps des horaires. Eviter ainsi la signature à l'aveugle de feuilles horaires illisibles.",
-    illustration: <Stats width={"100%"} height={"100%"} />,
-    link: "/jobDetail/Managers",
-  },
-  {
-    title: "Ressources Humaines",
-    description:
-      "Recevez une notification de la validation mensuelle par les maîtres de stage. Le générateur de tableau horaire vous permettra d'encoder facilement et sans incohérence les horaires à facturer. Vous pourrez ensuite les stocker dans vos archives.",
-    illustration: <HumanResouce width={"100%"} height={"100%"} />,
-    link: "/jobDetail/HR",
-  },
+const ITEM_LINKS = ["/jobDetail/Residents", "/jobDetail/Managers", "/jobDetail/HR"];
+const ILLUSTRATIONS = [
+  <Encoder width={"100%"} height={"100%"} />,
+  <Stats width={"100%"} height={"100%"} />,
+  <HumanResouce width={"100%"} height={"100%"} />,
 ];
 
 const Description = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
   });
+
+  const mock = [
+    { title: t("desc.description.item0Title"), description: t("desc.description.item0Desc"), illustration: ILLUSTRATIONS[0], link: ITEM_LINKS[0] },
+    { title: t("desc.description.item1Title"), description: t("desc.description.item1Desc"), illustration: ILLUSTRATIONS[1], link: ITEM_LINKS[1] },
+    { title: t("desc.description.item2Title"), description: t("desc.description.item2Desc"), illustration: ILLUSTRATIONS[2], link: ITEM_LINKS[2] },
+  ];
 
   return (
     <Grid container spacing={4}>
@@ -57,10 +48,10 @@ const Description = () => {
             color={"secondary"}
             align={"center"}
           >
-            Notre philosophie
+            {t("desc.description.tag")}
           </Typography>
           <Typography variant={"h4"} sx={{ fontWeight: 700 }} align={"center"}>
-            Une coopération entre MACCS, maîtres de stage & RH
+            {t("desc.description.title")}
           </Typography>
           <Typography
             variant="h6"
@@ -68,9 +59,7 @@ const Description = () => {
             color="text.secondary"
             align={isMd ? "center" : "justify"}
           >
-            Nous pensons qu'un outil de gestion horaire idéal permet une diminution de la charge
-            mentale liée aux horaires. Il doit également permettre de réduire les ressources en
-            temps et en coûts.
+            {t("desc.description.subtitle")}
           </Typography>
           <Box marginTop={2} display={"flex"} justifyContent={"center"}>
             <NavLink to={"/contactUs"} style={{ textDecoration: "none" }}>
@@ -91,7 +80,7 @@ const Description = () => {
                   </svg>
                 }
               >
-                Contactez-nous
+                {t("desc.description.contactUs")}
               </Button>
             </NavLink>
           </Box>
@@ -150,7 +139,7 @@ const Description = () => {
                     </Box>
                   }
                 >
-                  En savoir plus
+                  {t("desc.description.learnMore")}
                 </Button>
               </NavLink>
             </Box>

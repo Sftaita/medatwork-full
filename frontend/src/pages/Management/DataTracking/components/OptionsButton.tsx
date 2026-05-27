@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import timesheetsApi from "../../../../services/timesheetsApi";
 import { toast } from "react-toastify";
@@ -17,6 +18,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { handleApiError } from "@/services/apiError";
 
 const OptionsButton = ({ selected, timesheets, setTimesheets }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
@@ -46,7 +48,7 @@ const OptionsButton = ({ selected, timesheets, setTimesheets }) => {
         timesheetIds: selected,
       });
 
-      toast.success("Modification(s) enregistrée(s)", toastSuccess);
+      toast.success(t("data.saveSuccess"), toastSuccess);
       return request?.data;
     } catch (error) {
       handleApiError(error);
@@ -71,7 +73,7 @@ const OptionsButton = ({ selected, timesheets, setTimesheets }) => {
           key={1}
           icon={<DoneIcon />}
           sx={{ color: theme.palette.primary.main }}
-          tooltipTitle={"Valider les horaires"}
+          tooltipTitle={t("data.validateTooltip")}
           onClick={() => handleUpdate("validate")}
           disabled={isPending}
         />
@@ -79,7 +81,7 @@ const OptionsButton = ({ selected, timesheets, setTimesheets }) => {
           key={2}
           icon={<ClearIcon />}
           sx={{ color: theme.palette.primary.main }}
-          tooltipTitle={"Invalider les horaires"}
+          tooltipTitle={t("data.invalidateTooltip")}
           onClick={() => handleUpdate("invalidate")}
           disabled={isPending}
         />

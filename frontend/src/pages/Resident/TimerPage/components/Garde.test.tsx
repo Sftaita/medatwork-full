@@ -24,11 +24,7 @@ vi.mock("../../../../hooks/useAxiosPrivate", () => ({ default: () => stableAxios
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-vi.mock("../../../../components/medium/CustomDateTimeHandler", () => ({
-  default: ({ label }: any) => (
-    <input aria-label={label} data-testid={`dt-${label}`} defaultValue="2025-03-10 18:00" />
-  ),
-}));
+// Note: Garde now uses native date/time inputs (no MUI DateTimePicker mock needed)
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const YEARS = [{ id: 1, title: "Stage 2025-2026" }];
@@ -51,9 +47,10 @@ describe("Garde — rendu", () => {
     expect(screen.getByRole("button", { name: /enregistrer/i })).toBeInTheDocument();
   });
 
-  it("affiche le sélecteur de type de garde", () => {
+  it("affiche les options de type de garde", () => {
     renderGarde();
-    expect(screen.getByLabelText(/type de garde/i)).toBeInTheDocument();
+    expect(screen.getByText("Garde appelable")).toBeInTheDocument();
+    expect(screen.getByText("Garde sur place")).toBeInTheDocument();
   });
 
   it("désactive le bouton pendant le chargement des années", () => {
@@ -69,7 +66,7 @@ describe("Garde — validation", () => {
     renderGarde({ years: [] });
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné l'année/i)).toBeInTheDocument()
+      expect(screen.getByText(/sélectionner une année/i)).toBeInTheDocument()
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -78,7 +75,7 @@ describe("Garde — validation", () => {
     renderGarde();
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné le type de garde/i)).toBeInTheDocument()
+      expect(screen.getByText(/sélectionner le type de garde/i)).toBeInTheDocument()
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -93,9 +90,7 @@ describe("Garde — soumission réussie", () => {
   it("appelle POST avec type et year corrects après sélection", async () => {
     renderGarde();
 
-    // Sélectionner le type de garde
-    fireEvent.mouseDown(screen.getByLabelText(/type de garde/i));
-    await waitFor(() => screen.getByRole("listbox"));
+    // Sélectionner le type de garde (boutons radio-style)
     fireEvent.click(screen.getByText("Garde appelable"));
 
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
@@ -111,12 +106,10 @@ describe("Garde — soumission réussie", () => {
     const { toast } = await import("react-toastify");
     renderGarde();
 
-    fireEvent.mouseDown(screen.getByLabelText(/type de garde/i));
-    await waitFor(() => screen.getByRole("listbox"));
     fireEvent.click(screen.getByText("Garde sur place"));
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Enregistrement validé!", expect.anything()));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Enregistrement validé !", expect.anything()));
   });
 });
 
@@ -129,8 +122,6 @@ describe("Garde — gestion d'erreur (régression double toast)", () => {
   it("appelle handleApiError exactement une fois", async () => {
     renderGarde();
 
-    fireEvent.mouseDown(screen.getByLabelText(/type de garde/i));
-    await waitFor(() => screen.getByRole("listbox"));
     fireEvent.click(screen.getByText("Garde appelable"));
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
@@ -141,8 +132,6 @@ describe("Garde — gestion d'erreur (régression double toast)", () => {
     const { toast } = await import("react-toastify");
     renderGarde();
 
-    fireEvent.mouseDown(screen.getByLabelText(/type de garde/i));
-    await waitFor(() => screen.getByRole("listbox"));
     fireEvent.click(screen.getByText("Garde sur place"));
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
@@ -155,8 +144,6 @@ describe("Garde — gestion d'erreur (régression double toast)", () => {
     mockPost.mockRejectedValueOnce(new Error("Network Error"));
 
     renderGarde();
-    fireEvent.mouseDown(screen.getByLabelText(/type de garde/i));
-    await waitFor(() => screen.getByRole("listbox"));
     fireEvent.click(screen.getByText("Garde appelable"));
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 

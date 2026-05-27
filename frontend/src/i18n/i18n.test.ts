@@ -8,7 +8,7 @@
  * - Fallback to French for a missing key in English/Dutch
  * - Locale files have consistent keys across all three languages
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import i18n from "./config";
 
 import fr from "./locales/fr.json";
@@ -16,6 +16,12 @@ import en from "./locales/en.json";
 import nl from "./locales/nl.json";
 
 beforeAll(async () => {
+  await i18n.changeLanguage("fr");
+});
+
+// Reset to French after all tests so subsequent files in the same worker
+// don't inherit "nl" from the Dutch test block.
+afterAll(async () => {
   await i18n.changeLanguage("fr");
 });
 

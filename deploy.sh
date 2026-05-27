@@ -65,7 +65,8 @@ echo "  ✓ Working tree propre"
 echo "▸ [2/9] Vérification migrations locales..."
 cd "$ROOT_DIR/backend"
 
-if ! php bin/console doctrine:migrations:up-to-date --no-interaction 2>&1; then
+NEW_MIGRATIONS=$(php bin/console doctrine:migrations:status --no-interaction 2>&1 | grep -E "^\|\s*New\s*\|" | grep -oE "[0-9]+" | tail -1)
+if [ "${NEW_MIGRATIONS:-0}" -gt 0 ]; then
   echo ""
   echo "  ✗ Des migrations ne sont pas appliquées localement !"
   echo ""

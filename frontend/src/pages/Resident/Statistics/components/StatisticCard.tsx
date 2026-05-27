@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BarChart,
   Bar,
@@ -33,43 +34,6 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 // General component
 import ScrollDialog from "../../../../components/medium/ScrollDialog";
 
-const title = "Informations";
-const text = [
-  <>
-    <strong>Nombre d'heures prévues :</strong> Représente le nombre d'heures prévues pour le mois
-    entier (du premier au dernier jour du mois), calculé à partir des horaires prévisionnels. Si
-    vous n'avez pas établi d'horaire prévisionnel, cette valeur sera de 0.
-  </>,
-  <>
-    <strong>Heures totales :</strong> Décompte des heures effectuées (du premier au dernier jour du
-    mois) à l'hôpital pour le mois sélectionné. Elle inclut les heures classiques, les gardes sur
-    place, les retours de garde appelables et les absences justifiées, comptabilisées comme 9h36 par
-    jour d'absence. Les heures totales englobent les heures normales, inconfortables et très
-    inconfortables. Notez l'apparition d'un pourcentage à droite du total d'heures, indiquant la
-    progression des heures réalisées par rapport aux heures prévues. Le pourcentage devient rouge et
-    dépasse 100% lorsque le nombre d'heures effectuées est supérieur au nombre d'heures prévu.
-  </>,
-  <>
-    <strong>Heures inconfortables :</strong> Heures de pénibilité majorées de 25% du salaire horaire
-    (pour les samedis et les heures comprises entre 20h et 8h).
-  </>,
-  <>
-    <strong>Heures très inconfortables :</strong> Heures de pénibilité majorées de 50% du salaire
-    horaire (pour les dimanches et jours fériés).
-  </>,
-  <>
-    <strong>Nombre de gardes appelables :</strong> Correspond au nombre de périodes de garde
-    appelable. Une période légale s'étend de 8h à 20h et de 20h à 8h.
-  </>,
-  <>
-    <strong>Garde sur place :</strong> Heures effectuées pendant une garde sur place.
-  </>,
-  <>
-    <strong>Horaire prévisionnel :</strong> Comparaison entre les heures prévues et les heures
-    effectivement réalisées. Si aucun horaire prévisionnel n'a été établi, la colonne des heures
-    prévisionnelles restera vide.
-  </>,
-];
 
 // Styled Grid component
 const StyledGrid = styled(Grid)(({ theme }) => ({
@@ -107,25 +71,30 @@ const convertHours = (value: number | null | undefined) => {
 };
 
 const StatisticCard = ({ item }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
   });
 
+  const title = t("stats.infoTitle");
+  const text = [
+    <><strong>{t("stats.infoScheduledTitle")} :</strong> {t("stats.infoScheduledDesc")}</>,
+    <><strong>{t("stats.infoTotalTitle")} :</strong> {t("stats.infoTotalDesc")}</>,
+    <><strong>{t("stats.infoHardTitle")} :</strong> {t("stats.infoHardDesc")}</>,
+    <><strong>{t("stats.infoVeryHardTitle")} :</strong> {t("stats.infoVeryHardDesc")}</>,
+    <><strong>{t("stats.infoCallableTitle")} :</strong> {t("stats.infoCallableDesc")}</>,
+    <><strong>{t("stats.infoHospitalTitle")} :</strong> {t("stats.infoHospitalDesc")}</>,
+    <><strong>{t("stats.infoScheduledChartTitle")} :</strong> {t("stats.infoScheduledChartDesc")}</>,
+  ];
+
   const transformData = (item) => {
-    if (!item || !item.week || typeof item.week !== "object") {
-      return []; // Retourner un tableau vide si item, item.week est falsy ou si item.week n'est pas un objet
-    }
-
-    const data = Object.keys(item.week).map((key) => ({
-      name: `Sem ${key}`,
-      "Heures prestées": item.week[key],
-      // Si item.scheduledWeek n'existe pas ou ne contient pas la clé, utilisez 0 comme valeur par défaut
-      "Heures prévisionnelles":
-        item.scheduledWeek && item.scheduledWeek[key] ? item.scheduledWeek[key] : 0,
+    if (!item || !item.week || typeof item.week !== "object") return [];
+    return Object.keys(item.week).map((key) => ({
+      name: `${t("stats.weekShort")} ${key}`,
+      worked: item.week[key],
+      scheduled: item.scheduledWeek?.[key] ?? 0,
     }));
-
-    return data;
   };
 
   const data = transformData(item);
@@ -179,7 +148,7 @@ const StatisticCard = ({ item }) => {
             title={item?.firstname + " " + item?.lastname}
             subheader={
               <Typography variant="body2">
-                Nombre d'heures prévues pour le mois:{" "}
+                {t("stats.scheduledHoursMonth")}{" "}
                 <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
                   {convertHours(item?.scheduledMonth).hours}h
                   {convertHours(item?.scheduledMonth).minutes !== 0 &&
@@ -265,7 +234,7 @@ const StatisticCard = ({ item }) => {
                     </Box>
                     <Box sx={{ display: "flex" }}>
                       {" "}
-                      <Typography variant="body2">Heures totales</Typography>
+                      <Typography variant="body2">{t("stats.totalHours")}</Typography>
                     </Box>
                   </Box>
                 </Box>
@@ -296,7 +265,7 @@ const StatisticCard = ({ item }) => {
                         />
                       )}
                     </Typography>
-                    <Typography variant="body2">Heures inconfortables</Typography>
+                    <Typography variant="body2">{t("stats.hardHours")}</Typography>
                   </Box>
                 </Box>
               </Grid>
@@ -332,7 +301,7 @@ const StatisticCard = ({ item }) => {
                       )}
                     </Typography>
 
-                    <Typography variant="body2"> Heures très inconfortables</Typography>
+                    <Typography variant="body2">{t("stats.veryHardHours")}</Typography>
                   </Box>
                 </Box>
               </Grid>
@@ -355,7 +324,7 @@ const StatisticCard = ({ item }) => {
                     <Typography sx={{ fontWeight: 600 }}>
                       <CountUp start={0} end={item?.callableGardeNb ?? 0} duration={2} />
                     </Typography>
-                    <Typography variant="body2">Nombre de gardes appelables</Typography>
+                    <Typography variant="body2">{t("stats.callableGuards")}</Typography>
                   </Box>
                 </Box>
               </Grid>
@@ -390,7 +359,7 @@ const StatisticCard = ({ item }) => {
                         />
                       )}
                     </Typography>
-                    <Typography variant="body2"> Gardes sur place</Typography>
+                    <Typography variant="body2">{t("stats.hospitalGuards")}</Typography>
                   </Box>
                 </Box>
               </Grid>
@@ -446,7 +415,7 @@ const StatisticCard = ({ item }) => {
                       )}
                     </Box>
 
-                    <Typography variant="body2">Jours de congé</Typography>
+                    <Typography variant="body2">{t("stats.leaveDays")}</Typography>
                   </Box>
                   <IconButton onClick={handleClickPopover}>
                     <KeyboardArrowDownIcon fontSize="large" color="primary" />
@@ -462,23 +431,23 @@ const StatisticCard = ({ item }) => {
                     }}
                   >
                     <Typography sx={{ p: 1 }}>
-                      Congé annuel: {item?.absences?.yearLegalLeaves} /
+                      {t("stats.annualLeave")} {item?.absences?.yearLegalLeaves} /
                       {" " + item?.absences?.yearScheduledAbsences?.legalLeaves}
                     </Typography>
                     <Typography sx={{ p: 1 }}>
-                      Congé scientifique: {item?.absences?.yearScientificLeaves} /
+                      {t("stats.scientificLeave")} {item?.absences?.yearScientificLeaves} /
                       {" " + item?.absences?.yearScheduledAbsences?.scientificLeaves}
                     </Typography>
                     <Typography sx={{ p: 1 }}>
-                      Congé paternité: {item?.absences?.yearPaternityLeaves} /
+                      {t("stats.paternityLeave")} {item?.absences?.yearPaternityLeaves} /
                       {" " + item?.absences?.yearScheduledAbsences?.paternityLeave}
                     </Typography>
                     <Typography sx={{ p: 1 }}>
-                      Congé maternité: {item?.absences?.yearMaternityLeaves} /
+                      {t("stats.maternityLeave")} {item?.absences?.yearMaternityLeaves} /
                       {" " + item?.absences?.yearScheduledAbsences?.maternityLeave}
                     </Typography>
                     <Typography sx={{ p: 1 }}>
-                      Congé non rémunéré: {item?.absences?.yearUnpaidLeaves} /
+                      {t("stats.unpaidLeave")} {item?.absences?.yearUnpaidLeaves} /
                       {" " + item?.absences?.yearScheduledAbsences?.unpaidLeave}
                     </Typography>
                   </Popover>
@@ -495,7 +464,7 @@ const StatisticCard = ({ item }) => {
               height: "100%",
             }}
           >
-            <Typography variant="h6">Horaire prévisionnel</Typography>
+            <Typography variant="h6">{t("stats.scheduledChart")}</Typography>
             <ResponsiveContainer height={400}>
               <BarChart
                 data={data}
@@ -529,20 +498,22 @@ const StatisticCard = ({ item }) => {
                 <Tooltip formatter={formatHourTooltip} />
                 <Legend />
                 <Bar
-                  dataKey="Heures prestées"
+                  dataKey="worked"
+                  name={t("stats.workedHours")}
                   stackId="a"
                   fill={theme.palette.success.main}
                   fillOpacity={1}
-                  radius={[10, 10, 10, 10]} // Ajouter un rayon pour arrondir les hauts des barres
-                  barSize={10} // Diminuer la largeur des barres
+                  radius={[10, 10, 10, 10]}
+                  barSize={10}
                 />
                 <Bar
-                  dataKey="Heures prévisionnelles"
+                  dataKey="scheduled"
+                  name={t("stats.scheduledHoursBar")}
                   stackId="b"
                   fill={theme.palette.primary.main}
                   fillOpacity={0.3}
-                  radius={[10, 10, 10, 10]} // Ajouter un rayon pour arrondir les hauts des barres
-                  barSize={10} // Diminuer la largeur des barres
+                  radius={[10, 10, 10, 10]}
+                  barSize={10}
                 />
               </BarChart>
             </ResponsiveContainer>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import communicationsApi from "../../services/communicationsApi";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -27,6 +28,7 @@ interface Props {
  * Marks each modal as read before showing the next one.
  */
 const CommunicationModalQueue = ({ modals, onAllDone }: Props) => {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [marking, setMarking] = useState(false);
   const axiosPrivate = useAxiosPrivate();
@@ -96,7 +98,7 @@ const CommunicationModalQueue = ({ modals, onAllDone }: Props) => {
               rel="noopener noreferrer"
               size="small"
             >
-              {current.buttonLabel ?? "En savoir plus"}
+              {current.buttonLabel ?? t("commModal.learnMore")}
             </Button>
           </Box>
         )}
@@ -113,7 +115,7 @@ const CommunicationModalQueue = ({ modals, onAllDone }: Props) => {
           onClick={handleAcknowledge}
           disabled={marking}
         >
-          J'ai compris
+          {t("commModal.acknowledge")}
         </Button>
       </DialogActions>
     </Dialog>

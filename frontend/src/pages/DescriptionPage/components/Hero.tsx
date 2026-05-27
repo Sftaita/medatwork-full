@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -10,6 +11,7 @@ import PhoneSkeletonIllustration from "../../../images/PhoneSkeleton";
 import DataRegistered from "../../../images/DataRegistered.png";
 
 const Hero = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -27,7 +29,7 @@ const Hero = () => {
                 fontWeight: 700,
               }}
             >
-              Et si nous pouvions vous aider dans votre{" "}
+              {t("desc.hero.titlePrefix")}{" "}
               <Typography
                 color={"primary"}
                 component={"span"}
@@ -39,15 +41,15 @@ const Hero = () => {
                   )} 0%)`,
                 }}
               >
-                gestion des horaires?
+                {t("desc.hero.titleHighlight")}
               </Typography>
             </Typography>
           </Box>
           <Box marginBottom={3}>
             <Typography variant="h6" component="p" color="text.secondary">
-              Arrêtez les tableurs indigestes.
+              {t("desc.hero.sub1")}
               <br />
-              L'utilisation de notre application est facile.
+              {t("desc.hero.sub2")}
             </Typography>
           </Box>
           <Box display="flex" marginTop={1}>

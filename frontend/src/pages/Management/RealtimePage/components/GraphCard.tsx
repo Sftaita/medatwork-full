@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LineChart,
   XAxis,
@@ -15,6 +16,7 @@ import Container from "../../../../components/medium/Container";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 const GraphCard = ({ timesheets, _month, _year }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -47,7 +49,7 @@ const GraphCard = ({ timesheets, _month, _year }) => {
 
       xAxisLabels.forEach((week) => {
         const weekData = {
-          week: `Semaine ${week}`,
+          week: `${t("stats.week")} ${week}`,
         };
         timesheets.forEach((resident) => {
           weekData[resident.lastname] = resident.week[week];
@@ -118,7 +120,7 @@ const GraphCard = ({ timesheets, _month, _year }) => {
       <Container paddingY={{ xs: 1, md: 0 }}>
         <Box marginBottom={2}>
           <Typography color="primary" variant="h6" fontWeight={700}>
-            Vue d'ensemble
+            {t("stats.overview")}
           </Typography>
         </Box>
 
@@ -126,7 +128,7 @@ const GraphCard = ({ timesheets, _month, _year }) => {
           <Grid item xs={12} sm={12}>
             <Card sx={{ p: { xs: 2, md: 4 } }}>
               <Typography color={"text.secondary"} gutterBottom>
-                Heures / semaine
+                {t("stats.hoursPerWeek")}
               </Typography>
               {!isPending && (
                 <ResponsiveContainer height={400}>
@@ -144,9 +146,9 @@ const GraphCard = ({ timesheets, _month, _year }) => {
                       dataKey="week"
                       withVerticalLabels={false}
                       withHorizontalLabels={false}
-                      tickFormatter={(name) => {
+                      tickFormatter={(name: string) => {
                         if (!isMd) {
-                          return name.replace("Semaine", "S");
+                          return t("stats.weekShort") + name.split(" ").pop();
                         }
                         return name;
                       }}
@@ -156,7 +158,7 @@ const GraphCard = ({ timesheets, _month, _year }) => {
                       type="number"
                       dataKey="heure"
                       label={{
-                        value: isMd ? "Heures" : "",
+                        value: isMd ? t("stats.hours") : "",
                         angle: -90,
                         position: "insideLeft",
                       }}

@@ -69,15 +69,6 @@ const WithFixedSidebar = ({ children }: { children: ReactNode }) => {
         />
       )}
 
-      {!authentication.isAuthenticated && !isMd && (
-        <Sidebar
-          onClose={handleSidebarClose}
-          open={open}
-          variant={"temporary"}
-          collapsed={false}
-        />
-      )}
-
       <main>
         <Box height={{ xs: 58, sm: 66, md: 71 }} />
         <Box

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -241,11 +242,12 @@ const DetailDrawer = ({ year, onClose, onAssign }: {
 type SortCol = "titre" | "periode" | "hopital" | "residents";
 
 const AdminYearsPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const qc = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
-  const search = useTopbarSearch("Titre, période, hôpital…");
+  const search = useTopbarSearch(t("admin.searchYear"));
   const [hospitalFilter, setHospitalFilter] = useState<number | "none" | "">("");
   const [sortCol, setSortCol] = useState<SortCol | null>("titre");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");

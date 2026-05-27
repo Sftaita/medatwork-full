@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import yearsApi from "../../../../services/yearsApi";
 import { toast } from "react-toastify";
@@ -19,23 +20,15 @@ import Rights from "./Rights";
 import Validation from "./Validation";
 import { handleApiError } from "@/services/apiError";
 
-const steps = [
-  {
-    label: "Rechercher",
-    description: ``,
-  },
-  {
-    label: "Gestion des droits",
-    description: "Définissez les droits de votre invité.",
-  },
-  {
-    label: "Enregistrement",
-    description: `Nous enregisrtons votre demande.`,
-  },
-];
-
 const LinearStepper = ({ list, id, handleClose, updateManagerList }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
+
+  const steps = [
+    { label: t("yearDetail.stepper.stepSearch"), description: "" },
+    { label: t("yearDetail.stepper.stepRights"), description: t("yearDetail.stepper.stepRightsDesc") },
+    { label: t("yearDetail.stepper.stepRegister"), description: t("yearDetail.stepper.stepRegisterDesc") },
+  ];
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
   });
@@ -106,7 +99,7 @@ const LinearStepper = ({ list, id, handleClose, updateManagerList }) => {
     try {
       const { method, url } = yearsApi.inviteGuest();
       await axiosPrivate[method](url, relation);
-      toast.success("Enregistrement validé!", {
+      toast.success(t("yearDetail.stepper.saved"), {
         position: "bottom-center",
         autoClose: 3000,
         hideProgressBar: true,
@@ -216,7 +209,7 @@ const LinearStepper = ({ list, id, handleClose, updateManagerList }) => {
           {activeStep === 0 && (
             <Box sx={{ display: "flex", flexDirection: "row", pt: 2 }}>
               <Button color="primary" variant={"outlined"} onClick={handleClose} sx={{ mr: 1 }}>
-                Annuler
+                {t("yearDetail.stepper.cancel")}
               </Button>
             </Box>
           )}
@@ -230,13 +223,13 @@ const LinearStepper = ({ list, id, handleClose, updateManagerList }) => {
                 onClick={handleBack}
                 sx={{ mr: 1 }}
               >
-                Retour
+                {t("yearDetail.stepper.back")}
               </Button>
               <Box sx={{ flex: "1 1 auto" }} />
 
               {activeStep !== 0 && (
                 <Button variant={"contained"} onClick={handleListItemClick} sx={{ mr: 1 }}>
-                  Valider
+                  {t("yearDetail.stepper.confirm")}
                 </Button>
               )}
             </Box>

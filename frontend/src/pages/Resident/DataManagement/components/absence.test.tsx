@@ -25,6 +25,31 @@ const mockHandleApiError = vi.hoisted(() => vi.fn());
 vi.mock("../../../../hooks/useAxiosPrivate", () => ({ default: () => stableAxios }));
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => ({
+      "data.col.start":              "Début",
+      "data.col.end":                "Fin",
+      "data.col.type":               "Type",
+      "data.col.year":               "Année",
+      "data.col.delete":             "Supprimer",
+      "data.tabs.absences":          "Absences",
+      "data.validated":              "Validé",
+      "data.deleted":                "Événement supprimé avec succès.",
+      "timer.absence.annualLeave":   "Congé annuel",
+      "timer.absence.sickLeave":     "Congé maladie",
+      "timer.absence.paidLeave":     "Congé férié",
+      "timer.absence.paternityLeave":"Congé paternité",
+      "timer.absence.maternityLeave":"Congé maternité",
+      "timer.absence.scientificLeave":"Congé scientifique",
+      "timer.absence.casualLeave":   "Congé de circonstance",
+      "timer.absence.unpaidLeave":   "Congé non rémunéré",
+      "timer.absence.compensatoryLeave": "Récupération de jour férié",
+      "timer.absence.recovery":      "Récupération",
+    }[key] ?? key),
+    i18n: { language: "fr" },
+  }),
+}));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const MOCK_ABSENCES = [

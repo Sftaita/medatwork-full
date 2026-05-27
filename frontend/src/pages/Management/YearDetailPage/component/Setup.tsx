@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Divider from "@mui/material/Divider";
@@ -10,6 +11,7 @@ import Link from "@mui/material/Link";
 import FormControlLabel from "@mui/material/FormControlLabel";
 
 const Setup = ({ setActiveLink }) => {
+  const { t } = useTranslation();
   return (
     <Box>
       <Box marginBottom={2}>
@@ -20,7 +22,7 @@ const Setup = ({ setActiveLink }) => {
           alignItems={{ xs: "flex-start", md: "center" }}
         >
           <Typography variant="h6" fontWeight={700}>
-            Paramètres de l'année
+            {t("yearDetail.setup.title")}
           </Typography>
         </Box>
         <Box paddingY={4}>
@@ -29,53 +31,53 @@ const Setup = ({ setActiveLink }) => {
         <form>
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
-              <Typography variant="h6">Evènement</Typography>
+              <Typography variant="h6">{t("yearDetail.setup.events")}</Typography>
               <Typography variant="caption">
-                Vous recevrez un email sur l'adresse email liée au compte
+                {t("yearDetail.setup.eventsDesc")}
               </Typography>
               <Box>
                 <Box>
                   <FormControlLabel
                     control={<Checkbox defaultChecked={true} color="primary" />}
-                    label="Notification Email"
+                    label={t("yearDetail.setup.emailNotif")}
                   />
                 </Box>
                 <Box>
                   <FormControlLabel
                     control={<Checkbox defaultChecked={true} color="primary" />}
-                    label="Notification Push"
+                    label={t("yearDetail.setup.pushNotif")}
                   />
                 </Box>
                 <Box>
                   <FormControlLabel
                     control={<Checkbox defaultChecked={true} color="primary" />}
-                    label="SMS"
+                    label={t("yearDetail.setup.sms")}
                   />
                 </Box>
                 <Box>
                   <FormControlLabel
                     control={<Checkbox defaultChecked={false} color="primary" />}
-                    label="Appel RH"
+                    label={t("yearDetail.setup.hrCall")}
                   />
                 </Box>
               </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Typography variant="h6">Incohérence / Dépassement</Typography>
+              <Typography variant="h6">{t("yearDetail.setup.inconsistency")}</Typography>
               <Typography variant="caption">
-                Vous recevrez un email sur l'adresse email liée au compte
+                {t("yearDetail.setup.eventsDesc")}
               </Typography>
               <Box>
                 <Box>
                   <FormControlLabel
                     control={<Checkbox defaultChecked={false} color="primary" />}
-                    label="Notification Email"
+                    label={t("yearDetail.setup.emailNotif")}
                   />
                 </Box>
                 <Box>
                   <FormControlLabel
                     control={<Checkbox defaultChecked={true} color="primary" />}
-                    label="Notification Push"
+                    label={t("yearDetail.setup.pushNotif")}
                   />
                 </Box>
               </Box>
@@ -91,14 +93,14 @@ const Setup = ({ setActiveLink }) => {
               >
                 <Box marginBottom={{ xs: 1, sm: 0 }}>
                   <Typography variant={"subtitle2"}>
-                    Cliquez ici pour mettre à jour vos{" "}
+                    {t("yearDetail.setup.securityDesc")}{" "}
                     <Link color={"primary"} href={"#"} underline={"none"}>
-                      paramètres de sécurité
+                      {t("yearDetail.setup.securityLink")}
                     </Link>
                   </Typography>
                 </Box>
                 <Button size={"large"} variant={"contained"} type={"submit"}>
-                  Save
+                  {t("yearDetail.setup.save")}
                 </Button>
               </Box>
             </Grid>
@@ -115,7 +117,7 @@ const Setup = ({ setActiveLink }) => {
           marginTop={4}
         >
           <Typography variant="h6" fontWeight={700}>
-            Paramètres d'exportations
+            {t("yearDetail.setup.exports")}
           </Typography>
         </Box>
         <Box paddingY={4}>
@@ -123,21 +125,21 @@ const Setup = ({ setActiveLink }) => {
         </Box>
         <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6">StaffPlanner</Typography>
-            <Typography variant="caption">Paramètrez les resources nécessaires</Typography>
+            <Typography variant="h6">{t("yearDetail.setup.staffPlannerTitle")}</Typography>
+            <Typography variant="caption">{t("yearDetail.setup.staffPlannerDesc")}</Typography>
             <Box marginTop={2}>
               <Button
                 variant="outlined"
                 endIcon={<ArrowForwardIcon />}
                 onClick={() => setActiveLink("staffPlanner")}
               >
-                Configurer
+                {t("yearDetail.setup.configure")}
               </Button>
             </Box>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6">Excel</Typography>
-            <Typography variant="caption">Définissez les règles d'exportation</Typography>
+            <Typography variant="h6">{t("yearDetail.setup.excelTitle")}</Typography>
+            <Typography variant="caption">{t("yearDetail.setup.excelDesc")}</Typography>
             <Box marginTop={2}>
               <Button
                 variant="outlined"
@@ -145,7 +147,7 @@ const Setup = ({ setActiveLink }) => {
                 onClick={() => setActiveLink("staffPlanner")}
                 disabled
               >
-                Configurer
+                {t("yearDetail.setup.configure")}
               </Button>
             </Box>
           </Grid>

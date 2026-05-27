@@ -6,6 +6,7 @@
  * (admin vs hospital-admin endpoints).
  */
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -73,22 +74,6 @@ type FilterType = "all" | "notification" | "modal" | "active" | "inactive";
 
 const SKELETON_ROWS = 5;
 
-const TYPE_LABEL: Record<string, string> = {
-  notification: "Notification",
-  modal: "Modal",
-};
-
-const SCOPE_LABEL: Record<string, string> = {
-  all: "Tous",
-  role: "Par rôle",
-  user: "Utilisateur spécifique",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  manager: "Manager",
-  resident: "MACCS",
-  hospital_admin: "Admin hôpital",
-};
 
 interface FormState {
   type: "notification" | "modal";
@@ -122,90 +107,79 @@ const EMPTY_FORM: FormState = {
 
 // ── Help dialog ───────────────────────────────────────────────────────────────
 
-const HelpDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-    <DialogTitle>Comment utiliser les messages ?</DialogTitle>
-    <DialogContent dividers>
-      <Typography variant="body2" gutterBottom>
-        Les messages vous permettent d'envoyer des communications ciblées aux utilisateurs de votre
-        hôpital — résidents, managers ou administrateurs.
-      </Typography>
+const HelpDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const { t } = useTranslation();
+  const types    = t("commPage.help.types",    { returnObjects: true }) as [string, string][];
+  const scopes   = t("commPage.help.scopes",   { returnObjects: true }) as [string, string][];
+  const optionals= t("commPage.help.optionals",{ returnObjects: true }) as [string, string][];
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{t("commPage.help.title")}</DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="body2" gutterBottom>{t("commPage.help.intro")}</Typography>
 
-      <Typography variant="subtitle2" mt={2} mb={0.5}>Types de message</Typography>
-      <List dense disablePadding>
-        {[
-          ["Notification", "Apparaît dans la cloche en haut à droite. L'utilisateur peut la lire et la marquer comme lue depuis son centre de notifications."],
-          ["Modal (connexion)", "S'affiche automatiquement en popup à la prochaine connexion de l'utilisateur. Idéal pour des annonces importantes."],
-        ].map(([label, desc]) => (
-          <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
-            <ListItemText
-              primary={label}
-              secondary={desc}
-              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
-              secondaryTypographyProps={{ variant: "caption" }}
-            />
-          </ListItem>
-        ))}
-      </List>
+        <Typography variant="subtitle2" mt={2} mb={0.5}>{t("commPage.help.typesTitle")}</Typography>
+        <List dense disablePadding>
+          {types.map(([label, desc]) => (
+            <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
+              <ListItemText
+                primary={label} secondary={desc}
+                primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+                secondaryTypographyProps={{ variant: "caption" }}
+              />
+            </ListItem>
+          ))}
+        </List>
+        <Divider sx={{ my: 1.5 }} />
 
-      <Divider sx={{ my: 1.5 }} />
+        <Typography variant="subtitle2" mb={0.5}>{t("commPage.help.scopeTitle")}</Typography>
+        <List dense disablePadding>
+          {scopes.map(([label, desc]) => (
+            <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
+              <ListItemText
+                primary={label} secondary={desc}
+                primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+                secondaryTypographyProps={{ variant: "caption" }}
+              />
+            </ListItem>
+          ))}
+        </List>
+        <Divider sx={{ my: 1.5 }} />
 
-      <Typography variant="subtitle2" mb={0.5}>Ciblage</Typography>
-      <List dense disablePadding>
-        {[
-          ["Tous les utilisateurs", "Envoie le message à tous les membres de votre hôpital."],
-          ["Par rôle", "Cible uniquement les MACCS, les managers, ou les admins hôpital."],
-          ["Utilisateur spécifique", "Envoie à une seule personne identifiée par son nom."],
-        ].map(([label, desc]) => (
-          <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
-            <ListItemText
-              primary={label}
-              secondary={desc}
-              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
-              secondaryTypographyProps={{ variant: "caption" }}
-            />
-          </ListItem>
-        ))}
-      </List>
+        <Typography variant="subtitle2" mb={0.5}>{t("commPage.help.optionalTitle")}</Typography>
+        <List dense disablePadding>
+          {optionals.map(([label, desc]) => (
+            <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
+              <ListItemText
+                primary={label} secondary={desc}
+                primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+                secondaryTypographyProps={{ variant: "caption" }}
+              />
+            </ListItem>
+          ))}
+        </List>
+        <Divider sx={{ my: 1.5 }} />
 
-      <Divider sx={{ my: 1.5 }} />
-
-      <Typography variant="subtitle2" mb={0.5}>Champs optionnels utiles</Typography>
-      <List dense disablePadding>
-        {[
-          ["URL cible au clic", "Pour les notifications : redirige l'utilisateur vers une page de l'application quand il clique sur le message. Ex : /hospital-admin/dashboard"],
-          ["Priorité (modal uniquement)", "Si plusieurs modals sont en attente, celui avec la valeur la plus basse s'affiche en premier."],
-        ].map(([label, desc]) => (
-          <ListItem key={label} disableGutters sx={{ alignItems: "flex-start", mb: 0.5 }}>
-            <ListItemText
-              primary={label}
-              secondary={desc}
-              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
-              secondaryTypographyProps={{ variant: "caption" }}
-            />
-          </ListItem>
-        ))}
-      </List>
-
-      <Divider sx={{ my: 1.5 }} />
-
-      <Typography variant="body2" color="text.secondary">
-        Un message peut être <strong>désactivé</strong> à tout moment sans le supprimer — il ne sera
-        plus visible par les utilisateurs. Vous pouvez aussi le <strong>dupliquer</strong> pour
-        réutiliser sa structure.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} variant="contained">Fermer</Button>
-    </DialogActions>
-  </Dialog>
-);
+        <Typography variant="body2" color="text.secondary"
+          dangerouslySetInnerHTML={{ __html: t("commPage.help.deactivateNote") }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} variant="contained">{t("commPage.help.close")}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const qc = useQueryClient();
+
+  const TYPE_LABEL = { notification: t("commPage.typeNotif"), modal: t("commPage.typeModal") };
+  const ROLE_LABEL = { manager: t("commPage.roleManager"), resident: t("commPage.roleMaccs"), hospital_admin: t("commPage.roleAdmin") };
   const [filter, setFilter] = useState<FilterType>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<CommunicationMessage | null>(null);
@@ -293,10 +267,10 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       if (context?.previous !== undefined) {
         qc.setQueryData(queryKey, context.previous);
       }
-      toast.error("Impossible de créer le message.");
+      toast.error(t("commPage.toast.createError"));
     },
     onSuccess: () => {
-      toast.success("Message créé.");
+      toast.success(t("commPage.toast.createSuccess"));
     },
     onSettled: () => {
       // Synchronise avec le serveur dans tous les cas
@@ -321,7 +295,7 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       if (context?.previous !== undefined) {
         qc.setQueryData(queryKey, context.previous);
       }
-      toast.error("Impossible de modifier le statut.");
+      toast.error(t("commPage.toast.toggleError"));
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey });
@@ -335,10 +309,10 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       return res.data;
     },
     onSuccess: (newMessage: CommunicationMessage) => {
-      toast.success("Message dupliqué.");
+      toast.success(t("commPage.toast.duplicateSuccess"));
       qc.setQueryData<CommunicationMessage[]>(queryKey, (old = []) => [newMessage, ...old]);
     },
-    onError: () => toast.error("Impossible de dupliquer le message."),
+    onError: () => toast.error(t("commPage.toast.duplicateError")),
     onSettled: () => {
       qc.invalidateQueries({ queryKey });
     },
@@ -384,10 +358,10 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       if (context?.previous !== undefined) {
         qc.setQueryData(queryKey, context.previous);
       }
-      toast.error("Impossible de modifier le message.");
+      toast.error(t("commPage.toast.updateError"));
     },
     onSuccess: () => {
-      toast.success("Message modifié.");
+      toast.success(t("commPage.toast.updateSuccess"));
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey });
@@ -410,10 +384,10 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       if (context?.previous !== undefined) {
         qc.setQueryData(queryKey, context.previous);
       }
-      toast.error("Impossible de supprimer le message.");
+      toast.error(t("commPage.toast.deleteError"));
     },
     onSuccess: () => {
-      toast.success("Message supprimé.");
+      toast.success(t("commPage.toast.deleteSuccess"));
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey });
@@ -459,7 +433,7 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
 
   const handleSubmit = () => {
     if (!form.title.trim() || !form.body.trim()) {
-      toast.error("Titre et contenu sont obligatoires.");
+      toast.error(t("commPage.toast.validationError"));
       return;
     }
     const payload: Record<string, unknown> = {
@@ -489,9 +463,9 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
 
   // ── Scope description ─────────────────────────────────────────────────────────
   const scopeDescription = (m: CommunicationMessage): string => {
-    if (m.scopeType === "all") return showHospital && m.hospital ? m.hospital.name : "Tous les utilisateurs";
+    if (m.scopeType === "all") return showHospital && m.hospital ? m.hospital.name : t("commPage.scopeAll");
     if (m.scopeType === "role") return ROLE_LABEL[m.targetRole ?? ""] ?? m.targetRole ?? "-";
-    return `Utilisateur #${m.targetUserId} (${ROLE_LABEL[m.targetUserType ?? ""] ?? m.targetUserType})`;
+    return t("commPage.scopeUser", { id: m.targetUserId, role: ROLE_LABEL[m.targetUserType ?? ""] ?? m.targetUserType });
   };
 
   return (
@@ -499,29 +473,27 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       {/* Header */}
       <Box mb={3} display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Communication</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Gérez vos notifications et modals envoyés aux utilisateurs
-          </Typography>
+          <Typography variant="h5" fontWeight={700}>{t("commPage.title")}</Typography>
+          <Typography variant="body2" color="text.secondary">{t("commPage.subtitle")}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-          Nouveau message
+          {t("commPage.newMessage")}
         </Button>
       </Box>
 
       {/* Filters */}
       <Box mb={2}>
         <ToggleButtonGroup value={filter} exclusive onChange={(_, v) => v && setFilter(v)} size="small">
-          <ToggleButton value="all">Tous ({messages.length})</ToggleButton>
-          <ToggleButton value="notification">Notifications</ToggleButton>
-          <ToggleButton value="modal">Modals</ToggleButton>
-          <ToggleButton value="active">Actifs</ToggleButton>
-          <ToggleButton value="inactive">Inactifs</ToggleButton>
+          <ToggleButton value="all">{t("commPage.filterAll", { count: messages.length })}</ToggleButton>
+          <ToggleButton value="notification">{t("commPage.filterNotif")}</ToggleButton>
+          <ToggleButton value="modal">{t("commPage.filterModal")}</ToggleButton>
+          <ToggleButton value="active">{t("commPage.filterActive")}</ToggleButton>
+          <ToggleButton value="inactive">{t("commPage.filterInactive")}</ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
       {!isLoading && filtered.length === 0 && (
-        <Alert severity="info">Aucun message dans cette catégorie.</Alert>
+        <Alert severity="info">{t("commPage.noMessages")}</Alert>
       )}
 
       {(isLoading || filtered.length > 0) && (
@@ -530,14 +502,14 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Titre</TableCell>
-                  <TableCell>Cible</TableCell>
-                  {showHospital && <TableCell>Hôpital</TableCell>}
-                  <TableCell>Statut</TableCell>
-                  <TableCell align="right">Lectures</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                  <TableCell>{t("commPage.colType")}</TableCell>
+                  <TableCell>{t("commPage.colTitle")}</TableCell>
+                  <TableCell>{t("commPage.colTarget")}</TableCell>
+                  {showHospital && <TableCell>{t("commPage.colHospital")}</TableCell>}
+                  <TableCell>{t("commPage.colStatus")}</TableCell>
+                  <TableCell align="right">{t("commPage.colReads")}</TableCell>
+                  <TableCell>{t("commPage.colDate")}</TableCell>
+                  <TableCell align="center">{t("commPage.colActions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -569,12 +541,12 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
                         </TableCell>
                         {showHospital && (
                           <TableCell>
-                            <Typography variant="caption">{m.hospital?.name ?? "Global"}</Typography>
+                            <Typography variant="caption">{m.hospital?.name ?? t("commPage.global")}</Typography>
                           </TableCell>
                         )}
                         <TableCell>
                           <Chip
-                            label={m.isActive ? "Actif" : "Inactif"}
+                            label={m.isActive ? t("commPage.chipActive") : t("commPage.chipInactive")}
                             size="small"
                             color={m.isActive ? "success" : "default"}
                           />
@@ -586,13 +558,13 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
                         <TableCell align="center">
                           <Box display="flex" gap={0.5} justifyContent="center">
                             {api.update && (
-                              <Tooltip title="Modifier">
+                              <Tooltip title={t("commPage.tooltipEdit")}>
                                 <IconButton size="small" onClick={() => handleOpenEdit(m)}>
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title={m.isActive ? "Cliquer pour désactiver" : "Cliquer pour activer"}>
+                            <Tooltip title={m.isActive ? t("commPage.tooltipDeactivate") : t("commPage.tooltipActivate")}>
                               <IconButton
                                 size="small"
                                 onClick={() => toggleMutation.mutate(m.id)}
@@ -610,13 +582,13 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
                                 }
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Dupliquer">
+                            <Tooltip title={t("commPage.tooltipDuplicate")}>
                               <IconButton size="small" onClick={() => duplicateMutation.mutate(m.id)}>
                                 <ContentCopyIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                             {api.delete && (
-                              <Tooltip title="Supprimer">
+                              <Tooltip title={t("commPage.tooltipDelete")}>
                                 <IconButton
                                   size="small"
                                   onClick={() => setConfirmDeleteId(m.id)}
@@ -638,22 +610,19 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
 
       {/* Delete confirm dialog */}
       <Dialog open={confirmDeleteId !== null} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Supprimer ce message ?</DialogTitle>
+        <DialogTitle>{t("commPage.deleteTitle")}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Cette action est irréversible. Le message sera définitivement supprimé et ne sera plus
-            visible par les utilisateurs.
-          </Typography>
+          <Typography variant="body2" color="text.secondary">{t("commPage.deleteBody")}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDeleteId(null)}>Annuler</Button>
+          <Button onClick={() => setConfirmDeleteId(null)}>{t("common.cancel")}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={() => confirmDeleteId !== null && deleteMutation.mutate(confirmDeleteId)}
             disabled={deleteMutation.isPending}
           >
-            Supprimer
+            {t("common.delete")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -670,8 +639,8 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
       >
         <DialogTitle>
           <Box display="flex" alignItems="center" justifyContent="space-between">
-            <span>{editingMessage ? "Modifier le message" : "Nouveau message"}</span>
-            <Tooltip title="Comment ça fonctionne ?">
+            <span>{editingMessage ? t("commPage.editTitle") : t("commPage.newTitle")}</span>
+            <Tooltip title={t("commPage.tooltipHelp")}>
               <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ color: "text.secondary" }}>
                 <HelpOutlineIcon fontSize="small" />
               </IconButton>
@@ -682,45 +651,45 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
             {/* Type */}
             <FormControl size="small" fullWidth>
-              <InputLabel>Type</InputLabel>
+              <InputLabel>{t("commPage.labelType")}</InputLabel>
               <Select
                 value={form.type}
-                label="Type"
+                label={t("commPage.labelType")}
                 onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as "notification" | "modal" }))}
               >
-                <MenuItem value="notification">Notification</MenuItem>
-                <MenuItem value="modal">Modal (connexion)</MenuItem>
+                <MenuItem value="notification">{t("commPage.typeNotifOption")}</MenuItem>
+                <MenuItem value="modal">{t("commPage.typeModalOption")}</MenuItem>
               </Select>
             </FormControl>
 
             {/* Scope */}
             <FormControl size="small" fullWidth>
-              <InputLabel>Ciblage</InputLabel>
+              <InputLabel>{t("commPage.labelScope")}</InputLabel>
               <Select
                 value={form.scopeType}
-                label="Ciblage"
+                label={t("commPage.labelScope")}
                 onChange={(e) => {
                   setForm((p) => ({ ...p, scopeType: e.target.value as "all" | "role" | "user", targetRole: "", targetUserId: "", targetUserType: "" }));
                   setSelectedUser(null);
                 }}
               >
-                <MenuItem value="all">Tous les utilisateurs</MenuItem>
-                <MenuItem value="role">Par rôle</MenuItem>
-                <MenuItem value="user">Utilisateur spécifique</MenuItem>
+                <MenuItem value="all">{t("commPage.scopeAllOption")}</MenuItem>
+                <MenuItem value="role">{t("commPage.scopeRoleOption")}</MenuItem>
+                <MenuItem value="user">{t("commPage.scopeUserOption")}</MenuItem>
               </Select>
             </FormControl>
 
             {form.scopeType === "role" && (
               <FormControl size="small" fullWidth>
-                <InputLabel>Rôle cible</InputLabel>
+                <InputLabel>{t("commPage.labelRole")}</InputLabel>
                 <Select
                   value={form.targetRole}
-                  label="Rôle cible"
+                  label={t("commPage.labelRole")}
                   onChange={(e) => setForm((p) => ({ ...p, targetRole: e.target.value }))}
                 >
-                  <MenuItem value="manager">Manager</MenuItem>
-                  <MenuItem value="resident">MACCS</MenuItem>
-                  <MenuItem value="hospital_admin">Admin hôpital</MenuItem>
+                  <MenuItem value="manager">{t("commPage.roleManager")}</MenuItem>
+                  <MenuItem value="resident">{t("commPage.roleMaccs")}</MenuItem>
+                  <MenuItem value="hospital_admin">{t("commPage.roleAdmin")}</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -728,11 +697,11 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
             {form.scopeType === "user" && (
               <Autocomplete
                 options={userOptions}
-                getOptionLabel={(u) => `${u.firstname} ${u.lastname} (${ROLE_LABEL[u.type] ?? u.type})`}
+                getOptionLabel={(u) => `${u.firstname} ${u.lastname} (${ROLE_LABEL[u.type as keyof typeof ROLE_LABEL] ?? u.type})`}
                 value={selectedUser}
                 onChange={(_, v) => setSelectedUser(v)}
                 renderInput={(params) => (
-                  <TextField {...params} label="Utilisateur cible" size="small" />
+                  <TextField {...params} label={t("commPage.labelUserTarget")} size="small" />
                 )}
               />
             )}
@@ -746,37 +715,37 @@ const CommunicationPageContent = ({ queryKey, api, showHospital = false }: Props
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Hôpital cible (optionnel)"
+                    label={t("commPage.labelHospital")}
                     size="small"
-                    helperText="Laisser vide pour un message global toutes institutions"
+                    helperText={t("commPage.helperHospital")}
                   />
                 )}
               />
             )}
 
-            <TextField label="Titre *" size="small" value={form.title} onChange={set("title")} inputProps={{ maxLength: 255 }} />
-            <TextField label="Contenu *" size="small" multiline rows={4} value={form.body} onChange={set("body")} />
-            <TextField label="URL image (optionnel)" size="small" value={form.imageUrl} onChange={set("imageUrl")} />
-            <TextField label="URL lien (optionnel)" size="small" value={form.linkUrl} onChange={set("linkUrl")} />
-            <TextField label="Libellé bouton (optionnel)" size="small" value={form.buttonLabel} onChange={set("buttonLabel")} inputProps={{ maxLength: 100 }} />
+            <TextField label={t("commPage.labelTitle")} size="small" value={form.title} onChange={set("title")} inputProps={{ maxLength: 255 }} />
+            <TextField label={t("commPage.labelBody")} size="small" multiline rows={4} value={form.body} onChange={set("body")} />
+            <TextField label={t("commPage.labelImageUrl")} size="small" value={form.imageUrl} onChange={set("imageUrl")} />
+            <TextField label={t("commPage.labelLinkUrl")} size="small" value={form.linkUrl} onChange={set("linkUrl")} />
+            <TextField label={t("commPage.labelBtnLabel")} size="small" value={form.buttonLabel} onChange={set("buttonLabel")} inputProps={{ maxLength: 100 }} />
             {form.type === "notification" && (
-              <TextField label="URL cible au clic (optionnel)" size="small" value={form.targetUrl} onChange={set("targetUrl")} helperText="Ex: /hospital-admin/dashboard" />
+              <TextField label={t("commPage.labelTargetUrl")} size="small" value={form.targetUrl} onChange={set("targetUrl")} helperText={t("commPage.helperTargetUrl")} />
             )}
             {form.type === "modal" && (
-              <TextField label="Priorité (optionnel)" size="small" type="number" value={form.priority} onChange={set("priority")} helperText="Ordre d'affichage — plus petit = affiché en premier" />
+              <TextField label={t("commPage.labelPriority")} size="small" type="number" value={form.priority} onChange={set("priority")} helperText={t("commPage.helperPriority")} />
             )}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setDialogOpen(false); setEditingMessage(null); setForm(EMPTY_FORM); setSelectedUser(null); setSelectedHospital(null); }}>
-            Annuler
+            {t("common.cancel")}
           </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             disabled={createMutation.isPending || updateMutation.isPending}
           >
-            {editingMessage ? "Enregistrer" : "Créer"}
+            {editingMessage ? t("commPage.save") : t("commPage.create")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import weekTemplatesApi from "../../../../../services/weekTemplatesApi";
 import { toast } from "react-toastify";
@@ -31,6 +32,7 @@ interface WeekTemplateItem {
 }
 
 const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose: () => void }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const [weekTemplates, setWeekTemplates] = useState<WeekTemplateItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -91,7 +93,7 @@ const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose:
 
       updateYearWeekTemplates(response.data);
 
-      toast.success("Importation réussie!", {
+      toast.success(t("weekDisp.import.success"), {
         position: "bottom-center",
         autoClose: 3000,
         hideProgressBar: true,
@@ -101,7 +103,7 @@ const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose:
       });
     } catch (error) {
       handleApiError(error);
-      toast.error("Oups, une erreur s'est produite.", {
+      toast.error(t("weekDisp.import.error"), {
         position: "bottom-center",
         autoClose: 4000,
         hideProgressBar: true,
@@ -138,7 +140,7 @@ const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose:
 
   return (
     <Dialog fullWidth={true} maxWidth={"md"} open={open} onClose={handleClose} scroll={"paper"}>
-      <DialogTitle>Importer un poste à cette année</DialogTitle>
+      <DialogTitle>{t("weekDisp.import.dialogTitle")}</DialogTitle>
       <DialogContent sx={{ paddingLeft: 0, paddingRight: 0 }} dividers>
         {!isLoading && (
           <>
@@ -160,16 +162,9 @@ const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose:
               <Box padding={2} minHeight={"20vh"}>
                 <Alert severity="info">
                   {haveNoWeekTemplates ? (
-                    <Typography>
-                      Vous n'avez pas encore créé de modèles de semaine. Une fois que vous aurez
-                      créé ces modèles, vous pourrez les associer à l'année correspondante afin d'y
-                      assigner vos résidents.
-                    </Typography>
+                    <Typography>{t("weekDisp.import.noTemplates")}</Typography>
                   ) : (
-                    <Typography>
-                      Tous vos modèles de semaine ont déjà été importés pour cette année. Si aucun
-                      ne répond à vos besoins, n'hésitez pas à en créer de nouveaux.
-                    </Typography>
+                    <Typography>{t("weekDisp.import.allImported")}</Typography>
                   )}
                 </Alert>
               </Box>
@@ -184,10 +179,10 @@ const WeekTemplateImport = ({ open, handleClose }: { open: boolean; handleClose:
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isLoading}>
-          Annuler
+          {t("common.cancel")}
         </Button>
         <Button onClick={handleSubmmit} disabled={isLoading || selectedItems.length === 0}>
-          Importer
+          {t("weekDisp.import.import")}
         </Button>
       </DialogActions>
     </Dialog>

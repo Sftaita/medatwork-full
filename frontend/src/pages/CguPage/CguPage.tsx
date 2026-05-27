@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
@@ -9,6 +10,7 @@ import Contact from "../TermsPage/components/Contact";
 import CguContent from "./components/CguContent";
 
 const CguPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
 
   useEffect(() => {
@@ -32,10 +34,10 @@ const CguPage = () => {
                 gutterBottom
                 sx={{ fontWeight: 700, color: theme.palette.common.white }}
               >
-                Conditions Générales d'Utilisation — MED@WORK
+                {t("cgu.title")}
               </Typography>
               <Typography gutterBottom sx={{ color: theme.palette.common.white }}>
-                Dernière mise à jour : <strong>18 mai 2026</strong> — Version 2026.1
+                {t("cgu.lastUpdate")}
               </Typography>
             </Container>
             <Box
@@ -61,7 +63,7 @@ const CguPage = () => {
               </Grid>
               <Grid item xs={12} md={3}>
                 <Box position="sticky" top={theme.spacing(10)}>
-                  <Contact />
+                  <Contact email="legal@medatwork.be" />
                 </Box>
               </Grid>
             </Box>

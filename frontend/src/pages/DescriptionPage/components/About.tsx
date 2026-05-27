@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -9,6 +10,7 @@ import PhoneSkeletonIllustration from "../../../images/PhoneSkeleton";
 import MedatworkSS from "../../../images/MedatworkSS.png";
 
 const About = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
 
   return (
@@ -81,14 +83,12 @@ const About = () => {
                 fontWeight: 700,
               }}
             >
-              Application directement téléchargeable via votre navigateur
+              {t("desc.about.title")}
             </Typography>
           </Box>
           <Box marginBottom={3}>
             <Typography variant="h6" component="p" color="text.secondary" align="justify">
-              Nous utilisons une technologie appelée Progresssive Web App. Pas besoin de passer par
-              iTunes ou Google Play Store. Il vous suffit d'enregistrer le site sur votre écran
-              d'accueil.
+              {t("desc.about.subtitle")}
             </Typography>
           </Box>
           <Box display="flex" marginTop={1}>

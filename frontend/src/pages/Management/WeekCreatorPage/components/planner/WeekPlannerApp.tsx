@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import Skeleton from '@mui/material/Skeleton';
 import { useTopbarSearch } from '../../../../../hooks/useTopbarSearch';
 import { toast } from 'react-toastify';
@@ -237,6 +238,7 @@ function cloneTemplate(t: LocalTemplate): LocalTemplate {
 }
 
 export default function WeekPlannerApp() {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
 
   const [templates, setTemplates] = useState<LocalTemplate[]>([]);
@@ -262,7 +264,7 @@ export default function WeekPlannerApp() {
   // Debounce timers per slot (keyed by localId)
   const debounceMap = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const search = useTopbarSearch('Rechercher un modèle…');
+  const search = useTopbarSearch(t('weekCreator.searchPlaceholder'));
 
   const displayTemplates = useMemo(() => {
     const q = search.trim().toLowerCase();

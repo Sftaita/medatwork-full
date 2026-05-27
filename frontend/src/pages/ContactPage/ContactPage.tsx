@@ -19,10 +19,7 @@ const ContactPage = () => {
       py={{ xs: 4, md: 6 }}
     >
       <Container>
-        <ContactUs
-          title="Contactez-nous"
-          subtitle="Vous avez encore des questions, des suggestions ou vous souhaitez simplement en discuter ? N'hésitez pas à nous contacter."
-        />
+        <ContactUs />
       </Container>
     </Box>
   );

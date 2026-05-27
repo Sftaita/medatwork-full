@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Switch from "@mui/material/Switch";
 import { Box } from "@mui/system";
 import { Typography } from "@mui/material";
@@ -15,6 +16,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import UserCard from "./UserCard";
 
 const Rights = ({ selectedManager, state, setState }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -41,7 +43,7 @@ const Rights = ({ selectedManager, state, setState }) => {
   return (
     <Box marginTop={theme.spacing(2)} bgcolor={"alternate.main"} padding={theme.spacing(2)}>
       <Typography variant={"h6"} sx={{ marginBottom: theme.spacing(2) }}>
-        Définissez les droits de l'utilisateur
+        {t("yearDetail.rights.title")}
       </Typography>
       <Grid
         container
@@ -51,13 +53,13 @@ const Rights = ({ selectedManager, state, setState }) => {
       >
         <Grid item xs={6} md={8}>
           <FormControl component="fieldset" variant="standard">
-            <FormLabel component="legend">Responsabilité</FormLabel>
+            <FormLabel component="legend">{t("yearDetail.rights.responsibility")}</FormLabel>
             <FormGroup>
               <FormControlLabel
                 control={
                   <Switch checked={state.dataAccess} onChange={handleChange} name="dataAccess" />
                 }
-                label="Consultation des données"
+                label={t("yearDetail.rights.dataConsult")}
               />
               <FormControlLabel
                 control={
@@ -67,7 +69,7 @@ const Rights = ({ selectedManager, state, setState }) => {
                     name="dataValidation"
                   />
                 }
-                label="Validation des données"
+                label={t("yearDetail.rights.dataValidation")}
               />
               <FormControlLabel
                 control={
@@ -77,25 +79,25 @@ const Rights = ({ selectedManager, state, setState }) => {
                     name="dataDownload"
                   />
                 }
-                label="Téléchargement des données"
+                label={t("yearDetail.rights.dataDownload")}
               />
 
               <FormControlLabel
                 control={<Switch checked={state.agenda} onChange={handleChange} name="agenda" />}
-                label="Agenda"
+                label={t("yearDetail.rights.agenda")}
               />
               <FormControlLabel
                 control={
                   <Switch checked={state.schedule} onChange={handleChange} name="schedule" />
                 }
-                label="Planification"
+                label={t("yearDetail.rights.planning")}
               />
             </FormGroup>
             <FormControlLabel
               control={<Switch checked={state.admin} onChange={handleChange} name="admin" />}
-              label="Administrateur"
+              label={t("yearDetail.rights.admin")}
             />
-            <FormHelperText>Peuvent être modifier à tout moment</FormHelperText>
+            <FormHelperText>{t("yearDetail.rights.note")}</FormHelperText>
           </FormControl>
         </Grid>
         <Grid item xs={6} md={4} marginTop={isMd ? "" : theme.spacing(5)}>

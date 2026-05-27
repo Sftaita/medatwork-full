@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -20,6 +21,7 @@ import UpdateWeekTemplates from "./UpdateWeekTemplate";
 const TOTAL_HOURS = 72;
 
 const TopBar = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), { defaultMatches: true });
   const { weekTemplates, selectedWeekId, setSelectedWeekId } = useWeekShedulerContext();
@@ -60,7 +62,7 @@ const TopBar = () => {
       }}
     >
       {/* col 1 — Add button, toujours visible */}
-      <Tooltip title="Nouveau modèle de semaine">
+      <Tooltip title={t("weekCreator.topbar.newTemplate")}>
         <IconButton
           size="small"
           color="primary"
@@ -100,7 +102,7 @@ const TopBar = () => {
                 }}
               />
               {isSelected && (
-                <Tooltip title="Modifier ce modèle">
+                <Tooltip title={t("weekCreator.topbar.editTemplate")}>
                   <IconButton size="small" onClick={() => setEditOpen(true)} sx={{ ml: 0.25 }}>
                     <EditIcon sx={{ fontSize: 14, color: "text.secondary" }} />
                   </IconButton>
@@ -120,7 +122,7 @@ const TopBar = () => {
           <>
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
               <Typography variant="caption" color="text.secondary">
-                Semaine
+                {t("weekCreator.topbar.week")}
               </Typography>
               <Typography variant="caption" fontWeight={700} color={progress >= 100 ? "error.main" : "text.primary"}>
                 {hoursLabel} / {TOTAL_HOURS}h

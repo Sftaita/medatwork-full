@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
@@ -10,6 +11,7 @@ import SystemUpdateIcon from "@mui/icons-material/SystemUpdate";
  * the user must click "Mettre à jour" to reload with the new version.
  */
 export function UpdateBanner({ onUpdate }: { onUpdate: () => void }) {
+  const { t } = useTranslation();
   return (
     <Box
       role="status"
@@ -34,7 +36,7 @@ export function UpdateBanner({ onUpdate }: { onUpdate: () => void }) {
       <Box display="flex" alignItems="center" gap={1.5}>
         <SystemUpdateIcon fontSize="small" sx={{ flexShrink: 0 }} />
         <Typography variant="body2" fontWeight={500}>
-          Une nouvelle version de MED@WORK est disponible.
+          {t("pwa.updateAvailable")}
         </Typography>
       </Box>
       <Button
@@ -49,7 +51,7 @@ export function UpdateBanner({ onUpdate }: { onUpdate: () => void }) {
           "&:hover": { bgcolor: "grey.100" },
         }}
       >
-        Mettre à jour
+        {t("pwa.update")}
       </Button>
     </Box>
   );

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LineChart,
   Line,
@@ -22,6 +23,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import Container from "../../../../components/medium/Container";
 
 const GraphCard = ({ timesheets, _month, _year }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -31,32 +33,21 @@ const GraphCard = ({ timesheets, _month, _year }) => {
 
   const createLabel = () => {
     if (timesheets && timesheets.week) {
-      // Create an array to store the chart data
       const chartData = [];
 
-      // Loop through each week and create a data object for each
       Object.keys(timesheets.week).forEach((key) => {
-        // Calculate the hour value
         const heure = timesheets.week[key];
+        const weekNum = parseInt(key, 10);
         const formattedHeure = `${Math.floor(heure)}h${Math.round(
           (heure - Math.floor(heure)) * 60
         )}`;
-        // Push the data object to the chartData array
-        chartData.push({ name: `Semaine ${key}`, heure, formattedHeure });
+        chartData.push({ name: `${t("stats.week")} ${key}`, weekNum, heure, formattedHeure });
       });
 
-      // Sort the data by week number to ensure chronological order
       chartData.sort((a, b) => {
-        const aValue = parseInt(a.name.replace("Semaine ", ""), 10);
-        const bValue = parseInt(b.name.replace("Semaine ", ""), 10);
-
-        if (aValue > 40 && bValue < 10) {
-          return -1;
-        } else if (aValue < 10 && bValue > 40) {
-          return 1;
-        } else {
-          return aValue - bValue;
-        }
+        if (a.weekNum > 40 && b.weekNum < 10) return -1;
+        if (a.weekNum < 10 && b.weekNum > 40) return 1;
+        return a.weekNum - b.weekNum;
       });
 
       // Set the chart data to state and mark the loading as finished
@@ -93,14 +84,14 @@ const GraphCard = ({ timesheets, _month, _year }) => {
         {" "}
         <Box marginBottom={2}>
           <Typography color="primary" variant="h6" fontWeight={700}>
-            Vue d'ensemble
+            {t("stats.overview")}
           </Typography>
         </Box>
         <Grid container spacing={{ xs: 2, md: 4 }}>
           <Grid item xs={12} sm={12}>
             <Card sx={{ p: { xs: 2, md: 4 } }}>
               <Typography color="text.secondary" gutterBottom>
-                Heures / semaines
+                {t("stats.hoursPerWeek")}
               </Typography>
               {!isPending && data.length > 0 && (
                 <ResponsiveContainer height={400}>
@@ -118,9 +109,9 @@ const GraphCard = ({ timesheets, _month, _year }) => {
                       dataKey="name"
                       withVerticalLabels={false}
                       withHorizontalLabels={false}
-                      tickFormatter={(name) => {
+                      tickFormatter={(name: string) => {
                         if (!isMd) {
-                          return name.replace("Semaine", "S");
+                          return t("stats.weekShort") + name.split(" ").pop();
                         }
                         return name;
                       }}
@@ -130,7 +121,7 @@ const GraphCard = ({ timesheets, _month, _year }) => {
                       type="number"
                       dataKey="heure"
                       label={{
-                        value: isMd ? "Heures" : "",
+                        value: isMd ? t("stats.hours") : "",
                         angle: -90,
                         position: "insideLeft",
                       }}
@@ -147,7 +138,7 @@ const GraphCard = ({ timesheets, _month, _year }) => {
                       stroke="#9C27B0"
                       strokeWidth={4}
                       strokeOpacity={0.7}
-                      name="Heures"
+                      name={t("stats.hours")}
                     />
                     <ReferenceLine y={60} stroke="orange" strokeDasharray="3 3" label="60" />
                     <ReferenceLine y={72} stroke="red" strokeDasharray="3 3" label="72" />

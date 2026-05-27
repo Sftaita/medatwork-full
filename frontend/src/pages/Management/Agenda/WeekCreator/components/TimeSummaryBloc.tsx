@@ -1,12 +1,14 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext";
 
 // Local components:
 import WeekCard from "./DayBar";
 import HoursCircle from "./HoursCircle";
 const TimeSummaryBloc = () => {
+  const { t } = useTranslation();
   const { selectedWeekId, weekTemplates } = useWeekShedulerContext();
-  const dayNames = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const dayNames = t("weekCreator.days", { returnObjects: true }) as string[];
 
   const timeToSeconds = (time) => {
     if (time === null) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import residentsApi from "../../../../services/residentsApi";
 import { toast } from "react-toastify";
@@ -15,6 +16,7 @@ import ResidentTable from "./ResidentsView/ResidentTable";
 import { handleApiError } from "@/services/apiError";
 
 const Residents = ({ yearId, adminRights }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const [ResidentList, setResidentList] = useState([]);
   const [loading, setLoading] = useState();
@@ -57,12 +59,12 @@ const Residents = ({ yearId, adminRights }) => {
       >
         <Box marginBottom={{ xs: 2, sm: 0 }}>
           <Typography variant={"h6"} fontWeight={700}>
-            MACCS
+            {t("yearDetail.residents.title")}
           </Typography>
           <Typography color={"text.secondary"}>
             {adminRights
-              ? "Ajouter, accepter ou désactiver les MACCS"
-              : "Vous n'avez pas les droits administrateurs"}
+              ? t("yearDetail.residents.subtitleAdmin")
+              : t("yearDetail.residents.subtitleNoAdmin")}
           </Typography>
         </Box>
       </Box>
@@ -78,9 +80,7 @@ const Residents = ({ yearId, adminRights }) => {
             />
           ) : (
             <Alert severity="info">
-              Aucun MACCS n'a encore été enregistré pour cette année. Pour ajouter un MACCS,
-              veuillez partager le code d'identification de l'année disponible dans l'onglet
-              "Année(s)" avec votre MACCS.
+              {t("yearDetail.residents.empty")}
             </Alert>
           )}
         </>

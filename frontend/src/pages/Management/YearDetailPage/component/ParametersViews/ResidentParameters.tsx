@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Button, Typography } from "@mui/material";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import managersApi from "../../../../../services/managersApi";
@@ -17,15 +18,16 @@ import SenderDialog from "./SenderDialog";
 import { CircularProgress } from "@mui/material";
 import { handleApiError } from "@/services/apiError";
 
-const columns = [
-  { id: "name", label: "Nom", minWidth: 200, align: "left" },
-  { id: "WorkerHRID", label: "Matricule", minWidth: 150, align: "left" },
-  { id: "SectionHRID", label: "Section", minWidth: 150, align: "left" },
-  { id: "update", label: "Modifier", minWidth: 100, align: "center" },
-];
-
 const ResidentParameters = ({ yearId }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
+
+  const columns = [
+    { id: "name", label: t("yearDetail.staffPlanner.colName"), minWidth: 200, align: "left" },
+    { id: "WorkerHRID", label: t("yearDetail.staffPlanner.colWorker"), minWidth: 150, align: "left" },
+    { id: "SectionHRID", label: t("yearDetail.staffPlanner.colSection"), minWidth: 150, align: "left" },
+    { id: "update", label: t("yearDetail.staffPlanner.colEdit"), minWidth: 100, align: "center" },
+  ];
   const [loading, setLoading] = useState(true);
   const [list, setList] = useState([]);
   const [relation, setRelation] = useState([]);
@@ -80,10 +82,10 @@ const ResidentParameters = ({ yearId }) => {
         >
           <Box marginBottom={{ xs: 2, sm: 0 }} sx={{ width: "100%" }}>
             <Typography variant={"h6"} fontWeight={700}>
-              Renseignements généraux
+              {t("yearDetail.residentParams.title")}
             </Typography>
             <Typography color={"text.secondary"} marginBottom={2}>
-              Renseignez les informations concernant vos MACCS. Ceci permettra un calcul correct.
+              {t("yearDetail.residentParams.desc")}
             </Typography>
             <Paper
               sx={{
@@ -113,10 +115,10 @@ const ResidentParameters = ({ yearId }) => {
                         <TableRow role="checkbox" tabIndex={-1} key={item.id}>
                           <TableCell>{item?.lastname + " " + item?.firstname}</TableCell>
                           <TableCell>
-                            {item?.WorkerHRID ? item?.WorkerHRID : "Non défini"}
+                            {item?.WorkerHRID ? item?.WorkerHRID : t("yearDetail.staffPlanner.notDefined")}
                           </TableCell>
                           <TableCell>
-                            {item?.WorkerHRID ? item?.SectionHRID : "Non défini"}
+                            {item?.WorkerHRID ? item?.SectionHRID : t("yearDetail.staffPlanner.notDefined")}
                           </TableCell>
                           <TableCell align="center">
                             <Button

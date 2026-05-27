@@ -25,10 +25,7 @@ const DetailledDescriptionPage = ({ _match }) => {
       <Box bgcolor={"alternate.main"}>
         <Container>
           <Box paddingTop={4} paddingBottom={4}>
-            <ContactUs
-              title="Contactez-nous"
-              subtitle="Vous avez encore des questions, des suggestions ou vous souhaitez simplement en discuter? N'hésitez pas à nous contacter."
-            />
+            <ContactUs />
           </Box>
         </Container>
       </Box>

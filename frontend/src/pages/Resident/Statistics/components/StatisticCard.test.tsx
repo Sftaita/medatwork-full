@@ -18,6 +18,49 @@ import StatisticCard from "./StatisticCard";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
+// i18n : retourne les chaînes françaises pour que les assertions restent stables
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const map: Record<string, string | string[]> = {
+        "stats.infoTitle":           "Informations",
+        "stats.scheduledHoursMonth": "Nombre d'heures prévues pour le mois :",
+        "stats.totalHours":          "Heures totales",
+        "stats.hardHours":           "Heures inconfortables",
+        "stats.veryHardHours":       "Heures très inconfortables",
+        "stats.callableGuards":      "Nombre de gardes appelables",
+        "stats.hospitalGuards":      "Gardes sur place",
+        "stats.leaveDays":           "Jours de congé",
+        "stats.annualLeave":         "Congé annuel :",
+        "stats.scientificLeave":     "Congé scientifique :",
+        "stats.paternityLeave":      "Congé paternité :",
+        "stats.maternityLeave":      "Congé maternité :",
+        "stats.unpaidLeave":         "Congé non rémunéré :",
+        "stats.scheduledChart":      "Horaire prévisionnel",
+        "stats.workedHours":         "Heures prestées",
+        "stats.scheduledHoursBar":   "Heures prévisionnelles",
+        "stats.weekShort":           "S",
+        "stats.infoScheduledTitle":  "Nombre d'heures prévues",
+        "stats.infoScheduledDesc":   "",
+        "stats.infoTotalTitle":      "Heures totales",
+        "stats.infoTotalDesc":       "",
+        "stats.infoHardTitle":       "Heures inconfortables",
+        "stats.infoHardDesc":        "",
+        "stats.infoVeryHardTitle":   "Heures très inconfortables",
+        "stats.infoVeryHardDesc":    "",
+        "stats.infoCallableTitle":   "Nombre de gardes appelables",
+        "stats.infoCallableDesc":    "",
+        "stats.infoHospitalTitle":   "Garde sur place",
+        "stats.infoHospitalDesc":    "",
+        "stats.infoScheduledChartTitle": "Horaire prévisionnel",
+        "stats.infoScheduledChartDesc":  "",
+      };
+      return (map[key] ?? key) as string;
+    },
+    i18n: { language: "fr" },
+  }),
+}));
+
 // CountUp : rend la valeur `end` comme texte pour pouvoir l'asserter
 vi.mock("react-countup", () => ({
   default: ({ end }: { end: number }) => <span data-testid="countup">{end}</span>,
@@ -197,7 +240,7 @@ describe("StatisticCard — dialog d'information", () => {
     const buttons = screen.getAllByRole("button");
     // Le bouton ? est le premier (dans CardHeader action)
     fireEvent.click(buttons[0]);
-    expect(screen.getByRole("dialog", { name: /informations/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /informations/i })).toBeInTheDocument(); // mock retourne "Informations"
   });
 });
 

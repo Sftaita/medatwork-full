@@ -4,6 +4,7 @@
  */
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme, alpha } from '@mui/material/styles';
 import ExportScheduleModal from './ExportScheduleModal';
 
@@ -68,10 +69,6 @@ function weekMondayOf(dateStr: string): string {
   return toKey(d);
 }
 
-const FR_DAYS       = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
-const FR_DAYS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const FR_DAYS_FULL  = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-const FR_MONTHS     = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
 function buildCells(viewMonth: Date) {
   const year  = viewMonth.getFullYear();
@@ -89,11 +86,6 @@ function buildCells(viewMonth: Date) {
     }
   }
   return cells;
-}
-
-function labelForDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  return `${FR_DAYS_FULL[(d.getDay() + 6) % 7]} ${d.getDate()} ${FR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 // ── useBreakpoint hook ────────────────────────────────────────────────────────
@@ -149,6 +141,7 @@ function MaccSheetContent({ maccs, enabledMaccs, setEnabledMaccs, focusMacc, set
   focusMacc: string | null; setFocusMacc: (id: string | null) => void;
   paper: string; border: string; primary: string; textPrimary: string; textSecondary: string; textDisabled: string;
 }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const filtered = maccs.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
   const toggle = (id: string) => setEnabledMaccs((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -158,11 +151,11 @@ function MaccSheetContent({ maccs, enabledMaccs, setEnabledMaccs, focusMacc, set
       {/* Search input */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: '#faf8f4', border: `1px solid ${border}`, marginBottom: 10 }}>
         <span style={{ color: textDisabled, fontSize: 14 }}>⌕</span>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un MACC…" style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', fontSize: 13, color: textPrimary, fontFamily: 'inherit' }} />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("calendar.searchMacc")} style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', fontSize: 13, color: textPrimary, fontFamily: 'inherit' }} />
       </div>
       {/* Tout / Aucun */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {([['Tout', () => setEnabledMaccs(new Set(maccs.map(m => m.id)))], ['Aucun', () => setEnabledMaccs(new Set())]] as const).map(([label, fn]) => (
+        {([[t("calendar.all"), () => setEnabledMaccs(new Set(maccs.map(m => m.id)))], [t("calendar.none"), () => setEnabledMaccs(new Set())]] as const).map(([label, fn]) => (
           <button key={label as string} onClick={fn as () => void} style={{ flex: 1, border: `1px solid ${border}`, background: rgba(primary, 0.04), borderRadius: 8, padding: '7px 0', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: textSecondary, fontFamily: 'inherit' }}>{label as string}</button>
         ))}
       </div>
@@ -194,6 +187,7 @@ function MaccsSidebar({ maccs, enabledMaccs, setEnabledMaccs, focusMacc, setFocu
   paper: string; border: string; primary: string;
   textPrimary: string; textSecondary: string; textDisabled: string;
 }) {
+  const { t } = useTranslation();
   const filtered = maccs.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
   const toggle = (id: string) => setEnabledMaccs((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -204,7 +198,7 @@ function MaccsSidebar({ maccs, enabledMaccs, setEnabledMaccs, focusMacc, setFocu
         <span style={{ fontSize: 11, color: textDisabled, fontFeatureSettings: '"tnum"' }}>{enabledMaccs.size}/{maccs.length}</span>
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        {[['Tout', () => setEnabledMaccs(new Set(maccs.map((m) => m.id)))], ['Aucun', () => setEnabledMaccs(new Set())]].map(([label, fn]) => (
+        {[[t("calendar.all"), () => setEnabledMaccs(new Set(maccs.map((m) => m.id)))], [t("calendar.none"), () => setEnabledMaccs(new Set())]].map(([label, fn]) => (
           <button key={label as string} onClick={fn as () => void} style={{ flex: 1, border: `1px solid ${border}`, background: rgba(primary, 0.04), borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: textSecondary, fontFamily: 'inherit' }}>{label as string}</button>
         ))}
       </div>
@@ -255,24 +249,27 @@ function DetailCard({ dayKey, events, macById, services, onClose, onAddEvent, on
   onClose?: () => void; onAddEvent?: (k: string) => void; onEventClick?: (k: string, e: MCEvent) => void;
   paper: string; border: string; primary: string; textPrimary: string; textSecondary: string; textDisabled: string;
 }) {
+  const { t } = useTranslation();
+  const calDaysFull = t("calendar.calDaysFull", { returnObjects: true }) as string[];
+  const calMonths   = t("calendar.calMonths",   { returnObjects: true }) as string[];
   const d = new Date(dayKey + 'T12:00:00');
-  const dow     = FR_DAYS_FULL[(d.getDay() + 6) % 7];
-  const dateStr = `${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
+  const dow     = calDaysFull[(d.getDay() + 6) % 7];
+  const dateStr = `${d.getDate()} ${calMonths[d.getMonth()]}`;
 
   return (
     <div style={{ background: paper, border: `1px solid ${border}`, borderRadius: 14, padding: 16 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: textDisabled, letterSpacing: '.14em', textTransform: 'uppercase' }}>Détail du jour</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: textDisabled, letterSpacing: '.14em', textTransform: 'uppercase' }}>{t("calendar.dayDetail")}</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: textPrimary, marginTop: 4, textTransform: 'capitalize' }}>{dow} {dateStr}</div>
-          <div style={{ fontSize: 11, color: textSecondary, marginTop: 2 }}>{events.length} affectation{events.length > 1 ? 's' : ''}</div>
+          <div style={{ fontSize: 11, color: textSecondary, marginTop: 2 }}>{events.length} {events.length > 1 ? t("calendar.assignments") : t("calendar.assignment")}</div>
         </div>
         {onClose && <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: 7, border: 0, background: rgba(primary, 0.08), color: primary, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>✕</button>}
       </div>
 
       {events.length === 0 ? (
         <div style={{ padding: '24px 12px', textAlign: 'center', color: textDisabled, fontSize: 12, background: rgba(primary, 0.03), borderRadius: 10, border: `1.5px dashed ${rgba(primary, 0.2)}` }}>
-          Aucune affectation ce jour.
+          {t("calendar.noAssignment")}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -299,7 +296,7 @@ function DetailCard({ dayKey, events, macById, services, onClose, onAddEvent, on
       )}
       {onAddEvent && (
         <button onClick={() => onAddEvent(dayKey)} style={{ marginTop: 12, width: '100%', background: primary, color: '#fff', border: 0, borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-          ＋ Ajouter une affectation
+          {t("calendar.addAssignment")}
         </button>
       )}
     </div>
@@ -316,6 +313,11 @@ export default function MonthCalendar({
   onPrevMonth, onNextMonth, onTodayClick, onViewChange,
   onDayClick, onAddEvent, onEventClick,
 }: MonthCalendarProps) {
+  const { t }         = useTranslation();
+  const calDays       = t("calendar.calDays",     { returnObjects: true }) as string[];
+  const calDaysShort  = t("calendar.calDaysShort",{ returnObjects: true }) as string[];
+  const calDaysFull   = t("calendar.calDaysFull", { returnObjects: true }) as string[];
+  const calMonths     = t("calendar.calMonths",   { returnObjects: true }) as string[];
   const theme         = useTheme();
   const primary       = theme.palette.primary.main;
   const bg            = theme.palette.background.default;
@@ -393,27 +395,30 @@ export default function MonthCalendar({
 
   // ── Header label ─────────────────────────────────────────────────────────────
 
-  const monthLabel = `${FR_MONTHS[viewMonth.getMonth()].charAt(0).toUpperCase() + FR_MONTHS[viewMonth.getMonth()].slice(1)} ${viewMonth.getFullYear()}`;
+  const monthLabel = `${calMonths[viewMonth.getMonth()].charAt(0).toUpperCase() + calMonths[viewMonth.getMonth()].slice(1)} ${viewMonth.getFullYear()}`;
 
   const headerLabel = (() => {
     if (view === 'month' || view === 'agenda') return monthLabel;
-    if (view === 'day') return labelForDate(anchorDate);
+    if (view === 'day') {
+      const d = new Date(anchorDate + 'T12:00:00');
+      return `${calDaysFull[(d.getDay() + 6) % 7]} ${d.getDate()} ${calMonths[d.getMonth()]} ${d.getFullYear()}`;
+    }
     // week
     const mon = weekMondayOf(anchorDate);
     const sun = addDays(mon, 6);
     const dMon = new Date(mon + 'T12:00:00');
     const dSun = new Date(sun + 'T12:00:00');
     if (dMon.getMonth() === dSun.getMonth()) {
-      return `${dMon.getDate()} – ${dSun.getDate()} ${FR_MONTHS[dSun.getMonth()]} ${dSun.getFullYear()}`;
+      return `${dMon.getDate()} – ${dSun.getDate()} ${calMonths[dSun.getMonth()]} ${dSun.getFullYear()}`;
     }
-    return `${dMon.getDate()} ${FR_MONTHS[dMon.getMonth()]} – ${dSun.getDate()} ${FR_MONTHS[dSun.getMonth()]} ${dSun.getFullYear()}`;
+    return `${dMon.getDate()} ${calMonths[dMon.getMonth()]} – ${dSun.getDate()} ${calMonths[dSun.getMonth()]} ${dSun.getFullYear()}`;
   })();
 
   const viewSubLabel: Record<typeof view, string> = {
-    month:  'Vue mensuelle',
-    week:   'Vue hebdomadaire',
-    day:    'Vue journalière',
-    agenda: 'Planning',
+    month:  t("calendar.viewSub.month"),
+    week:   t("calendar.viewSub.week"),
+    day:    t("calendar.viewSub.day"),
+    agenda: t("calendar.viewSub.agenda"),
   };
 
   const commonProps = { paper, border, primary, textPrimary, textSecondary, textDisabled };
@@ -467,7 +472,7 @@ export default function MonthCalendar({
       <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-end', justifyContent: 'space-between', marginBottom: 18, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: textDisabled }}>
-            Agenda · {viewSubLabel[view]}
+            {t("calendar.agendaLabel")} · {viewSubLabel[view]}
           </div>
           <h2 style={{ margin: '4px 0 0', fontSize: isMobile ? 22 : 26, fontWeight: 700, letterSpacing: '-.01em', color: textPrimary, textTransform: 'capitalize' }}>
             {headerLabel}
@@ -479,17 +484,17 @@ export default function MonthCalendar({
           {/* Export */}
           <button
             onClick={() => setExportOpen(true)}
-            title="Exporter le planning (PDF / impression / email)"
+            title={t("calendar.exportTooltip")}
             style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${border}`, background: paper, color: textPrimary, borderRadius: 10, padding: '0 14px', height: 36, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
           >
-            {isMobile ? '↓' : '↓ Exporter'}
+            {isMobile ? '↓' : t("calendar.exportBtn")}
           </button>
 
           {/* Navigation */}
           <div style={{ display: 'flex', gap: 0, background: paper, border: `1px solid ${border}`, borderRadius: 10, overflow: 'hidden' }}>
             <button onClick={handlePrev} style={{ width: 36, height: 36, border: 0, background: 'transparent', color: textPrimary, cursor: 'pointer', fontSize: 16, fontFamily: 'inherit' }}>‹</button>
             <div style={{ width: 1, background: border }} />
-            <button onClick={handleTodayClick} style={{ border: 0, background: 'transparent', color: textPrimary, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Aujourd'hui</button>
+            <button onClick={handleTodayClick} style={{ border: 0, background: 'transparent', color: textPrimary, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{t("calendar.today")}</button>
             <div style={{ width: 1, background: border }} />
             <button onClick={handleNext} style={{ width: 36, height: 36, border: 0, background: 'transparent', color: textPrimary, cursor: 'pointer', fontSize: 16, fontFamily: 'inherit' }}>›</button>
           </div>
@@ -497,7 +502,7 @@ export default function MonthCalendar({
           {/* Vue tabs */}
           <div style={{ display: 'flex', background: paper, border: `1px solid ${border}`, borderRadius: 10, padding: 3 }}>
             {(['month', 'week', 'day', 'agenda'] as const).map((k, idx) => {
-              const labels = ['Mois', 'Semaine', 'Jour', 'Planning'];
+              const labels = [t("calendar.views.month"), t("calendar.views.week"), t("calendar.views.day"), t("calendar.views.agenda")];
               return (
                 <button key={k} onClick={() => handleViewChange(k)} style={{ border: 0, padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', background: view === k ? primary : 'transparent', color: view === k ? '#fff' : textSecondary, transition: 'all .15s' }}>
                   {labels[idx]}
@@ -515,7 +520,7 @@ export default function MonthCalendar({
             onClick={() => setMaccsSheetOpen(true)}
             style={{ flex: isMobile ? 1 : 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', background: paper, border: `1px solid ${border}`, borderRadius: 10, fontSize: 13, color: textPrimary, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}
           >
-            <span>Filtrer les MACCs</span>
+            <span>{t("calendar.filterMaccs")}</span>
             <span style={{ fontSize: 11, color: '#fff', background: primary, padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>{enabledMaccs.size}/{maccs.length}</span>
           </button>
         </div>
@@ -536,7 +541,7 @@ export default function MonthCalendar({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
 
               {/* En-têtes jours */}
-              {(isMobile ? FR_DAYS_SHORT : FR_DAYS).map((d, i) => (
+              {(isMobile ? calDaysShort : calDays).map((d, i) => (
                 <div key={i} style={{ padding: isMobile ? '8px 0' : '10px 0', textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: i >= 5 ? alpha(textDisabled, 0.6) : textDisabled, borderRight: i < 6 ? `1px solid ${border}` : 'none', borderBottom: `1px solid ${border}`, background: alpha(primary, 0.03) }}>{d}</div>
               ))}
 
@@ -555,7 +560,7 @@ export default function MonthCalendar({
                     onClick={() => handleDayClick(c.key)}
                     onDoubleClick={() => onAddEvent?.(c.key)}
                     style={{ minHeight: cellMinH, padding: isMobile ? 4 : 6, borderRight: idx % 7 < 6 ? `1px solid ${alpha(border, 0.5)}` : 'none', borderBottom: lastRow ? 'none' : `1px solid ${alpha(border, 0.5)}`, background: !c.inMonth ? alpha(bg, 0.6) : isWeekend ? alpha(primary, 0.015) : paper, cursor: 'pointer', position: 'relative', transition: 'background .12s', boxShadow: isSelected ? `inset 0 0 0 2px ${primary}` : 'none', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}
-                    title="Clic : sélectionner — Double-clic : ajouter une affectation"
+                    title={t("calendar.clickToSelect")}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                       {isToday ? (
@@ -592,7 +597,7 @@ export default function MonthCalendar({
                 const isSelected = key === selectedDay;
                 return (
                   <div key={key} style={{ padding: isMobile ? '8px 4px' : '10px 8px', textAlign: 'center', borderRight: dowIdx < 6 ? `1px solid ${border}` : 'none', borderBottom: `1px solid ${border}`, background: isSelected ? rgba(primary, 0.06) : alpha(primary, 0.03) }}>
-                    <div style={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: isWeekend ? alpha(textDisabled, 0.6) : textDisabled }}>{isMobile ? FR_DAYS_SHORT[dowIdx] : FR_DAYS[dowIdx]}</div>
+                    <div style={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: isWeekend ? alpha(textDisabled, 0.6) : textDisabled }}>{isMobile ? calDaysShort[dowIdx] : calDays[dowIdx]}</div>
                     <div style={{ marginTop: 4, display: 'flex', justifyContent: 'center' }}>
                       {isToday ? (
                         <div style={{ width: isMobile ? 24 : 28, height: isMobile ? 24 : 28, borderRadius: 28, background: primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 11 : 13, fontWeight: 700 }}>{day}</div>
@@ -601,7 +606,7 @@ export default function MonthCalendar({
                       )}
                     </div>
                     {m !== viewMonth.getMonth() && !isMobile && (
-                      <div style={{ fontSize: 9, color: textDisabled, marginTop: 1 }}>{FR_MONTHS[m].slice(0, 3)}.</div>
+                      <div style={{ fontSize: 9, color: textDisabled, marginTop: 1 }}>{calMonths[m].slice(0, 3)}.</div>
                     )}
                   </div>
                 );
@@ -616,7 +621,7 @@ export default function MonthCalendar({
                     key={key}
                     onClick={() => handleDayClick(key)}
                     onDoubleClick={() => onAddEvent?.(key)}
-                    title="Clic : sélectionner — Double-clic : ajouter une affectation"
+                    title={t("calendar.clickToSelect")}
                     style={{ padding: isMobile ? 4 : 6, borderRight: dowIdx < 6 ? `1px solid ${alpha(border, 0.5)}` : 'none', minHeight: cellMinH * 2, cursor: 'pointer', boxShadow: isSelected ? `inset 0 0 0 2px ${primary}` : 'none', background: isSelected ? rgba(primary, 0.02) : 'transparent', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -667,20 +672,20 @@ export default function MonthCalendar({
           <div>
             {agendaDays.length === 0 ? (
               <div style={{ padding: 48, textAlign: 'center', color: textDisabled, fontSize: 14, background: paper, borderRadius: 14, border: `1px solid ${border}` }}>
-                Aucun événement ce mois.
+                {t("calendar.noEvent")}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {agendaDays.map(({ key, day, events: dayEvents }) => {
                   const d        = new Date(key + 'T12:00:00');
                   const isToday  = key === todayKey;
-                  const dowLabel = FR_DAYS_FULL[(d.getDay() + 6) % 7];
+                  const dowLabel = calDaysFull[(d.getDay() + 6) % 7];
                   return (
                     <div key={key} style={{ background: paper, border: `1px solid ${border}`, borderRadius: 12, overflow: 'hidden' }}>
                       <div
                         onClick={() => handleDayClick(key)}
                         onDoubleClick={() => onAddEvent?.(key)}
-                        title="Double-clic : ajouter une affectation"
+                        title={t("calendar.dblClickAdd")}
                         style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, background: alpha(primary, 0.03), display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
                       >
                         {isToday ? (
@@ -689,10 +694,10 @@ export default function MonthCalendar({
                           <div style={{ fontSize: 20, fontWeight: 700, color: textPrimary, flex: '0 0 auto' }}>{day}</div>
                         )}
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: textPrimary, textTransform: 'capitalize' }}>{dowLabel} {FR_MONTHS[d.getMonth()]}</div>
-                          <div style={{ fontSize: 11, color: textSecondary }}>{dayEvents.length} affectation{dayEvents.length > 1 ? 's' : ''}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: textPrimary, textTransform: 'capitalize' }}>{dowLabel} {calMonths[d.getMonth()]}</div>
+                          <div style={{ fontSize: 11, color: textSecondary }}>{dayEvents.length} {dayEvents.length > 1 ? t("calendar.assignments") : t("calendar.assignment")}</div>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); onAddEvent?.(key); }} style={{ marginLeft: 'auto', background: rgba(primary, 0.08), color: primary, border: 0, borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter</button>
+                        <button onClick={(e) => { e.stopPropagation(); onAddEvent?.(key); }} style={{ marginLeft: 'auto', background: rgba(primary, 0.08), color: primary, border: 0, borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{t("calendar.add")}</button>
                       </div>
                       <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {dayEvents.map((ev, i) => {
@@ -731,13 +736,13 @@ export default function MonthCalendar({
       {/* FAB pour réafficher le rail */}
       {!showRail && !isMobile && (view === 'month' || view === 'week') && (
         <button onClick={() => setShowRail(true)} style={{ position: 'fixed', bottom: 28, right: 28, background: primary, color: '#fff', border: 0, borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 8px 24px rgba(0,0,0,.18)', zIndex: 100 }}>
-          ⮜ Afficher les détails
+          {t("calendar.showDetails")}
         </button>
       )}
 
       {/* MACCs bottom sheet (mobile + tablet) */}
       {!isDesktop && (
-        <BottomSheet open={maccsSheetOpen} onClose={() => setMaccsSheetOpen(false)} title="Filtrer les MACCs" height="80vh">
+        <BottomSheet open={maccsSheetOpen} onClose={() => setMaccsSheetOpen(false)} title={t("calendar.filterMaccs")} height="80vh">
           <MaccSheetContent
             maccs={maccs} enabledMaccs={enabledMaccs} setEnabledMaccs={setEnabledMaccs}
             focusMacc={focusMacc} setFocusMacc={setFocusMacc}
@@ -753,7 +758,7 @@ export default function MonthCalendar({
           onClose={() => setDaySheetOpen(false)}
           title={(() => {
             const d = new Date(selectedDay + 'T12:00:00');
-            return `${FR_DAYS_FULL[(d.getDay() + 6) % 7].charAt(0).toUpperCase() + FR_DAYS_FULL[(d.getDay() + 6) % 7].slice(1)} ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
+            return `${calDaysFull[(d.getDay() + 6) % 7].charAt(0).toUpperCase() + calDaysFull[(d.getDay() + 6) % 7].slice(1)} ${d.getDate()} ${calMonths[d.getMonth()]}`;
           })()}
           height="75vh"
         >

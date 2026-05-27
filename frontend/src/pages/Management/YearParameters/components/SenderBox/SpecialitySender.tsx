@@ -1,4 +1,5 @@
 import { specialityLinks } from "../../../../../doc/lists";
+import { useTranslation } from "react-i18next";
 
 import MenuItem from "@mui/material/MenuItem";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -7,10 +8,11 @@ import Select from "@mui/material/Select";
 import Typography from "@mui/material/Typography";
 
 const SpecialitySender = ({ error, value, onChange, helperText }) => {
+  const { t } = useTranslation();
   return (
     <FormControl fullWidth error={error}>
       <Typography variant={"subtitle2"} sx={{ marginBottom: 2 }} fontWeight={700}>
-        Spécialité
+        {t("yearParams.speciality")}
       </Typography>
       <Select variant="outlined" name={"newValue"} type={"text"} value={value} onChange={onChange}>
         {specialityLinks.map((speciality) => (

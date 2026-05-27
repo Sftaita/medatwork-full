@@ -4,6 +4,7 @@
  */
 
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme, alpha } from '@mui/material/styles';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ function MonthOverview({ weeks, postes, rotation, currentWeekIdx, focusedWeekIdx
   currentWeekIdx: number; focusedWeekIdx: number; primary: string;
   onWeekClick: (weekIdx: number) => void;
 }) {
+  const { t } = useTranslation();
   const months = useMemo(() => {
     const map = new Map<number, WSTWeek[]>();
     weeks.forEach((w) => {
@@ -108,7 +110,7 @@ function MonthOverview({ weeks, postes, rotation, currentWeekIdx, focusedWeekIdx
               return (
                 <div
                   key={'mo' + w.idx}
-                  title={`S${w.num} — ${filled}/${postes.length} — cliquer pour naviguer`}
+                  title={`S${w.num} — ${filled}/${postes.length} — ${t("weekDisp.table.navTooltip")}`}
                   onClick={() => onWeekClick(w.idx)}
                   style={{
                     background: cur ? primary : '#f3efe7',
@@ -147,9 +149,11 @@ export default function WeekScheduleTable({
   people, postes, weeks, rotation,
   currentWeekIdx = -1,
   onCellClick, onAddPoste,
-  title = 'Répartition des semaines',
+  title,
   yearSelector,
 }: WeekScheduleTableProps) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t("weekDisp.table.defaultTitle");
   const theme   = useTheme();
   const primary = theme.palette.primary.main;
   const bg      = theme.palette.background.default;
@@ -258,10 +262,10 @@ export default function WeekScheduleTable({
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 18, gap: 16 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: textDisabled }}>
-            Horaires · Année
+            {t("weekDisp.table.sectionLabel")}
           </div>
           <h2 style={{ margin: '4px 0 0', fontSize: 24, fontWeight: 700, letterSpacing: '-.01em', color: textPrimary }}>
-            {title}
+            {resolvedTitle}
           </h2>
         </div>
       </div>
@@ -285,7 +289,7 @@ export default function WeekScheduleTable({
         {openCount > 0 && (
           <span
             onClick={handleUnassignedClick}
-            title="Cliquer pour naviguer vers la prochaine cellule non assignée"
+            title={t("weekDisp.table.navTooltip")}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '5px 11px', borderRadius: 999,
@@ -296,7 +300,7 @@ export default function WeekScheduleTable({
             }}
           >
             <span style={{ width: 6, height: 6, borderRadius: 6, background: '#e85a6a', flexShrink: 0 }} />
-            {openCount} non assignée{openCount > 1 ? 's' : ''}
+            {t("weekDisp.table.unassigned", { count: openCount, suffix: openCount > 1 ? "s" : "" })}
             {unassignedCursor >= 0 && (
               <span style={{ opacity: 0.65, fontWeight: 500, fontSize: 11 }}>
                 · {unassignedCursor + 1}/{unassignedCells.length}
@@ -306,7 +310,12 @@ export default function WeekScheduleTable({
         )}
 
         <span style={{ color: textDisabled, fontSize: 12 }}>
-          {postes.length} poste{postes.length !== 1 ? 's' : ''} · {weeks.length} semaine{weeks.length !== 1 ? 's' : ''}
+          {t("weekDisp.table.postesWeeks", {
+            postes: postes.length,
+            weeks: weeks.length,
+            pSuffix: postes.length !== 1 ? "s" : "",
+            wSuffix: weeks.length !== 1 ? "s" : "",
+          })}
         </span>
 
         <div style={{ width: 1, height: 18, background: borderSoft, margin: '0 4px' }} />
@@ -319,12 +328,12 @@ export default function WeekScheduleTable({
             fontSize: 12, color: textSecondary, fontFamily: 'inherit', fontWeight: 500,
           }}
         >
-          ＋ Importer un poste
+          ＋ {t("weekDisp.table.addPoste")}
         </button>
 
         <button
           onClick={toggleCellWidth}
-          title={cellWidth === 'compact' ? 'Élargir les cases' : 'Rétrécir les cases'}
+          title={cellWidth === 'compact' ? t("weekDisp.table.expand") : t("weekDisp.table.shrink")}
           style={{
             border: `1px solid ${borderSoft}`,
             background: cellWidth === 'large' ? alpha(primary, 0.08) : paper,
@@ -339,14 +348,14 @@ export default function WeekScheduleTable({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
               </svg>
-              Élargir
+              {t("weekDisp.table.expand")}
             </>
           ) : (
             <>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M4 14l-1 1 7 7 1-1M20 10l1-1-7-7-1 1M14 3v6h6M4 21v-6H10"/>
               </svg>
-              Rétrécir
+              {t("weekDisp.table.shrink")}
             </>
           )}
         </button>
@@ -361,7 +370,7 @@ export default function WeekScheduleTable({
             fontSize: 12, fontFamily: 'inherit', fontWeight: 500,
           }}
         >
-          {showRail ? '⮞ Masquer le panneau' : '⮜ Afficher le panneau'}
+          {showRail ? t("weekDisp.table.hidePanel") : t("weekDisp.table.showPanel")}
         </button>
       </div>
 
@@ -394,7 +403,7 @@ export default function WeekScheduleTable({
               position: 'sticky', left: 0, zIndex: 2,
               background: alpha(primary, 0.03),
             }}>
-              Poste
+              {t("weekDisp.table.colPoste")}
             </div>
             {weeks.map((w, i) => {
               const monthStart = i === 0 || weeks[i - 1].month !== w.month;
@@ -424,7 +433,7 @@ export default function WeekScheduleTable({
               display: 'flex', alignItems: 'center', background: paper,
               position: 'sticky', left: 0, zIndex: 2,
             }}>
-              Semaine
+              {t("weekDisp.table.colWeek")}
             </div>
             {weeks.map((w, i) => {
               const cur = i === currentWeekIdx;
@@ -575,7 +584,7 @@ export default function WeekScheduleTable({
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 14, color: textDisabled,
             }}>+</span>
-            Importer un poste
+            {t("weekDisp.table.addPoste")}
           </div>
           </div>{/* /minWidth */}
           </div>{/* /overflowX */}
@@ -592,10 +601,10 @@ export default function WeekScheduleTable({
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: textPrimary, letterSpacing: '.14em', textTransform: 'uppercase' }}>
-                  Charge par MACC
+                  {t("weekDisp.table.chargeTitle")}
                 </div>
                 <div style={{ fontSize: 10, color: textDisabled, letterSpacing: '.04em' }}>
-                  {Object.keys(counts).length} actif{Object.keys(counts).length > 1 ? 's' : ''}
+                  {t("weekDisp.table.active", { count: Object.keys(counts).length, suffix: Object.keys(counts).length > 1 ? "s" : "" })}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -639,10 +648,10 @@ export default function WeekScheduleTable({
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: textPrimary, letterSpacing: '.14em', textTransform: 'uppercase' }}>
-                  Aperçu mensuel
+                  {t("weekDisp.table.monthOverview")}
                 </div>
                 <div style={{ fontSize: 10, color: textDisabled }}>
-                  {weeks.length} semaine{weeks.length !== 1 ? 's' : ''}
+                  {t("weekDisp.table.weeks", { count: weeks.length, suffix: weeks.length !== 1 ? "s" : "" })}
                 </div>
               </div>
               <MonthOverview
@@ -655,8 +664,8 @@ export default function WeekScheduleTable({
                 borderRadius: 8, fontSize: 11, color: textSecondary,
                 lineHeight: 1.5, border: `1px solid ${alpha(primary, 0.1)}`,
               }}>
-                <div style={{ color: textPrimary, fontWeight: 600, marginBottom: 2 }}>Astuce</div>
-                Survolez un MACC dans la liste pour mettre en évidence ses semaines.
+                <div style={{ color: textPrimary, fontWeight: 600, marginBottom: 2 }}>{t("weekDisp.table.tip")}</div>
+                {t("weekDisp.table.tipBody")}
               </div>
             </div>
 

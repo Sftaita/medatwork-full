@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -19,6 +20,9 @@ const Dialiog = ({
   handleClose,
   handleSelect,
 }) => {
+  const { t } = useTranslation();
+  const months = t("stats.months", { returnObjects: true }) as string[];
+
   const currentYear = new Date().getFullYear();
   const years = [];
   for (let i = currentYear; i >= 2021 && years.length < 5; i--) {
@@ -27,53 +31,42 @@ const Dialiog = ({
 
   return (
     <Dialog disableEscapeKeyDown open={open} onClose={handleClose}>
-      <DialogTitle>Mois recherché</DialogTitle>
+      <DialogTitle>{t("data.dialog.title")}</DialogTitle>
       <DialogContent>
         <Box component="form" sx={{ display: "flex", flexWrap: "wrap" }}>
           <FormControl sx={{ m: 1, minWidth: 120 }}>
-            <InputLabel htmlFor="demo-dialog-native">Mois</InputLabel>
+            <InputLabel htmlFor="month-select">{t("data.dialog.month")}</InputLabel>
             <Select
               native
               value={month}
               onChange={handleMonthChange}
-              input={<OutlinedInput label="Month" id="demo-dialog-native" />}
+              input={<OutlinedInput label={t("data.dialog.month")} id="month-select" />}
             >
               <option aria-label="None" value="" />
-              <option value={1}>JANVIER</option>
-              <option value={2}>FEVRIER</option>
-              <option value={3}>MARS</option>
-              <option value={4}>AVRIL</option>
-              <option value={5}>MAI</option>
-              <option value={6}>JUIN</option>
-              <option value={7}>JUILLET</option>
-              <option value={8}>AOUT</option>
-              <option value={9}>SEPTEMBRE</option>
-              <option value={10}>OCTOBRE</option>
-              <option value={11}>NOVEMBRE</option>
-              <option value={12}>DECEMBRE</option>
+              {months.slice(1).map((name, i) => (
+                <option key={i + 1} value={i + 1}>{name}</option>
+              ))}
             </Select>
           </FormControl>
           <FormControl sx={{ m: 1, minWidth: 120 }}>
-            <InputLabel id="demo-dialog-select-label">Année</InputLabel>
+            <InputLabel id="year-select-label">{t("data.dialog.year")}</InputLabel>
             <Select
-              labelId="demo-dialog-select-label"
-              id="demo-dialog-select"
+              labelId="year-select-label"
+              id="year-select"
               value={year}
               onChange={handleYearChange}
-              input={<OutlinedInput label="Année" />}
+              input={<OutlinedInput label={t("data.dialog.year")} />}
             >
-              {years.map((year) => (
-                <MenuItem key={year} value={year}>
-                  {year}
-                </MenuItem>
+              {years.map((y) => (
+                <MenuItem key={y} value={y}>{y}</MenuItem>
               ))}
             </Select>
           </FormControl>
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Annuler</Button>
-        <Button onClick={handleSelect}>Valider</Button>
+        <Button onClick={handleClose}>{t("data.dialog.cancel")}</Button>
+        <Button onClick={handleSelect}>{t("data.dialog.confirm")}</Button>
       </DialogActions>
     </Dialog>
   );

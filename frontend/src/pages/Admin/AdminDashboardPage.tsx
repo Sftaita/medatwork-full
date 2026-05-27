@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -26,10 +27,11 @@ import adminApi from "../../services/adminApi";
 import type { Hospital, HospitalRequest } from "../../types/entities";
 
 const AdminDashboardPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate(); // registers the Authorization interceptor for this page
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const search = useTopbarSearch("Nom d'hôpital…");
+  const search = useTopbarSearch(t("admin.searchHospital"));
 
   const { data: hospitals = [], isLoading: loadingHospitals } = useQuery({
     queryKey: ["admin-hospitals"],

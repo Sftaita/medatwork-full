@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import NotificationTable from "./components/NotificationTable";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
@@ -11,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import { Alert } from "@mui/material";
 
 const ResidentNotificationPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -30,7 +32,7 @@ const ResidentNotificationPage = () => {
           color={"secondary"}
           align={"center"}
         >
-          Messagerie
+          {t("notif.sectionTitle")}
         </Typography>
         <Typography
           variant="h4"
@@ -40,7 +42,7 @@ const ResidentNotificationPage = () => {
             fontWeight: 700,
           }}
         >
-          Vos notifications
+          {t("notif.title")}
         </Typography>
 
         <Box paddingLeft={isMd ? theme.spacing(4) : ""} paddingRight={isMd ? theme.spacing(4) : ""}>
@@ -49,7 +51,7 @@ const ResidentNotificationPage = () => {
           )}
           {notifications?.notifications?.length === 0 && (
             <Alert severity="info">
-              <Typography> Vous n'avez pas de nouvelle notification.</Typography>
+              <Typography>{t("notif.empty")}</Typography>
             </Alert>
           )}
         </Box>

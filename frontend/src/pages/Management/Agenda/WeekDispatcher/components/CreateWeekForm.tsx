@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
@@ -20,6 +21,7 @@ import { useState } from "react";
 import { handleApiError } from "@/services/apiError";
 
 const CreateWeekForm = ({ onCancel, _onSubmit }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
 
   const [title, setTitle] = React.useState("");
@@ -51,7 +53,7 @@ const CreateWeekForm = ({ onCancel, _onSubmit }) => {
       onCancel();
     } catch (error) {
       handleApiError(error);
-      toast.error("Oups! Une erreur c'est produite.", toastError);
+      toast.error(t("weekCreator.createTemplate.errorGeneric"), toastError);
     } finally {
       setIsLoading(false);
     }
@@ -62,12 +64,12 @@ const CreateWeekForm = ({ onCancel, _onSubmit }) => {
       <Grid container spacing={2} direction="column" padding={4}>
         <Grid item>
           <Typography variant="h5" align="center" color={"primary"}>
-            Créer une semaine
+            {t("weekCreator.createTemplate.title")}
           </Typography>
         </Grid>
         <Grid item>
           <TextField
-            label="Titre*"
+            label={t("weekCreator.createTemplate.titleLabel")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             fullWidth
@@ -77,7 +79,7 @@ const CreateWeekForm = ({ onCancel, _onSubmit }) => {
         <Grid item>
           <TextField
             name="description"
-            label="Description"
+            label={t("weekCreator.createTemplate.descLabel")}
             rows={3}
             multiline
             value={description}
@@ -111,12 +113,12 @@ const CreateWeekForm = ({ onCancel, _onSubmit }) => {
               disabled={title.trim() === ""}
               loading={isLoading}
             >
-              Enregistrer
+              {t("weekCreator.createTemplate.save")}
             </LoadingButton>
           </Grid>
           <Grid item>
             <Button variant="outlined" onClick={onCancel}>
-              Annuler
+              {t("weekCreator.createTemplate.cancel")}
             </Button>
           </Grid>
         </Grid>

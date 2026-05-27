@@ -23,6 +23,15 @@ const mockHandleApiError = vi.hoisted(() => vi.fn());
 vi.mock("../../../hooks/useAxiosPrivate", () => ({ default: () => stableAxios }));
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      if (key === "stats.months") return ["", "JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
+      return key;
+    },
+    i18n: { language: "fr" },
+  }),
+}));
 
 // Stub des enfants lourds (recharts + CountUp + theme.palette.purple)
 vi.mock("./components/TimeCard", () => ({

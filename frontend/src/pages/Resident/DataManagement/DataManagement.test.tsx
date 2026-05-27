@@ -14,6 +14,19 @@ import DataManagement from "./DataManagement";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 // Stub les sous-composants pour ne tester que l'orchestration de DataManagement
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => ({
+      "data.title":          "Activité",
+      "data.subtitle":       "Mes données enregistrées",
+      "data.tabs.schedules": "Horaires",
+      "data.tabs.guards":    "Gardes",
+      "data.tabs.absences":  "Absences",
+    }[key] ?? key),
+    i18n: { language: "fr" },
+  }),
+}));
+
 vi.mock("./components/timesheet", () => ({
   default: () => <div data-testid="timesheet-tab">Timesheet</div>,
 }));

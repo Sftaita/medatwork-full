@@ -1,9 +1,12 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Avatar from "@mui/material/Avatar";
 import Typography from "@mui/material/Typography";
 
 const Advertising = () => {
+  const { t } = useTranslation();
+
   return (
     <Box>
       <Box marginBottom={4}>
@@ -15,11 +18,10 @@ const Advertising = () => {
             fontWeight: 700,
           }}
         >
-          Tout ce dont votre équipe pourrait avoir besoin
+          {t("desc.advertising.title")}
         </Typography>
         <Typography variant="h6" color={"text.secondary"} data-aos={"fade-up"} align={"justify"}>
-          Nous aspirons à nous développer afin d'inclure toutes les fonctionnalités nécessaires et
-          répondre au mieux à vos besoins.
+          {t("desc.advertising.subtitle")}
         </Typography>
       </Box>
       <Box
@@ -30,9 +32,9 @@ const Advertising = () => {
       >
         <Box>
           <Typography fontWeight={700} variant={"h6"} gutterBottom>
-            On s'en occupe
+            {t("desc.advertising.claim")}
           </Typography>
-          <Typography>Epargnez votre temps pour votre travail</Typography>
+          <Typography>{t("desc.advertising.claimSub")}</Typography>
         </Box>
         <Box display="flex" marginTop={{ xs: 2, md: 0 }}>
           <Box display="flex" marginTop={1}>

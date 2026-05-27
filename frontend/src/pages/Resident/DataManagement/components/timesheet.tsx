@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import timesheetsApi from "../../../../services/timesheetsApi";
 
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
@@ -25,19 +26,20 @@ import useAuth from "../../../../hooks/useAuth";
 import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 
-const columns = [
-  { id: "start", label: "Début", minWidth: 220, align: "left" },
-  { id: "end", label: "Fin", minWidth: 200, align: "left" },
-  { id: "pause", label: "Pause", minWidth: 130, align: "left" },
-  { id: "workDuration", label: "Durée", minWidth: 130, align: "left" },
-  { id: "science", label: "Scientifique", minWidth: 130, align: "left" },
-  { id: "title", label: "Année", minWidth: 200, align: "left" },
-  { id: "actions", label: "Modifier", minWidth: 150, align: "center" },
-];
-
 const SKELETON_ROWS = 5;
 
 const Timesheet = () => {
+  const { t } = useTranslation();
+
+  const columns = [
+    { id: "start",        label: t("data.col.start"),      minWidth: 220, align: "left"   },
+    { id: "end",          label: t("data.col.end"),        minWidth: 200, align: "left"   },
+    { id: "pause",        label: t("data.col.pause"),      minWidth: 130, align: "left"   },
+    { id: "workDuration", label: t("data.col.duration"),   minWidth: 130, align: "left"   },
+    { id: "science",      label: t("data.col.scientific"), minWidth: 130, align: "left"   },
+    { id: "title",        label: t("data.col.year"),       minWidth: 200, align: "left"   },
+    { id: "actions",      label: t("data.col.edit"),       minWidth: 150, align: "center" },
+  ];
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const axiosPrivate = useAxiosPrivate();
@@ -94,7 +96,7 @@ const Timesheet = () => {
     try {
       const { method, url } = timesheetsApi.deleteTimesheet();
       await axiosPrivate[method](url + id);
-      toast.success("Événement supprimé avec succès.", toastSuccess);
+      toast.success(t("data.deleted"), toastSuccess);
     } catch (error) {
       setRows(originalRows);
       handleApiError(error);
@@ -104,7 +106,7 @@ const Timesheet = () => {
   return (
     <Paper sx={{ width: "100%", overflow: "hidden" }}>
       <TableContainer sx={{ maxHeight: "70vh" }}>
-        <Table stickyHeader aria-label="tableau des horaires">
+        <Table stickyHeader aria-label={t("data.tabs.schedules")}>
           <TableHead>
             <TableRow>
               {columns.map((column) => (
@@ -141,7 +143,7 @@ const Timesheet = () => {
                       {row.called && <PhoneInTalkIcon fontSize="small" color="primary" />}
                       {!row.isEditable && (
                         <Chip
-                          label="Validé"
+                          label={t("data.validated")}
                           icon={<DoneIcon />}
                           size="small"
                           color="primary"
@@ -156,7 +158,7 @@ const Timesheet = () => {
                     <TableCell>{row.title}</TableCell>
                     <TableCell align="center">
                       <IconButton
-                        aria-label="modifier"
+                        aria-label={t("data.col.edit")}
                         onClick={() => {
                           navigate("/maccs/timer/" + row.id + "/timer");
                           setSelectedMenuItem("Mes horaires");
@@ -166,7 +168,7 @@ const Timesheet = () => {
                         <EditIcon color={row.isEditable ? "primary" : "disabled"} />
                       </IconButton>
                       <IconButton
-                        aria-label="supprimer"
+                        aria-label={t("data.col.delete")}
                         onClick={() => handleDelete(row.id)}
                         disabled={!row.isEditable}
                       >

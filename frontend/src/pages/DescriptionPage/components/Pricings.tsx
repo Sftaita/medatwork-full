@@ -27,7 +27,7 @@ const mock = [
         isIncluded: true,
       },
       {
-        title: "Satistics",
+        title: "Statistiques",
         isIncluded: true,
       },
       {
@@ -68,7 +68,7 @@ const mock = [
         isIncluded: true,
       },
       {
-        title: "Satistics",
+        title: "Statistiques",
         isIncluded: true,
       },
       {
@@ -94,7 +94,7 @@ const mock = [
   {
     title: "Sur mesure",
     price: "Variable",
-    info: "Par groupe hospitalié",
+    info: "Par groupe hospitalier",
     features: [
       {
         title: "Interface MACCS",
@@ -109,7 +109,7 @@ const mock = [
         isIncluded: true,
       },
       {
-        title: "Satistics",
+        title: "Statistiques",
         isIncluded: true,
       },
       {

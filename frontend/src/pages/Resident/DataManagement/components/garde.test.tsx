@@ -25,6 +25,24 @@ const mockHandleApiError = vi.hoisted(() => vi.fn());
 vi.mock("../../../../hooks/useAxiosPrivate", () => ({ default: () => stableAxios }));
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => ({
+      "data.col.start":       "Début",
+      "data.col.end":         "Fin",
+      "data.col.type":        "Type",
+      "data.col.comment":     "Commentaire",
+      "data.col.year":        "Année",
+      "data.col.delete":      "Supprimer",
+      "data.tabs.guards":     "Gardes",
+      "data.validated":       "Validé",
+      "data.deleted":         "Événement supprimé avec succès.",
+      "timer.garde.callable": "Garde appelable",
+      "timer.garde.hospital": "Garde sur place",
+    }[key] ?? key),
+    i18n: { language: "fr" },
+  }),
+}));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const MOCK_GARDES = [

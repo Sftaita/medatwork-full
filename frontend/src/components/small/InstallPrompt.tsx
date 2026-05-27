@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import GetAppIcon from "@mui/icons-material/GetApp";
 
@@ -12,6 +13,7 @@ interface BeforeInstallPromptEvent extends Event {
  * Disappears automatically after installation or if the user dismisses the native prompt.
  */
 const InstallPrompt = () => {
+  const { t } = useTranslation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ const InstallPrompt = () => {
       onClick={handleInstall}
       sx={{ mr: 1 }}
     >
-      Installer
+      {t("pwa.install")}
     </Button>
   );
 };

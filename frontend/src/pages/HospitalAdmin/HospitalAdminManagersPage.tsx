@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { T, C, statusBadgeSx, yearPillSx, bodyRowSx } from "../../styles/tableStyles";
 import { useTableDensity } from "../../hooks/useTableDensity";
@@ -169,29 +170,23 @@ export function translateJob(job: string | null): string {
 
 // ── Status constants ──────────────────────────────────────────────────────────
 
-const STATUS_LABEL: Record<ManagerStatus, string> = {
-  active:         "Actif",
-  pending:        "En attente",
-  not_registered: "Sans compte",
-};
+type TFn = (key: string, opts?: any) => string;
+
 const STATUS_COLOR: Record<ManagerStatus, "success" | "warning" | "error"> = {
   active:         "success",
   pending:        "warning",
   not_registered: "error",
 };
-const STATUS_TOOLTIP: Record<ManagerStatus, string> = {
-  active:         "Le manager a un compte actif et peut se connecter",
-  pending:        "Invitation envoyée — le manager n'a pas encore défini son mot de passe",
-  not_registered: "Aucun compte lié — l'invitation n'a jamais été envoyée",
-};
 
-/** Label shown per ManagerYears entry in the drawer. */
-function yearAttributionLabel(row: ManagerRow): { label: string; color: "success" | "info" | "warning" } {
+const getMgrStatusLabel   = (s: ManagerStatus, t: TFn) => t(`haMgr.status.${s}`);
+const getMgrStatusTooltip = (s: ManagerStatus, t: TFn) => t(`haMgr.statusTooltip.${s}`);
+
+function yearAttributionLabel(row: ManagerRow, t: TFn): { label: string; color: "success" | "info" | "warning" } {
   if (!row.yearPending && row.status === "active")
-    return { label: "Actif", color: "success" };
+    return { label: t("haMgr.yearLabel.active"), color: "success" };
   if (row.yearPending && row.accountActivated)
-    return { label: "Invitation non acceptée", color: "info" };
-  return { label: "Compte non activé", color: "warning" };
+    return { label: t("haMgr.yearLabel.notAccepted"), color: "info" };
+  return { label: t("haMgr.yearLabel.notActivated"), color: "warning" };
 }
 
 // ── Row actions menu (3-dot) ──────────────────────────────────────────────────
@@ -205,6 +200,7 @@ interface ManagerActionsMenuProps {
 }
 
 const ManagerActionsMenu = ({ group, onOpenDrawer, onAddYear, onResend, onDelete }: ManagerActionsMenuProps) => {
+  const { t } = useTranslation();
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const close = () => setAnchor(null);
 
@@ -230,24 +226,17 @@ const ManagerActionsMenu = ({ group, onOpenDrawer, onAddYear, onResend, onDelete
         transformOrigin={{ vertical: "top", horizontal: "right" }}
         PaperProps={{ sx: { minWidth: 190, borderRadius: "10px", boxShadow: C.shadow, border: `1px solid ${C.line}` } }}
       >
-        <MenuItem onClick={() => { close(); onOpenDrawer(); }} sx={{ fontSize: 13 }}>
-          Voir le détail
-        </MenuItem>
-        <MenuItem onClick={() => { close(); onAddYear(); }} sx={{ fontSize: 13 }}>
-          Ajouter à une année
-        </MenuItem>
+        <MenuItem onClick={() => { close(); onOpenDrawer(); }} sx={{ fontSize: 13 }}>{t("haMgr.menu.viewDetail")}</MenuItem>
+        <MenuItem onClick={() => { close(); onAddYear(); }} sx={{ fontSize: 13 }}>{t("haMgr.menu.addToYear")}</MenuItem>
         {firstPendingYear && (
           <MenuItem onClick={() => { close(); onResend(firstPendingYear.myId); }} sx={{ fontSize: 13 }}>
-            Renvoyer l'invitation
+            {t("haMgr.menu.resendInvite")}
           </MenuItem>
         )}
         <Divider />
-        <MenuItem
-          onClick={() => { close(); onDelete(); }}
-          disabled={group.managerId === null}
-          sx={{ fontSize: 13, color: "error.main" }}
-        >
-          Supprimer de l'hôpital
+        <MenuItem onClick={() => { close(); onDelete(); }} disabled={group.managerId === null}
+          sx={{ fontSize: 13, color: "error.main" }}>
+          {t("haMgr.menu.deleteFromHospital")}
         </MenuItem>
       </Menu>
     </>
@@ -265,6 +254,7 @@ interface AddManagerDialogProps {
 }
 
 const AddManagerDialog = ({ open, years, onClose, onSave, isPending }: AddManagerDialogProps) => {
+  const { t } = useTranslation();
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
   const [email, setEmail] = useState("");
@@ -280,31 +270,22 @@ const AddManagerDialog = ({ open, years, onClose, onSave, isPending }: AddManage
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Ajouter un manager</DialogTitle>
+      <DialogTitle>{t("haMgr.addDialog.title")}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
           <Box display="flex" gap={2}>
-            <TextField label="Prénom" value={firstname} onChange={(e) => setFirstname(e.target.value)} fullWidth required />
-            <TextField label="Nom" value={lastname} onChange={(e) => setLastname(e.target.value)} fullWidth required />
+            <TextField label={t("haMgr.addDialog.firstname")} value={firstname} onChange={(e) => setFirstname(e.target.value)} fullWidth required />
+            <TextField label={t("haMgr.addDialog.lastname")} value={lastname} onChange={(e) => setLastname(e.target.value)} fullWidth required />
           </Box>
-          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth required />
-          <YearSelect
-            years={years}
-            value={yearId}
-            onChange={(id) => setYearId(id)}
-            label="Année académique"
-            required
-          />
-          <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
-            Si le manager n'a pas encore de compte, il recevra un email pour créer son profil.
-            S'il a déjà un compte, il recevra une invitation ou sera ajouté automatiquement.
-          </Alert>
+          <TextField label={t("haMgr.addDialog.email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth required />
+          <YearSelect years={years} value={yearId} onChange={(id) => setYearId(id)} label={t("haMgr.addDialog.year")} required />
+          <Alert severity="info" sx={{ fontSize: "0.8rem" }}>{t("haMgr.addDialog.info")}</Alert>
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isPending}>Annuler</Button>
+        <Button onClick={handleClose} disabled={isPending}>{t("haMgr.addDialog.cancel")}</Button>
         <Button variant="contained" disabled={isPending || !valid} onClick={handleSave}>
-          {isPending ? <CircularProgress size={16} /> : "Inviter"}
+          {isPending ? <CircularProgress size={16} /> : t("haMgr.addDialog.invite")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -323,6 +304,7 @@ interface AddYearModalProps {
 }
 
 const AddYearModal = ({ open, manager, allYears, onClose, onAdd, isAdding }: AddYearModalProps) => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
 
   const assignedYearIds = new Set((manager?.years ?? []).map((r) => r.yearId).filter(Boolean) as number[]);
@@ -335,7 +317,7 @@ const AddYearModal = ({ open, manager, allYears, onClose, onAdd, isAdding }: Add
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        Attribuer une année à {fullName(manager)}
+        {t("haMgr.addYearModal.title", { name: fullName(manager) })}
         <IconButton size="small" onClick={onClose}><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ p: 0 }}>
@@ -343,14 +325,14 @@ const AddYearModal = ({ open, manager, allYears, onClose, onAdd, isAdding }: Add
           <TextField
             size="small"
             fullWidth
-            placeholder="Rechercher une année…"
+            placeholder={t("haMgr.addYearModal.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
           />
         </Box>
         {filtered.length === 0 && (
-          <Box px={2} py={2}><Typography color="text.secondary" variant="body2">Aucune année trouvée.</Typography></Box>
+          <Box px={2} py={2}><Typography color="text.secondary" variant="body2">{t("haMgr.addYearModal.noYears")}</Typography></Box>
         )}
         <List disablePadding>
           {filtered.map((y) => {
@@ -361,11 +343,11 @@ const AddYearModal = ({ open, manager, allYears, onClose, onAdd, isAdding }: Add
                 divider
                 secondaryAction={
                   already
-                    ? <Chip label="Déjà attribué" size="small" variant="outlined" color="default" />
+                    ? <Chip label={t("haMgr.addYearModal.alreadyAssigned")} size="small" variant="outlined" color="default" />
                     : (
                       <Button size="small" variant="outlined" startIcon={<AddIcon />}
                         disabled={isAdding} onClick={() => onAdd(y.id)}>
-                        Ajouter
+                        {t("haMgr.addYearModal.add")}
                       </Button>
                     )
                 }
@@ -380,7 +362,7 @@ const AddYearModal = ({ open, manager, allYears, onClose, onAdd, isAdding }: Add
         </List>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Fermer</Button>
+        <Button onClick={onClose}>{t("haMgr.addYearModal.close")}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -395,23 +377,25 @@ interface RemoveYearConfirmProps {
   isRemoving: boolean;
 }
 
-const RemoveYearConfirm = ({ year, onClose, onConfirm, isRemoving }: RemoveYearConfirmProps) => (
-  <Dialog open={year !== null} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Retirer de cette année ?</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Le lien entre ce manager et l'année <strong>{year?.yearTitle ?? "—"}</strong> sera supprimé.
-        Le manager reste dans l'hôpital et conserve ses autres attributions.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={isRemoving}>Annuler</Button>
-      <Button color="error" variant="contained" disabled={isRemoving} onClick={onConfirm}>
-        {isRemoving ? <CircularProgress size={16} /> : "Retirer"}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+const RemoveYearConfirm = ({ year, onClose, onConfirm, isRemoving }: RemoveYearConfirmProps) => {
+  const { t } = useTranslation();
+  return (
+    <Dialog open={year !== null} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>{t("haMgr.removeYearDialog.title")}</DialogTitle>
+      <DialogContent>
+        <Typography>
+          {t("haMgr.removeYearDialog.body", { year: year?.yearTitle ?? "—" })}
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={isRemoving}>{t("haMgr.removeYearDialog.cancel")}</Button>
+        <Button color="error" variant="contained" disabled={isRemoving} onClick={onConfirm}>
+          {isRemoving ? <CircularProgress size={16} /> : t("haMgr.removeYearDialog.remove")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Delete from hospital modal ────────────────────────────────────────────────
 
@@ -423,31 +407,32 @@ interface DeleteManagerModalProps {
   isDeleting: boolean;
 }
 
-const DeleteManagerModal = ({ open, manager, onClose, onConfirm, isDeleting }: DeleteManagerModalProps) => (
-  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-    <DialogTitle sx={{ color: "error.main" }}>Supprimer ce manager de l'hôpital</DialogTitle>
-    <DialogContent>
-      <Typography gutterBottom fontWeight={600}>{fullName(manager)}</Typography>
-      <Alert severity="error" sx={{ mb: 2 }}>
-        <Typography variant="body2">Ce manager sera retiré de cet hôpital.</Typography>
-        <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-          <li><Typography variant="body2">il perdra l'accès à toutes les années de cet hôpital ;</Typography></li>
-          <li><Typography variant="body2">ses attributions à ces années seront supprimées ;</Typography></li>
-          <li><Typography variant="body2">son compte manager ne sera pas supprimé s'il est lié à d'autres hôpitaux.</Typography></li>
-        </Box>
-      </Alert>
-      <Typography variant="body2" color="text.secondary">
-        Cette action est <strong>irréversible</strong> pour cet hôpital.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={isDeleting}>Annuler</Button>
-      <Button color="error" variant="contained" disabled={isDeleting || manager?.managerId == null} onClick={onConfirm}>
-        {isDeleting ? <CircularProgress size={16} /> : "Supprimer"}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+const DeleteManagerModal = ({ open, manager, onClose, onConfirm, isDeleting }: DeleteManagerModalProps) => {
+  const { t } = useTranslation();
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ color: "error.main" }}>{t("haMgr.deleteDialog.title")}</DialogTitle>
+      <DialogContent>
+        <Typography gutterBottom fontWeight={600}>{fullName(manager)}</Typography>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="body2">{t("haMgr.deleteDialog.removeBody")}</Typography>
+          <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+            <li><Typography variant="body2">{t("haMgr.deleteDialog.bullet1")}</Typography></li>
+            <li><Typography variant="body2">{t("haMgr.deleteDialog.bullet2")}</Typography></li>
+            <li><Typography variant="body2">{t("haMgr.deleteDialog.bullet3")}</Typography></li>
+          </Box>
+        </Alert>
+        <Typography variant="body2" color="text.secondary">{t("haMgr.deleteDialog.irreversible")}</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={isDeleting}>{t("haMgr.deleteDialog.cancel")}</Button>
+        <Button color="error" variant="contained" disabled={isDeleting || manager?.managerId == null} onClick={onConfirm}>
+          {isDeleting ? <CircularProgress size={16} /> : t("haMgr.deleteDialog.delete")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Manager drawer ────────────────────────────────────────────────────────────
 
@@ -468,6 +453,7 @@ const ManagerDrawer = ({
   onOpenAddYear, onOpenDelete, onToggleCreateYear,
   isResending, isToggling,
 }: ManagerDrawerProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
 
@@ -534,13 +520,13 @@ const ManagerDrawer = ({
               indicatorColor="primary"
             >
               <Tab
-                label={`Années (${manager.years.length})`}
+                label={t("haMgr.drawer.yearsTab", { count: manager.years.length })}
                 icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
                 iconPosition="start"
                 sx={{ minHeight: 48, fontSize: "0.85rem" }}
               />
               <Tab
-                label="Compte & Hôpital"
+                label={t("haMgr.drawer.accountTab")}
                 icon={<ManageAccountsIcon sx={{ fontSize: 16 }} />}
                 iconPosition="start"
                 sx={{ minHeight: 48, fontSize: "0.85rem" }}
@@ -553,13 +539,13 @@ const ManagerDrawer = ({
             <Box flex={1} display="flex" flexDirection="column" overflow="hidden">
               {manager.years.length === 0 ? (
                 <Box p={3}>
-                  <Alert severity="info">Aucune année attribuée.</Alert>
+                  <Alert severity="info">{t("haMgr.drawer.noYears")}</Alert>
                 </Box>
               ) : (
                 <Box flex={1} overflow="auto">
                   <List disablePadding>
                     {manager.years.map((row) => {
-                      const { label, color } = yearAttributionLabel(row);
+                      const { label, color } = yearAttributionLabel(row, t);
                       const showResend = row.status !== "active" || row.yearPending;
                       return (
                         <ListItem
@@ -583,14 +569,14 @@ const ManagerDrawer = ({
                             </Box>
                             <Stack direction="row" spacing={0.5} flexShrink={0}>
                               {row.yearId != null && (
-                                <Tooltip title="Voir les résidents de cette année" arrow>
+                                <Tooltip title={t("haMgr.drawer.viewResidents")} arrow>
                                   <IconButton size="small" onClick={() => navigate(`/hospital-admin/years/${row.yearId}/residents`)}>
                                     <OpenInNewIcon sx={{ fontSize: 16 }} />
                                   </IconButton>
                                 </Tooltip>
                               )}
                               {showResend && (
-                                <Tooltip title="Renvoyer l'invitation" arrow>
+                                <Tooltip title={t("haMgr.drawer.resendInvite")} arrow>
                                   <span>
                                     <IconButton size="small" disabled={isResending} onClick={() => onResend(row.myId)}>
                                       {isResending ? <CircularProgress size={14} /> : <SendIcon sx={{ fontSize: 16 }} />}
@@ -598,7 +584,7 @@ const ManagerDrawer = ({
                                   </span>
                                 </Tooltip>
                               )}
-                              <Tooltip title="Retirer de cette année" arrow>
+                              <Tooltip title={t("haMgr.drawer.removeFromYear")} arrow>
                                 <IconButton size="small" color="error" onClick={() => onRemoveYear(row)}>
                                   <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                                 </IconButton>
@@ -613,7 +599,7 @@ const ManagerDrawer = ({
               )}
               <Box px={3} py={2} borderTop={1} borderColor="divider" bgcolor="action.hover" flexShrink={0}>
                 <Button variant="outlined" startIcon={<AddIcon />} fullWidth onClick={onOpenAddYear}>
-                  Ajouter à une année
+                  {t("haMgr.drawer.addToYear")}
                 </Button>
               </Box>
             </Box>
@@ -625,10 +611,10 @@ const ManagerDrawer = ({
               <Stack spacing={3}>
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                    Statut du compte
+                    {t("haMgr.drawer.accountStatus")}
                   </Typography>
-                  <Tooltip title={STATUS_TOOLTIP[manager.status]} arrow>
-                    <Chip label={STATUS_LABEL[manager.status]} color={STATUS_COLOR[manager.status]} size="small" />
+                  <Tooltip title={getMgrStatusTooltip(manager.status, t)} arrow>
+                    <Chip label={getMgrStatusLabel(manager.status, t)} color={STATUS_COLOR[manager.status]} size="small" />
                   </Tooltip>
                 </Box>
 
@@ -636,7 +622,7 @@ const ManagerDrawer = ({
 
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block" mb={1}>
-                    Permissions
+                    {t("haMgr.drawer.permissions")}
                   </Typography>
                   <FormControlLabel
                     control={
@@ -649,7 +635,7 @@ const ManagerDrawer = ({
                         size="small"
                       />
                     }
-                    label={<Typography variant="body2">Peut créer une année</Typography>}
+                    label={<Typography variant="body2">{t("haMgr.drawer.canCreateYear")}</Typography>}
                   />
                 </Box>
 
@@ -657,21 +643,15 @@ const ManagerDrawer = ({
 
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block" mb={1}>
-                    Zone dangereuse
+                    {t("haMgr.drawer.dangerZone")}
                   </Typography>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<PersonRemoveIcon />}
-                    fullWidth
-                    onClick={onOpenDelete}
-                    disabled={manager.managerId == null}
-                    sx={{ justifyContent: "flex-start" }}
-                  >
-                    Supprimer de l'hôpital
+                  <Button variant="outlined" color="error" startIcon={<PersonRemoveIcon />}
+                    fullWidth onClick={onOpenDelete} disabled={manager.managerId == null}
+                    sx={{ justifyContent: "flex-start" }}>
+                    {t("haMgr.drawer.deleteFromHospital")}
                   </Button>
                   <Typography variant="caption" color="text.disabled" display="block" mt={0.75}>
-                    Supprime le lien avec l'hôpital et toutes les attributions d'années associées.
+                    {t("haMgr.drawer.deleteCaption")}
                   </Typography>
                 </Box>
               </Stack>
@@ -686,11 +666,12 @@ const ManagerDrawer = ({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const HospitalAdminManagersPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const qc = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
-  const search = useTopbarSearch("Nom, email, fonction…");
+  const search = useTopbarSearch(t("haMgr.colName") + ", " + t("haMgr.colEmail") + "…");
   const [jobFilter, setJobFilter] = useState("");
   const [sortCol, setSortCol] = useState<"nom" | "email" | "fonction" | "annees" | "statut" | null>("nom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -802,8 +783,8 @@ const HospitalAdminManagersPage = () => {
   // ── Mutations ──────────────────────────────────────────────────────────────
   const addManagerMutation = useMutation({
     mutationFn: hospitalAdminApi.addManager,
-    onSuccess: () => { toast.success("Manager invité."); setAddManagerOpen(false); invalidate(); },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Erreur lors de l'ajout."),
+    onSuccess: () => { toast.success(t("haMgr.toast.invited")); setAddManagerOpen(false); invalidate(); },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? t("haMgr.toast.addError")),
   });
 
   const addYearMutation = useMutation({
@@ -816,31 +797,26 @@ const HospitalAdminManagersPage = () => {
         yearId,
       });
     },
-    onSuccess: () => { toast.success("Manager ajouté à l'année."); setAddYearOpen(false); invalidate(); },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Erreur lors de l'ajout."),
+    onSuccess: () => { toast.success(t("haMgr.toast.addedToYear")); setAddYearOpen(false); invalidate(); },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? t("haMgr.toast.addError")),
   });
 
   const resendMutation = useMutation({
     mutationFn: (myId: number) => hospitalAdminApi.resendManagerInvite(myId),
-    onSuccess: () => toast.success("Invitation renvoyée."),
-    onError: () => toast.error("Erreur lors du renvoi."),
+    onSuccess: () => toast.success(t("haMgr.toast.resent")),
+    onError: () => toast.error(t("haMgr.toast.resendError")),
   });
 
   const removeMutation = useMutation({
     mutationFn: (myId: number) => hospitalAdminApi.removeManagerYear(myId),
-    onSuccess: () => { toast.success("Manager retiré de l'année."); setRemoveYearTarget(null); invalidate(); },
-    onError: () => toast.error("Erreur lors du retrait."),
+    onSuccess: () => { toast.success(t("haMgr.toast.removedFromYear")); setRemoveYearTarget(null); invalidate(); },
+    onError: () => toast.error(t("haMgr.toast.removeError")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (managerId: number) => hospitalAdminApi.deleteManager(managerId),
-    onSuccess: () => {
-      toast.success("Manager supprimé de l'hôpital.");
-      setDeleteManagerOpen(false);
-      setDrawerManagerId(null);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors de la suppression."),
+    onSuccess: () => { toast.success(t("haMgr.toast.deleted")); setDeleteManagerOpen(false); setDrawerManagerId(null); invalidate(); },
+    onError: () => toast.error(t("haMgr.toast.deleteError")),
   });
 
   const toggleMutation = useMutation({
@@ -857,14 +833,14 @@ const HospitalAdminManagersPage = () => {
       return { prevCurrent, prevHistory };
     },
     onSuccess: (data) => {
-      toast.success(data.canCreateYear ? "Droit accordé." : "Droit révoqué.");
+      toast.success(data.canCreateYear ? t("haMgr.toast.rightGranted") : t("haMgr.toast.rightRevoked"));
     },
     onError: (_err, _vars, context) => {
       if (context?.prevCurrent !== undefined)
         qc.setQueryData(["hospital-managers", "current"], context.prevCurrent);
       if (context?.prevHistory !== undefined)
         qc.setQueryData(["hospital-managers", "history"], context.prevHistory);
-      toast.error("Erreur lors de la mise à jour du droit.");
+      toast.error(t("haMgr.toast.toggleError"));
     },
     onSettled: () => invalidate(),
   });
@@ -879,14 +855,12 @@ const HospitalAdminManagersPage = () => {
       {/* Header */}
       <Box sx={T.pageHead}>
         <Box>
-          <Typography sx={T.pageTitle}>Gestion des managers</Typography>
-          <Typography sx={T.pageSub}>
-            Responsables de stage rattachés à votre hôpital
-          </Typography>
+          <Typography sx={T.pageTitle}>{t("haMgr.title")}</Typography>
+          <Typography sx={T.pageSub}>{t("haMgr.subtitle")}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddManagerOpen(true)}
           sx={{ bgcolor: C.brand600, "&:hover": { bgcolor: C.brand700 }, borderRadius: "8px", height: 36, fontSize: 13 }}>
-          Ajouter un manager
+          {t("haMgr.addManager")}
         </Button>
       </Box>
 
@@ -896,7 +870,7 @@ const HospitalAdminManagersPage = () => {
         {/* Filtre fonction — chips */}
         <Box sx={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
           <Chip
-            label="Tous"
+            label={t("haMgr.filterAll")}
             size="small"
             onClick={() => setJobFilter("")}
             color={jobFilter === "" ? "primary" : "default"}
@@ -917,7 +891,7 @@ const HospitalAdminManagersPage = () => {
         </Box>
 
         <Typography variant="caption" sx={{ color: C.ink3, ml: "auto" }}>
-          {filtered.length} manager{filtered.length !== 1 ? "s" : ""}
+          {filtered.length} {t("haMgr.manager")}{filtered.length !== 1 ? "s" : ""}
         </Typography>
 
         <DensityToggleButton density={density} onCycle={cycleDensity} />
@@ -928,7 +902,7 @@ const HospitalAdminManagersPage = () => {
         <Box display="flex" justifyContent="center" mt={4}><CircularProgress sx={{ color: C.brand600 }} /></Box>
       ) : filtered.length === 0 ? (
         <Alert severity="info" sx={{ borderRadius: "10px" }}>
-          {groups.length === 0 ? "Aucun manager pour cet hôpital." : "Aucun résultat pour cette recherche."}
+          {groups.length === 0 ? t("haMgr.noManagers") : t("haMgr.noResults")}
         </Alert>
       ) : (
         <Box sx={T.card}>
@@ -937,7 +911,7 @@ const HospitalAdminManagersPage = () => {
               <TableHead>
                 <TableRow sx={T.headRow}>
                   {(["nom", "email", "fonction"] as const).map((col) => {
-                    const labels: Record<string, string> = { nom: "Nom", email: "Email", fonction: "Fonction" };
+                    const labels: Record<string, string> = { nom: t("haMgr.colName"), email: t("haMgr.colEmail"), fonction: t("haMgr.colFunction") };
                     const active = sortCol === col;
                     return (
                       <TableCell
@@ -963,7 +937,7 @@ const HospitalAdminManagersPage = () => {
                     sx={{ width: 90, cursor: "pointer", "&:hover": { color: C.ink } }}
                   >
                     <Box display="inline-flex" alignItems="center" gap="4px">
-                      Années
+                      {t("haMgr.colYears")}
                       {sortCol === "annees"
                         ? sortDir === "asc" ? <ArrowUpwardIcon sx={{ fontSize: 11 }} /> : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
                         : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
@@ -975,7 +949,7 @@ const HospitalAdminManagersPage = () => {
                     sx={{ width: 120, cursor: "pointer", "&:hover": { color: C.ink } }}
                   >
                     <Box display="inline-flex" alignItems="center" gap="4px">
-                      Statut
+                      {t("haMgr.colStatus")}
                       {sortCol === "statut"
                         ? sortDir === "asc" ? <ArrowUpwardIcon sx={{ fontSize: 11 }} /> : <ArrowDownwardIcon sx={{ fontSize: 11 }} />
                         : <UnfoldMoreIcon sx={{ fontSize: 11, opacity: 0.25 }} />
@@ -1034,9 +1008,9 @@ const HospitalAdminManagersPage = () => {
 
                       {/* Statut */}
                       <TableCell>
-                        <Tooltip title={STATUS_TOOLTIP[g.status]} arrow>
+                        <Tooltip title={getMgrStatusTooltip(g.status, t)} arrow>
                           <Box component="span" sx={statusBadgeSx(badgeVariant)}>
-                            {STATUS_LABEL[g.status]}
+                            {getMgrStatusLabel(g.status, t)}
                           </Box>
                         </Tooltip>
                       </TableCell>
@@ -1061,7 +1035,7 @@ const HospitalAdminManagersPage = () => {
           {/* Footer */}
           <Box sx={T.footer}>
             <Typography variant="caption">
-              {filtered.length} sur {groups.length} manager{groups.length !== 1 ? "s" : ""}
+              {t("haMgr.footerCount", { filtered: filtered.length, total: groups.length, suffix: groups.length !== 1 ? "s" : "" })}
             </Typography>
           </Box>
         </Box>

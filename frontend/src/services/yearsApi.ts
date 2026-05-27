@@ -123,6 +123,13 @@ const yearsApi = {
     };
   },
 
+  getManagerHospitals(): ApiCall {
+    return {
+      method: "get",
+      url: "managers/hospitals",
+    };
+  },
+
   updateYearResident(): ApiCall {
     return {
       method: "put",

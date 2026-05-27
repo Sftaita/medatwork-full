@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
@@ -13,6 +14,7 @@ function a11yProps(index) {
 }
 
 const CustomTabs = ({ onChange, initialValue = 0 }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -47,31 +49,31 @@ const CustomTabs = ({ onChange, initialValue = 0 }) => {
       >
         <Tab
           sx={{ alignItems: "start" }}
-          label="Validation"
+          label={t("yearDetail.tabs.validation")}
           {...a11yProps(0)}
           onClick={() => onChange("general")}
         />
         <Tab
           sx={{ alignItems: "start" }}
-          label="MACCS"
+          label={t("yearDetail.tabs.maccs")}
           {...a11yProps(1)}
           onClick={() => onChange("residents")}
         />
         <Tab
           sx={{ alignItems: "start" }}
-          label="Collaborateurs"
+          label={t("yearDetail.tabs.partners")}
           {...a11yProps(2)}
           onClick={() => onChange("partners")}
         />
         <Tab
           sx={{ alignItems: "start" }}
-          label="Paramètres"
+          label={t("yearDetail.tabs.settings")}
           {...a11yProps(3)}
           onClick={() => onChange("setup")}
         />
         <Tab
           sx={{ alignItems: "start" }}
-          label="Conformité"
+          label={t("yearDetail.tabs.compliance")}
           {...a11yProps(4)}
           onClick={() => onChange("compliance")}
         />

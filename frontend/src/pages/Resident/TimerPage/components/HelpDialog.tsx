@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -12,65 +13,47 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
-const steps = {
-  timer: {
-    label: "Horaires",
-    intro: "Encodez vos heures de travail journalières.",
-    items: [
-      "Sélectionnez l'année de stage concernée.",
-      "Choisissez l'heure de début et l'heure de fin de votre journée.",
-      'Activez "Retour en garde" si vous étiez de garde appelable et avez été rappelé à l\'hôpital.',
-      "Indiquez votre pause et le temps scientifique si nécessaire.",
-      'Cliquez sur "Enregistrer".',
-    ],
-    tips: [
-      { label: "Pause", text: "Déduite du total — n'est pas comptée comme temps travaillé." },
-      { label: "Scientifique", text: "Formations, congrès, activités académiques." },
-      { label: "Retour en garde", text: "Vous étiez de garde appelable et avez été rappelé à l'hôpital. Pause et scientifique sont ignorés." },
-    ],
-  },
-  garde: {
-    label: "Gardes",
-    intro: "Encodez une garde de nuit ou de week-end.",
-    items: [
-      "Sélectionnez l'année de stage.",
-      "Date de début : par défaut hier à 18h00.",
-      "Date de fin : par défaut aujourd'hui à 08h00.",
-      'Choisissez le type de garde.',
-      "Commentaire optionnel via le bouton dédié.",
-      'Cliquez sur "Enregistrer".',
-    ],
-    tips: [
-      { label: "Appelable", text: "Vous êtes de garde à domicile, joignable si besoin." },
-      { label: "Sur place", text: "Vous dormez à l'hôpital pendant la garde." },
-    ],
-  },
-  absence: {
-    label: "Absences",
-    intro: "Encodez une absence (congé, maladie, maternité…).",
-    items: [
-      "Sélectionnez l'année de stage.",
-      '"Dates multiples" si l\'absence couvre plusieurs jours consécutifs.',
-      "Sélectionnez la date de début (et de fin si applicable).",
-      "Choisissez le type d'absence.",
-      'Cliquez sur "Enregistrer".',
-    ],
-    tips: [
-      { label: "Congé maladie", text: "Certificat médical à transmettre aux RH." },
-      { label: "Maternité / Paternité", text: "Certificat de naissance requis pour validation." },
-    ],
-  },
-};
-
-type TabKey = keyof typeof steps;
-const tabKeys = Object.keys(steps) as TabKey[];
+type TabKey = "timer" | "garde" | "absence";
+const tabKeys: TabKey[] = ["timer", "garde", "absence"];
 
 const HelpDialog = ({ open, onClose, initialTab = "timer" }: {
   open: boolean;
   onClose: () => void;
   initialTab?: TabKey;
 }) => {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabKey>(initialTab);
+
+  const steps: Record<TabKey, { label: string; intro: string; items: string[]; tips: { label: string; text: string }[] }> = {
+    timer: {
+      label: t("timer.tabs.timer"),
+      intro: t("timer.help.schedule.intro"),
+      items: [t("timer.help.schedule.step1"), t("timer.help.schedule.step2"), t("timer.help.schedule.step3"), t("timer.help.schedule.step4"), t("timer.help.schedule.step5")],
+      tips: [
+        { label: t("timer.help.schedule.tip1Label"), text: t("timer.help.schedule.tip1") },
+        { label: t("timer.help.schedule.tip2Label"), text: t("timer.help.schedule.tip2") },
+        { label: t("timer.help.schedule.tip3Label"), text: t("timer.help.schedule.tip3") },
+      ],
+    },
+    garde: {
+      label: t("timer.tabs.garde"),
+      intro: t("timer.help.garde.intro"),
+      items: [t("timer.help.garde.step1"), t("timer.help.garde.step2"), t("timer.help.garde.step3"), t("timer.help.garde.step4"), t("timer.help.garde.step5"), t("timer.help.garde.step6")],
+      tips: [
+        { label: t("timer.help.garde.tip1Label"), text: t("timer.help.garde.tip1") },
+        { label: t("timer.help.garde.tip2Label"), text: t("timer.help.garde.tip2") },
+      ],
+    },
+    absence: {
+      label: t("timer.tabs.absence"),
+      intro: t("timer.help.absence.intro"),
+      items: [t("timer.help.absence.step1"), t("timer.help.absence.step2"), t("timer.help.absence.step3"), t("timer.help.absence.step4"), t("timer.help.absence.step5")],
+      tips: [
+        { label: t("timer.help.absence.tip1Label"), text: t("timer.help.absence.tip1") },
+        { label: t("timer.help.absence.tip2Label"), text: t("timer.help.absence.tip2") },
+      ],
+    },
+  };
 
   useEffect(() => {
     if (open) setTab(initialTab);
@@ -83,7 +66,7 @@ const HelpDialog = ({ open, onClose, initialTab = "timer" }: {
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, py: 1.5, px: 3 }}>
         <HelpOutlineIcon color="primary" fontSize="small" />
         <Typography variant="h6" component="span">
-          Comment ça fonctionne ?
+          {t("timer.help.title")}
         </Typography>
       </DialogTitle>
 
@@ -108,7 +91,7 @@ const HelpDialog = ({ open, onClose, initialTab = "timer" }: {
         </Typography>
 
         <Typography variant="subtitle2" mb={0.75}>
-          Étapes
+          {t("timer.help.steps")}
         </Typography>
         <Box component="ol" sx={{ m: 0, pl: 2.5 }}>
           {section.items.map((item, i) => (
@@ -126,7 +109,7 @@ const HelpDialog = ({ open, onClose, initialTab = "timer" }: {
         {section.tips.length > 0 && (
           <>
             <Typography variant="subtitle2" mt={2} mb={0.75}>
-              À savoir
+              {t("timer.help.tips")}
             </Typography>
             <Box display="flex" flexDirection="column" gap={0.75}>
               {section.tips.map((tip) => (
@@ -152,7 +135,7 @@ const HelpDialog = ({ open, onClose, initialTab = "timer" }: {
 
       <DialogActions sx={{ px: 3, py: 1.5 }}>
         <Button onClick={onClose} variant="contained" color="primary" size="small">
-          J'ai compris
+          {t("timer.help.understood")}
         </Button>
       </DialogActions>
     </Dialog>

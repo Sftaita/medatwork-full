@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-05-17 (v3.6.0 — préférences utilisateur, topbar search admin, suppression api-v2, corrections Sentry)
+**Dernière mise à jour :** 2026-05-23 (v3.8.0 — internationalisation FR/EN/NL complète)
 
 ## Vue d'Ensemble
 
@@ -513,6 +513,91 @@ Toutes les mutations utilisent l'**optimistic update** : fermeture immédiate du
 - **Filtres** : type d'action (Select), plage de dates (Du / Au), compteur de résultats, bouton "Réinitialiser"
 - **Export CSV** : exporte uniquement la vue filtrée courante
 
+### Internationalisation — react-i18next (2026-05-22)
+
+L'application est entièrement trilingue : **Français (fr)**, **Anglais (en)**, **Néerlandais (nl)**.
+
+#### Stack
+
+| Librairie | Rôle |
+|-----------|------|
+| `i18next` | Moteur i18n (singleton) |
+| `react-i18next` | Binding React — hook `useTranslation()` |
+| `i18n/config.ts` | Initialisation unique avec `resolveLang()` |
+
+#### Fichiers de traduction
+
+```
+frontend/src/i18n/
+├── config.ts                # Initialisation i18next
+└── locales/
+    ├── fr.json              # Français (langue par défaut)
+    ├── en.json              # Anglais
+    └── nl.json              # Néerlandais
+```
+
+Les trois fichiers ont les mêmes namespaces (validé par `i18n.test.ts`). Les namespaces couverts :
+
+`nav` · `topbar` · `auth` · `settings` · `common` · `contact` · `footer` · `profile` · `home` · `desc` · `cgu` · `terms` · `validation` · `timer` · `stats` · `data` · `years` · `search` · `notif` · `haDash` · `haRes` · `haMgr` · `haAudit` · `haExp` · `haNotif` · `commPage` · `commModal` · `weekDisp` · `weekCreator` · `calendar` · `pwa` · `yearSelect` · `speciality` · `density`
+
+#### Détection de langue (`resolveLang()`)
+
+```ts
+const resolveLang = (): string => {
+  const stored = localStorage.getItem("medatwork_lang");
+  if (stored && SUPPORTED.includes(stored)) return stored;
+  if (import.meta.env.MODE === "test") return "fr"; // toujours fr en test
+  const browser = navigator.language?.split("-")[0]?.toLowerCase() ?? "";
+  return SUPPORTED.includes(browser) ? browser : "fr";
+};
+```
+
+Priorité : `localStorage["medatwork_lang"]` → langue navigateur → fallback "fr".
+
+#### Changement de langue
+
+Le `LanguageSwitcher` (Select discret dans la Topbar pour les visiteurs non connectés) appelle `i18n.changeLanguage(lang)` et persiste dans `localStorage`.
+
+Pour les utilisateurs connectés, la langue est synchronisée depuis leurs préférences serveur via `useLanguageSync`.
+
+#### Composants réutilisables traduits
+
+| Composant | Namespace |
+|-----------|-----------|
+| `YearSelect` | `yearSelect` |
+| `SpecialitySelect` | `speciality` |
+| `DensityToggleButton` | `density` |
+| `CommunicationPageContent` | `commPage` |
+| `CommunicationModalQueue` | `commModal` |
+| `InstallPrompt` | `pwa` |
+| `UpdateBanner` | `pwa` |
+| `Topbar` | `topbar` (labels rôles, hints profil) |
+
+#### Pattern composants
+
+```tsx
+// Hook dans chaque composant qui a besoin de traduction
+const { t } = useTranslation();
+
+// Traduction simple
+<Typography>{t("haDash.title")}</Typography>
+
+// Interpolation
+t("haAudit.entriesCount", { count: n, suffix: n > 1 ? "s" : "" })
+
+// Tableaux (mois, jours, étapes)
+const months = t("stats.months", { returnObjects: true }) as string[];
+
+// HTML (avec dangerouslySetInnerHTML)
+<Alert><span dangerouslySetInnerHTML={{ __html: t("timer.noYears") }} /></Alert>
+```
+
+#### Tests
+
+Chaque test qui rend un composant i18n sans `vi.mock("react-i18next")` utilise les vraies traductions françaises (initialisées par `src/tests/setup.ts`). Les tests qui ont leur propre mock déclarent les clés nécessaires dans le mapping du mock.
+
+---
+
 ### Design System — Chips MUI (2026-04-13)
 
 Tous les `<Chip>` de l'application partagent une convention visuelle unifiée, définie dans `src/doc/CustomizedTheme.tsx` :
@@ -673,6 +758,20 @@ Le hospital-admin peut accorder ou révoquer à chaque manager lié à son hôpi
 **Création d'année avec hôpital (`YearPage`) :**
 
 Le champ `location` libre est remplacé par un `<Select>` alimenté par `GET /api/hospitals`. L'identifiant de l'hôpital (`hospitalId`) est envoyé au backend. `CreateYearInputDTO` l'accepte comme entier nullable. `CreateYear` service attache l'hôpital à l'année via `$year->setHospital($hospital)` et utilise `$hospital->getName()` comme location.
+
+**Règle de sécurité — restriction des hôpitaux (2026-05-26) :**
+
+Un manager ne peut créer une année que pour un hôpital dont il fait partie. La liste déroulante "Hôpital de formation" ne propose que ses hôpitaux autorisés.
+
+Stratégie en deux niveaux :
+
+1. **Principal (serveur)** — `GET /api/managers/hospitals` (authentifié, `ROLE_MANAGER`) : retourne uniquement les hôpitaux liés au manager connecté via la relation `manager_hospital`. ⚠️ Cet endpoint doit être créé côté Symfony si ce n'est pas encore fait.
+
+2. **Fallback (client)** — si l'endpoint répond en erreur, le frontend filtre la liste publique `GET /api/hospitals` sur `authentication.hospitalId` (extrait du JWT). Ce fallback est une sécurité dégradée ; l'endpoint serveur est la solution cible.
+
+Méthode API frontend : `yearsApi.getManagerHospitals()` → `GET managers/hospitals`.
+
+Tests : `YearPage.test.tsx` (suites *hospital filtering* et *buildValidationSchema*).
 
 ---
 

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -90,11 +91,12 @@ const ResidentActionsMenu = ({
 type SortCol = "nom" | "email" | "statut";
 
 const AdminResidentsPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const qc = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
-  const search = useTopbarSearch("Nom, email…");
+  const search = useTopbarSearch(t("admin.searchResident"));
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "not_activated">("all");
   const [sortCol, setSortCol]     = useState<SortCol | null>("nom");
   const [sortDir, setSortDir]     = useState<"asc" | "desc">("asc");

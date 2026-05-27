@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import managersApi from "../../../../services/managersApi";
 import yearsApi from "../../../../services/yearsApi";
@@ -31,6 +32,7 @@ import { handleApiError } from "@/services/apiError";
 //import Container from 'components/Container';
 
 const Partners = ({ id, adminRights }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const theme = useTheme();
   const [list, setList] = useState();
@@ -118,12 +120,12 @@ const Partners = ({ id, adminRights }) => {
       >
         <Box marginBottom={{ xs: 2, sm: 0 }}>
           <Typography variant={"h6"} fontWeight={700}>
-            Collaborateur(s)
+            {t("yearDetail.partners.title")}
           </Typography>
           <Typography color={"text.secondary"}>
             {adminRights
-              ? "Ajouter ou gérer vos collaborateurs"
-              : "Vous n'avez pas les droits administrateurs"}
+              ? t("yearDetail.partners.subtitleAdmin")
+              : t("yearDetail.partners.subtitleNoAdmin")}
           </Typography>
         </Box>
         {adminRights && (
@@ -148,7 +150,7 @@ const Partners = ({ id, adminRights }) => {
               </Box>
             }
           >
-            Ajouter
+            {t("yearDetail.partners.add")}
           </Button>
         )}
       </Box>
@@ -187,7 +189,7 @@ const Partners = ({ id, adminRights }) => {
                           {" "}
                           <Chip
                             icon={<AdminPanelSettingsIcon sx={{ fontSize: 18 }} color="primary" />}
-                            label="Administrateur"
+                            label={t("yearDetail.partners.chipAdmin")}
                             color="primary"
                             variant="outlined"
                           />
@@ -197,7 +199,7 @@ const Partners = ({ id, adminRights }) => {
                         <Grid item>
                           <Chip
                             icon={<RemoveRedEyeIcon sx={{ fontSize: 18 }} color="primary" />}
-                            label="Consultation"
+                            label={t("yearDetail.partners.chipConsult")}
                             color="primary"
                             variant="outlined"
                           />
@@ -207,7 +209,7 @@ const Partners = ({ id, adminRights }) => {
                         <Grid item>
                           <Chip
                             icon={<BookmarkAddedIcon sx={{ fontSize: 18 }} color="primary" />}
-                            label="Validation"
+                            label={t("yearDetail.partners.chipValidation")}
                             color="primary"
                             variant="outlined"
                           />
@@ -217,7 +219,7 @@ const Partners = ({ id, adminRights }) => {
                         <Grid item>
                           <Chip
                             icon={<DownloadIcon sx={{ fontSize: 18 }} color="primary" />}
-                            label="Téléchargement"
+                            label={t("yearDetail.partners.chipDownload")}
                             color="primary"
                             variant="outlined"
                           />
@@ -227,7 +229,7 @@ const Partners = ({ id, adminRights }) => {
                         <Grid item>
                           <Chip
                             icon={<CalendarMonthIcon sx={{ fontSize: 18 }} color="primary" />}
-                            label=" Calendrier"
+                            label={t("yearDetail.partners.chipCalendar")}
                             color="primary"
                             variant="outlined"
                           />
@@ -238,7 +240,7 @@ const Partners = ({ id, adminRights }) => {
                           {" "}
                           <Chip
                             icon={<CalendarTodayIcon sx={{ fontSize: 18 }} color="primary" />}
-                            label="Planification"
+                            label={t("yearDetail.partners.chipPlanning")}
                             color="primary"
                             variant="outlined"
                           />
@@ -263,7 +265,7 @@ const Partners = ({ id, adminRights }) => {
                       startIcon={<DeleteIcon />}
                       disabled
                     >
-                      Supprimer
+                      {t("yearDetail.partners.delete")}
                     </Button>
                     <Button
                       variant="outlined"
@@ -271,7 +273,7 @@ const Partners = ({ id, adminRights }) => {
                       size={"small"}
                       onClick={() => handleRightsUpdate(item.id)}
                     >
-                      Droits
+                      {t("yearDetail.partners.rights")}
                     </Button>
                   </Stack>
                 )}

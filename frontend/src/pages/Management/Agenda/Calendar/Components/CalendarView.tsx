@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Box, Drawer } from "@mui/material";
 import dayjs from "@/lib/dayjs";
 import useManagersCalendarContext from "../../../../../hooks/useManagersCalendarContext";
@@ -26,6 +27,7 @@ function serviceCode(title: string): string {
 // ── Composant ─────────────────────────────────────────────────────────────────
 
 const CalendarView = () => {
+  const { t } = useTranslation();
   const {
     years, yearResidents, schedules, currentYear,
     setCurrentYear, setResidents: setYearResidents,
@@ -34,7 +36,7 @@ const CalendarView = () => {
   } = useManagersCalendarContext() as any;
 
   const axiosPrivate = useAxiosPrivate();
-  const maccSearch = useTopbarSearch("Rechercher un MACC…");
+  const maccSearch = useTopbarSearch(t("calendar.searchMacc"));
 
   const [viewMonth, setViewMonth]       = useState(new Date());
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -141,7 +143,7 @@ const CalendarView = () => {
       years={mappedYears}
       value={currentYear ? parseInt(currentYear.yearId) : ''}
       onChange={handleYearChange}
-      label="Année académique"
+      label={t("calendar.yearLabel")}
     />
   );
 

@@ -4,15 +4,34 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 
 ---
 
-## [3.7.x] — 2026-05-18 (en cours)
+## [3.8.0] — 2026-05-22 → 2026-05-27
 
 ### Ajouts
-- **Pagination admin** (client-side, `PAGE_SIZE = 25`) : managers, résidents et messages contact — affichage `X–Y sur Z`, reset automatique au changement de filtre
-- **Confirmations de suppression** : `window.confirm` remplacé par des Dialogs MUI cohérents dans `AdminContactPage` (message + destinataire CC)
+- **Landing page — refonte complète**
+  - **Nouveau Hero** : headline *"Le planning des MACCs, enfin sans tableurs."*, eyebrow, stats meta (12 fonctionnalités / 3 rôles / PWA / FR·NL·EN), visuel Gantt avec badge et pill flottants (animations CSS `floatY / floatBadge / floatPill`)
+  - **MarqueeStrip** : ticker horizontal infini des 12 fonctionnalités (fond sombre, boucle CSS `translateX(-50%)`, pause au survol, masques de fondu)
+  - **Sections** : `TrustBar`, `Audiences`, `FeaturePlanning`, `FeatureEncodage`, `FeatureAnnees`, `WorkflowSection`, `FeatureGrid12`, `TechStrip`, `FinalCta` — toutes responsive mobile-first
+  - **Topbar landing** : liens d'ancrage (Pour qui · Fonctionnalités · Workflow · Sécurité) dans la section gauche de la barre, visibles sur `/` non connecté uniquement ; suppression du lien "Notre service"
+  - **Logo cliquable** : scroll smooth vers le haut si déjà sur `/`, sinon `navigate("/")`
+  - **Scroll animé** : `scroll-behavior: smooth` global (`index.css`)
+  - **Scroll ancres corrigé** : `scroll-margin-top` ajusté sur chaque section pour compenser la topbar fixe (71px desktop)
+  - **Redirect utilisateurs connectés** : si `AccessToken` actif en mémoire lors de la visite de `/`, redirection automatique vers le tableau de bord du rôle (`manager → /manager/years`, `hospital_admin → /hospital-admin/dashboard`, `resident → /maccs/years`, `super_admin → /admin`)
+- **Hospital Admin — création d'année** : nouvelle page dédiée `/hospital-admin/year` (`HospitalAdminYearPage`) — même design que `YearPage` (2 colonnes, live preview, counter titre), endpoint `POST /api/hospital-admin/years`, i18n `haYear.*`
+- **Internationalisation complète (FR / EN / NL)** — système i18n react-i18next sur l'ensemble du frontend
+  - Détection automatique de la langue (navigateur), mémorisation `localStorage`
+  - `LanguageSwitcher` dans la Topbar (visiteurs non connectés)
+  - Pages publiques, résidents, manager, hospital-admin — 30+ namespaces
+- **Pagination admin** (client-side, `PAGE_SIZE = 25`) : managers, résidents et messages contact
+- **Confirmations de suppression** : Dialogs MUI à la place de `window.confirm` dans `AdminContactPage`
 
 ### Corrections
-- **AdminContactPage — bug d'affichage** : `useAxiosPrivate()` manquant → Bearer token absent → toutes les API calls retournaient 401 silencieux ; les messages ne s'affichaient pas
-- **Suite de tests AdminContactPage** : 14 cas couvrant rendu, filtres, modal, CC et gestion d'erreurs
+- **AdminContactPage** : `useAxiosPrivate()` manquant → 401 silencieux corrigé
+- **`WeekScheduleTable`** : prop `title` optionnelle
+- **Bar chart statistiques** : clés neutralisées pour éviter conflits i18n
+- **Suite de tests AdminContactPage** : 14 cas ajoutés
+
+### Infrastructure
+- Bump version `3.7.0 → 3.8.0` (VersionController, package.json, Footer)
 
 ---
 

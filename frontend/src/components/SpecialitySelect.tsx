@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select, { type SelectChangeEvent } from "@mui/material/Select";
@@ -34,19 +35,20 @@ const SpecialitySelect = ({
   size      = "small",
   fullWidth = true,
 }: SpecialitySelectProps) => {
+  const { t } = useTranslation();
   const handleChange = (e: SelectChangeEvent<string>) => onChange(e.target.value);
 
   return (
     <FormControl size={size} fullWidth={fullWidth} disabled={disabled}>
-      <InputLabel id="speciality-label">Spécialité</InputLabel>
+      <InputLabel id="speciality-label">{t("speciality.label")}</InputLabel>
       <Select
         labelId="speciality-label"
-        label="Spécialité"
+        label={t("speciality.label")}
         value={value}
         onChange={handleChange}
       >
         <MenuItem value="">
-          <em>— Non défini —</em>
+          <em>{t("speciality.none")}</em>
         </MenuItem>
         {specialityLinks.map((s) => (
           <MenuItem key={s.value} value={s.value}>

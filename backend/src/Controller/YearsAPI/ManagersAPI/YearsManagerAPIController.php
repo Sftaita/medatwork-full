@@ -7,6 +7,7 @@ namespace App\Controller\YearsAPI\ManagersAPI;
 use App\DTO\AddManagerInputDTO;
 use App\DTO\CreateYearInputDTO;
 use App\DTO\UpdateYearInputDTO;
+use App\Entity\Hospital;
 use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
@@ -34,6 +35,40 @@ class YearsManagerAPIController extends AbstractController
 {
     public function __construct(private readonly EntityManagerInterface $entityManager)
     {
+    }
+
+    #[Route('/api/managers/hospitals', name: 'manager_hospitals_list', methods: ['GET'])]
+    public function getManagerHospitals(Security $security): JsonResponse
+    {
+        $user = $security->getUser();
+
+        // Manager: return their linked hospitals via manager_hospital relation
+        if ($user instanceof Manager) {
+            $result = [];
+            foreach ($user->getHospitals() as $hospital) {
+                $result[] = [
+                    'id'   => $hospital->getId(),
+                    'name' => $hospital->getName(),
+                    'city' => $hospital->getCity(),
+                ];
+            }
+            return $this->json($result, 200);
+        }
+
+        // HospitalAdmin: return the single hospital they administrate
+        if ($user instanceof HospitalAdmin) {
+            $hospital = $user->getHospital();
+            if ($hospital instanceof Hospital) {
+                return $this->json([[
+                    'id'   => $hospital->getId(),
+                    'name' => $hospital->getName(),
+                    'city' => $hospital->getCity(),
+                ]], 200);
+            }
+            return $this->json([], 200);
+        }
+
+        return $this->json([], 200);
     }
 
     #[Route('/api/managers/years/getManagersYears', name: 'getManagerYears', methods: ['GET'])]
@@ -75,7 +110,11 @@ class YearsManagerAPIController extends AbstractController
 
         $hospital = $dto->hospitalId !== null ? $hospitalRepository->find($dto->hospitalId) : null;
 
-        $createYear->createYear($manager, $dto->title, $dto->speciality, $dto->comment, $dto->location, $dto->dateOfStart, $dto->dateOfEnd, $dto->period, $dto->isMaster, $hospital);
+        try {
+            $createYear->createYear($manager, $dto->title, $dto->speciality, $dto->comment, $dto->location, $dto->dateOfStart, $dto->dateOfEnd, $dto->period, $dto->isMaster, $hospital);
+        } catch (\Exception $e) {
+            return new JsonResponse(['message' => 'Une erreur est survenue lors de la création.'], 500);
+        }
 
         return new JsonResponse(['message' => 'ok'], 200);
     }

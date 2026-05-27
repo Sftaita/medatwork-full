@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext";
 import weekTemplatesApi from "../../../../../services/weekTemplatesApi";
@@ -33,90 +34,54 @@ import { toastError } from "../../../../../doc/ToastParams";
 import { handleApiError } from "@/services/apiError";
 
 // ── Tutorial ──────────────────────────────────────────────────────────────────
-const STEPS = [
-  {
-    emoji: "📋",
-    title: "Modèles de semaine",
-    text: "Chaque onglet en haut représente un modèle réutilisable (ex : « Semaine normale », « Semaine de garde »). Vous pouvez en créer autant que nécessaire et basculer entre eux en un clic.",
-  },
-  {
-    emoji: "➕",
-    title: "Créer un modèle",
-    text: "Cliquez sur le bouton + (en pointillés) pour créer un nouveau modèle. Donnez-lui un nom et une couleur, puis validez.",
-  },
-  {
-    emoji: "✏️",
-    title: "Renommer / modifier un modèle",
-    text: "Sélectionnez un modèle puis cliquez sur l'icône crayon qui apparaît à sa droite pour le renommer ou changer sa couleur.",
-  },
-  {
-    emoji: "📅",
-    title: "Sélectionner un jour",
-    text: "Cliquez sur le nom d'un jour dans la timeline (colonne gauche) pour le cibler. La tâche ajoutée sera rattachée à ce jour.",
-  },
-  {
-    emoji: "⏱️",
-    title: "Ajouter une tâche",
-    text: "Saisissez un titre, une heure de début et une heure de fin, puis cliquez « Ajouter ». La tâche apparaît instantanément dans la timeline.",
-  },
-  {
-    emoji: "🖊️",
-    title: "Modifier ou supprimer une tâche",
-    text: "Cliquez sur une tâche dans la timeline pour la charger dans ce formulaire. Modifiez-la puis validez, ou cliquez sur l'icône 🗑️ pour la supprimer.",
-  },
-  {
-    emoji: "↔️",
-    title: "Glisser-déposer entre les jours",
-    text: "Faites glisser une tâche horizontalement et déposez-la sur la ligne d'un autre jour pour la déplacer sans passer par le formulaire.",
-  },
-  {
-    emoji: "📊",
-    title: "Récapitulatif des heures",
-    text: "La colonne de droite affiche le total d'heures de chaque jour ainsi que le total hebdomadaire. La barre de progression en haut indique la charge par rapport à 72 h.",
-  },
-];
 
-const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-    <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <HelpOutlineIcon color="primary" />
-        <Typography variant="h6" component="span">
-          Comment utiliser le Créateur de semaine
-        </Typography>
-      </Box>
-      <IconButton size="small" onClick={onClose}>
-        <CloseIcon fontSize="small" />
-      </IconButton>
-    </DialogTitle>
-    <Divider />
-    <DialogContent sx={{ pt: 2 }}>
-      <Stack spacing={2.5}>
-        {STEPS.map((step, i) => (
-          <Box key={i} sx={{ display: "flex", gap: 1.5 }}>
-            <Typography sx={{ fontSize: "1.4rem", lineHeight: 1, mt: 0.25, flexShrink: 0 }}>
-              {step.emoji}
-            </Typography>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-                {step.title}
+type StepItem = { emoji: string; title: string; text: string };
+
+const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const { t } = useTranslation();
+  const steps = t("weekCreator.tutorial.steps", { returnObjects: true }) as StepItem[];
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <HelpOutlineIcon color="primary" />
+          <Typography variant="h6" component="span">
+            {t("weekCreator.tutorial.title")}
+          </Typography>
+        </Box>
+        <IconButton size="small" onClick={onClose}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <Divider />
+      <DialogContent sx={{ pt: 2 }}>
+        <Stack spacing={2.5}>
+          {steps.map((step, i) => (
+            <Box key={i} sx={{ display: "flex", gap: 1.5 }}>
+              <Typography sx={{ fontSize: "1.4rem", lineHeight: 1, mt: 0.25, flexShrink: 0 }}>
+                {step.emoji}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {step.text}
-              </Typography>
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                  {step.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {step.text}
+                </Typography>
+              </Box>
             </Box>
-          </Box>
-        ))}
-      </Stack>
-    </DialogContent>
-    <Divider />
-    <DialogActions sx={{ px: 3, py: 1.5 }}>
-      <Button onClick={onClose} variant="contained" size="small">
-        Compris !
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+          ))}
+        </Stack>
+      </DialogContent>
+      <Divider />
+      <DialogActions sx={{ px: 3, py: 1.5 }}>
+        <Button onClick={onClose} variant="contained" size="small">
+          {t("weekCreator.tutorial.understood")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 const INITIAL_FORM = {
@@ -126,9 +91,9 @@ const INITIAL_FORM = {
   endTime: null as any,
 };
 
-const dayNames = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-
 const WeekTaskForm = () => {
+  const { t } = useTranslation();
+  const dayNames = t("weekCreator.days", { returnObjects: true }) as string[];
   const axiosPrivate = useAxiosPrivate();
 
   const {
@@ -220,14 +185,14 @@ const WeekTaskForm = () => {
           setServerError(error.response.data.error);
         } else {
           handleApiError(error);
-          toast.error("Oups! Une erreur c'est produite.", toastError);
+          toast.error(t("weekCreator.form.errorGeneric"), toastError);
         }
         setWeekTemplates(previousWeekTypes);
       } finally {
         setIsLoading(false);
       }
     } else {
-      toast.error("Un conflit horaire a été détecté", toastError);
+      toast.error(t("weekCreator.form.errorConflict"), toastError);
     }
   };
 
@@ -269,14 +234,14 @@ const WeekTaskForm = () => {
           setServerError(error.response.data.error);
         } else {
           handleApiError(error);
-          toast.error("Oups! Une erreur c'est produite.", toastError);
+          toast.error(t("weekCreator.form.errorGeneric"), toastError);
         }
         setWeekTemplates(previousWeekTypes);
       } finally {
         setIsLoading(false);
       }
     } else {
-      toast.error("Il y a un conflit d'horaire avec une autre tâche.", toastError);
+      toast.error(t("weekCreator.form.errorConflictUpdate"), toastError);
     }
   };
 
@@ -307,7 +272,7 @@ const WeekTaskForm = () => {
         await axiosPrivate[method](url, { data: { id: selectedTask.id } });
       } catch (error: any) {
         handleApiError(error);
-        toast.error("Oups! Une erreur s'est produite.", toastError);
+        toast.error(t("weekCreator.form.errorDelete"), toastError);
         setWeekTemplates(previousWeekTemplates);
       }
     }
@@ -336,7 +301,7 @@ const WeekTaskForm = () => {
       >
         <Box>
           <Typography variant="button">
-            {taskMode === "update" ? "Modifier une tâche" : "Ajouter une tâche"}
+            {taskMode === "update" ? t("weekCreator.form.titleMode") : t("weekCreator.form.addMode")}
           </Typography>
           <form
             onSubmit={(e) => {
@@ -355,7 +320,7 @@ const WeekTaskForm = () => {
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
-                  label="Titre *"
+                  label={t("weekCreator.form.titleField")}
                   variant="outlined"
                   size="small"
                   fullWidth
@@ -366,7 +331,7 @@ const WeekTaskForm = () => {
                   name="description"
                   onChange={handleChange}
                   value={formData.description}
-                  label="Description"
+                  label={t("weekCreator.form.description")}
                   multiline
                   rows={3}
                   size="small"
@@ -394,7 +359,7 @@ const WeekTaskForm = () => {
                 <Box sx={{ display: "flex", alignItems: "flex-end" }}>
                   <AccessTimeIcon sx={{ color: "primary.main", mr: 1, my: 0.5 }} />
                   <TimeField
-                    label="Début"
+                    label={t("weekCreator.form.start")}
                     name="startTime"
                     value={formData.startTime}
                     onChange={(value) => handleTimeChange(value, "startTime")}
@@ -409,7 +374,7 @@ const WeekTaskForm = () => {
                 <Box sx={{ display: "flex", alignItems: "flex-end" }}>
                   <AccessTimeFilledIcon sx={{ color: "primary.main", mr: 1, my: 0.5 }} />
                   <TimeField
-                    label="Fin"
+                    label={t("weekCreator.form.end")}
                     name="endTime"
                     value={formData.endTime}
                     onChange={(value) => handleTimeChange(value, "endTime")}
@@ -439,13 +404,13 @@ const WeekTaskForm = () => {
                     loading={isLoading}
                     disabled={formData.title.trim() === ""}
                   >
-                    {taskMode === "update" ? "Modifier" : "Ajouter"}
+                    {taskMode === "update" ? t("weekCreator.form.modify") : t("weekCreator.form.add")}
                   </LoadingButton>
 
                   {taskMode === "update" && (
                     <>
                       <Button variant="outlined" color="primary" onClick={handleCancel}>
-                        Annuler
+                        {t("weekCreator.form.cancel")}
                       </Button>
                       <IconButton onClick={handleDelete}>
                         <Delete sx={{ color: "red" }} />
@@ -453,7 +418,7 @@ const WeekTaskForm = () => {
                     </>
                   )}
 
-                  <Tooltip title="Guide d'utilisation">
+                  <Tooltip title={t("weekCreator.form.helpTooltip")}>
                     <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ ml: "auto !important" }}>
                       <HelpOutlineIcon fontSize="small" color="action" />
                     </IconButton>

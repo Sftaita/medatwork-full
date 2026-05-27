@@ -2,6 +2,34 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import WeekTaskForm from "./WeekTaskForm";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      const map: Record<string, any> = {
+        "weekCreator.form.titleMode":    "Modifier une tâche",
+        "weekCreator.form.addMode":      "Ajouter une tâche",
+        "weekCreator.form.titleField":   "Titre *",
+        "weekCreator.form.description":  "Description",
+        "weekCreator.form.start":        "Début",
+        "weekCreator.form.end":          "Fin",
+        "weekCreator.form.modify":       "Modifier",
+        "weekCreator.form.add":          "Ajouter",
+        "weekCreator.form.cancel":       "Annuler",
+        "weekCreator.form.helpTooltip":  "Guide d'utilisation",
+        "weekCreator.form.errorGeneric": "Oups ! Une erreur s'est produite.",
+        "weekCreator.form.errorConflict":"Un conflit horaire a été détecté",
+        "weekCreator.form.errorConflictUpdate": "Il y a un conflit d'horaire avec une autre tâche.",
+        "weekCreator.form.errorDelete":  "Oups ! Une erreur s'est produite.",
+        "weekCreator.days": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+        "weekCreator.tutorial.title":    "Comment utiliser le Créateur de semaine",
+        "weekCreator.tutorial.understood": "Compris !",
+        "weekCreator.tutorial.steps":    [],
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 const mockPost = vi.hoisted(() => vi.fn());
 const mockPut = vi.hoisted(() => vi.fn());

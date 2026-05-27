@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 import MenuItem from "@mui/material/MenuItem";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -7,6 +8,7 @@ import Select from "@mui/material/Select";
 import Typography from "@mui/material/Typography";
 
 const PeriodSender = ({ error, value, onChange, helperText, actualPeriod }) => {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
   const periods = [
     { value: currentYear + "-" + (currentYear + 1) },
@@ -23,7 +25,7 @@ const PeriodSender = ({ error, value, onChange, helperText, actualPeriod }) => {
   return (
     <FormControl fullWidth error={error}>
       <Typography variant={"subtitle2"} sx={{ marginBottom: 2 }} fontWeight={700}>
-        Période de stage
+        {t("yearParams.period")}
       </Typography>
       <Select variant="outlined" name={"newValue"} type={"text"} value={value} onChange={onChange}>
         {periods.map((period) => (

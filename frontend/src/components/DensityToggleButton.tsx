@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import DensitySmallIcon from "@mui/icons-material/DensitySmall";
@@ -13,18 +14,19 @@ const ICON: Record<Density, React.ReactElement> = {
   comfortable: <DensityLargeIcon fontSize="small" />,
 };
 
-const LABEL: Record<Density, string> = {
-  compact:     "Compact — cliquer pour Normal",
-  normal:      "Normal — cliquer pour Confortable",
-  comfortable: "Confortable — cliquer pour Compact",
-};
-
 interface DensityToggleButtonProps {
   density: Density;
   onCycle: () => void;
 }
 
-export const DensityToggleButton = ({ density, onCycle }: DensityToggleButtonProps) => (
+export function DensityToggleButton({ density, onCycle }: DensityToggleButtonProps) {
+  const { t } = useTranslation();
+  const LABEL: Record<Density, string> = {
+    compact:     t("density.compact"),
+    normal:      t("density.normal"),
+    comfortable: t("density.comfortable"),
+  };
+  return (
   <Tooltip title={LABEL[density]} arrow>
     <IconButton
       size="small"
@@ -41,4 +43,5 @@ export const DensityToggleButton = ({ density, onCycle }: DensityToggleButtonPro
       {ICON[density]}
     </IconButton>
   </Tooltip>
-);
+  );
+}

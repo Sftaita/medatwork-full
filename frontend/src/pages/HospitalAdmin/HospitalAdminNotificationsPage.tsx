@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
@@ -42,6 +43,7 @@ const SKELETON_ROWS = 5;
 const PAGE_SIZE = 20;
 
 const HospitalAdminNotificationsPage = () => {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [page, setPage] = useState(1);
   const [selectedNotif, setSelectedNotif] = useState<CommNotification | null>(null);
@@ -68,7 +70,7 @@ const HospitalAdminNotificationsPage = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: commUnreadCountQueryKey(authentication.role) });
     },
-    onError: () => toast.error("Impossible de marquer la notification comme lue."),
+    onError: () => toast.error(t("haNotif.toast.errorMarkRead")),
   });
 
   const markUnreadMutation = useMutation({
@@ -82,7 +84,7 @@ const HospitalAdminNotificationsPage = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: commUnreadCountQueryKey(authentication.role) });
     },
-    onError: () => toast.error("Impossible de marquer la notification comme non lue."),
+    onError: () => toast.error(t("haNotif.toast.errorMarkUnread")),
   });
 
   const markAllMutation = useMutation({
@@ -91,11 +93,11 @@ const HospitalAdminNotificationsPage = () => {
       await axiosPrivate[method](url);
     },
     onSuccess: () => {
-      toast.success("Toutes les notifications ont été marquées comme lues.");
+      toast.success(t("haNotif.toast.successMarkAll"));
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: commUnreadCountQueryKey(authentication.role) });
     },
-    onError: () => toast.error("Une erreur est survenue."),
+    onError: () => toast.error(t("haNotif.toast.errorMarkAll")),
   });
 
   const handleRowClick = (n: CommNotification) => {
@@ -116,10 +118,10 @@ const HospitalAdminNotificationsPage = () => {
       <Box mb={3} display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
-            Notifications
+            {t("haNotif.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Messages reçus depuis la plateforme
+            {t("haNotif.subtitle")}
           </Typography>
         </Box>
 
@@ -130,8 +132,8 @@ const HospitalAdminNotificationsPage = () => {
             onChange={(_, v) => { if (v) { setFilter(v); setPage(1); } }}
             size="small"
           >
-            <ToggleButton value="all">Toutes ({notifications.length})</ToggleButton>
-            <ToggleButton value="unread">Non lues ({unreadCount})</ToggleButton>
+            <ToggleButton value="all">{t("haNotif.filterAll", { count: notifications.length })}</ToggleButton>
+            <ToggleButton value="unread">{t("haNotif.filterUnread", { count: unreadCount })}</ToggleButton>
           </ToggleButtonGroup>
 
           {unreadCount > 0 && (
@@ -141,7 +143,7 @@ const HospitalAdminNotificationsPage = () => {
               onClick={() => markAllMutation.mutate()}
               disabled={markAllMutation.isPending}
             >
-              Tout marquer comme lu
+              {t("haNotif.markAllRead")}
             </Button>
           )}
         </Box>
@@ -149,7 +151,7 @@ const HospitalAdminNotificationsPage = () => {
 
       {!isLoading && filtered.length === 0 && (
         <Alert severity="info">
-          {filter === "unread" ? "Aucune notification non lue." : "Aucune notification."}
+          {filter === "unread" ? t("haNotif.noNotifsUnread") : t("haNotif.noNotifs")}
         </Alert>
       )}
 
@@ -159,10 +161,10 @@ const HospitalAdminNotificationsPage = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Titre</TableCell>
-                  <TableCell>Message</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Statut</TableCell>
+                  <TableCell>{t("haNotif.colTitle")}</TableCell>
+                  <TableCell>{t("haNotif.colMessage")}</TableCell>
+                  <TableCell>{t("haNotif.colDate")}</TableCell>
+                  <TableCell>{t("haNotif.colStatus")}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableHead>
@@ -199,14 +201,14 @@ const HospitalAdminNotificationsPage = () => {
                         </TableCell>
                         <TableCell>
                           {n.isRead ? (
-                            <Chip label="Lu" size="small" color="default" />
+                            <Chip label={t("haNotif.chipRead")} size="small" color="default" />
                           ) : (
-                            <Chip label="Non lu" size="small" color="primary" />
+                            <Chip label={t("haNotif.chipUnread")} size="small" color="primary" />
                           )}
                         </TableCell>
                         <TableCell>
                           {n.targetUrl && (
-                            <Tooltip title="Ouvrir le lien">
+                            <Tooltip title={t("haNotif.tooltipLink")}>
                               <OpenInNewIcon fontSize="small" color="action" />
                             </Tooltip>
                           )}
@@ -267,7 +269,7 @@ const HospitalAdminNotificationsPage = () => {
                       navigate(selectedNotif.targetUrl!);
                     }}
                   >
-                    Ouvrir le lien
+                    {t("haNotif.openLink")}
                   </Button>
                 )}
                 {selectedNotif.isRead && (
@@ -277,7 +279,7 @@ const HospitalAdminNotificationsPage = () => {
                     onClick={() => markUnreadMutation.mutate(selectedNotif.id)}
                     disabled={markUnreadMutation.isPending}
                   >
-                    Marquer non lu
+                    {t("haNotif.markUnread")}
                   </Button>
                 )}
               </Box>
@@ -286,7 +288,7 @@ const HospitalAdminNotificationsPage = () => {
                 startIcon={<CloseIcon />}
                 onClick={() => setSelectedNotif(null)}
               >
-                Fermer
+                {t("haNotif.close")}
               </Button>
             </DialogActions>
           </>

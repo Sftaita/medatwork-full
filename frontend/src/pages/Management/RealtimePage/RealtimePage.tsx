@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import timesheetsApi from "../../../services/timesheetsApi";
-import { monthList } from "../../../doc/lists";
 import useAxiosPrivate from "../../../hooks/useAxiosPrivate";
 
 // Material UI
@@ -51,6 +51,7 @@ const saveSelection = (updates: SavedSelection): void => {
 };
 
 const RealTimePage = () => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), { defaultMatches: true });
@@ -146,10 +147,10 @@ const RealTimePage = () => {
             color={"secondary"}
             align={"center"}
           >
-            Activité par mois
+            {t("stats.title")}
           </Typography>
           <Typography variant="h4" align={"center"} gutterBottom sx={{ fontWeight: 700 }}>
-            En temps réel
+            {t("stats.subtitle")}
           </Typography>
         </Box>
 
@@ -189,7 +190,7 @@ const RealTimePage = () => {
                 onClick={() => setOpen(true)}
               >
                 <KeyboardArrowDownIcon />
-                {monthList[month] + " " + year}
+                {(t("stats.months", { returnObjects: true }) as string[])[month] + " " + year}
               </Button>
             </Grid>
           </Grid>
@@ -216,7 +217,7 @@ const RealTimePage = () => {
 
         {!loading && timesheets?.length === 0 && (
           <Alert severity="info">
-            <Typography>Aucun MACCS n'est enregistré pour cette année</Typography>
+            <Typography>{t("stats.noMaccs")}</Typography>
           </Alert>
         )}
       </Box>

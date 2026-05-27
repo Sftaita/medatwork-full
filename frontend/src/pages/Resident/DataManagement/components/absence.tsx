@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { absenceTypeList } from "../../../../doc/lists";
+import { useTranslation } from "react-i18next";
 import absencesApi from "../../../../services/absencesApi";
 
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
@@ -22,18 +22,19 @@ import { Chip, IconButton } from "@mui/material";
 import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 
-const columns = [
-  { id: "start", label: "Début", minWidth: 200, align: "left" },
-  { id: "end", label: "Fin", minWidth: 200, align: "left" },
-  { id: "type", label: "Type", minWidth: 130, align: "left" },
-  { id: "title", label: "Année", flex: 1, align: "left" },
-  { id: "actions", label: "Supprimer", minWidth: 150, align: "center" },
-];
-
 const SKELETON_ROWS = 5;
 
 const Absence = () => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
+
+  const columns = [
+    { id: "start",   label: t("data.col.start"),  minWidth: 200, align: "left"   },
+    { id: "end",     label: t("data.col.end"),    minWidth: 200, align: "left"   },
+    { id: "type",    label: t("data.col.type"),   minWidth: 130, align: "left"   },
+    { id: "title",   label: t("data.col.year"),   flex: 1,       align: "left"   },
+    { id: "actions", label: t("data.col.delete"), minWidth: 150, align: "center" },
+  ];
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +75,7 @@ const Absence = () => {
     try {
       const { method, url } = absencesApi.deleteAbsence();
       await axiosPrivate[method](url + id);
-      toast.success("Événement supprimé avec succès.", toastSuccess);
+      toast.success(t("data.deleted"), toastSuccess);
     } catch (error) {
       setRows(originalRows);
       handleApiError(error);
@@ -84,7 +85,7 @@ const Absence = () => {
   return (
     <Paper sx={{ width: "100%", overflow: "hidden" }}>
       <TableContainer sx={{ maxHeight: "70vh" }}>
-        <Table stickyHeader aria-label="tableau des absences">
+        <Table stickyHeader aria-label={t("data.tabs.absences")}>
           <TableHead>
             <TableRow>
               {columns.map((column) => (
@@ -120,7 +121,7 @@ const Absence = () => {
                       {row.start}
                       {!row.isEditable && (
                         <Chip
-                          label="Validé"
+                          label={t("data.validated")}
                           icon={<DoneIcon />}
                           size="small"
                           color="primary"
@@ -129,11 +130,11 @@ const Absence = () => {
                       )}
                     </TableCell>
                     <TableCell>{row.end}</TableCell>
-                    <TableCell>{absenceTypeList[row.type]}</TableCell>
+                    <TableCell>{t(`timer.absence.${row.type}`)}</TableCell>
                     <TableCell>{row.title}</TableCell>
                     <TableCell align="center">
                       <IconButton
-                        aria-label="supprimer"
+                        aria-label={t("data.col.delete")}
                         onClick={() => handleDelete(row.id)}
                         disabled={!row.isEditable}
                       >

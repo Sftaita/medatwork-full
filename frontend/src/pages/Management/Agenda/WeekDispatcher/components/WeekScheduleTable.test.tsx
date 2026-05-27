@@ -23,6 +23,34 @@ import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import WeekScheduleTable from "./WeekScheduleTable";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      const map: Record<string, string> = {
+        "weekDisp.table.sectionLabel":  "Horaires · Année",
+        "weekDisp.table.defaultTitle":  "Répartition des semaines",
+        "weekDisp.table.colPoste":      "Poste",
+        "weekDisp.table.colWeek":       "Semaine",
+        "weekDisp.table.addPoste":      "Importer un poste",
+        "weekDisp.table.unassigned":    `${opts?.count ?? ""} non assignée${opts?.suffix ?? ""}`,
+        "weekDisp.table.postesWeeks":   `${opts?.postes ?? ""} poste${opts?.pSuffix ?? ""} · ${opts?.weeks ?? ""} semaine${opts?.wSuffix ?? ""}`,
+        "weekDisp.table.expand":        "Élargir",
+        "weekDisp.table.shrink":        "Rétrécir",
+        "weekDisp.table.hidePanel":     "⮞ Masquer le panneau",
+        "weekDisp.table.showPanel":     "⮜ Afficher le panneau",
+        "weekDisp.table.chargeTitle":   "Charge par MACC",
+        "weekDisp.table.active":        `actif${opts?.suffix ?? ""}`,
+        "weekDisp.table.monthOverview": "Aperçu mensuel",
+        "weekDisp.table.weeks":         `semaine${opts?.suffix ?? ""}`,
+        "weekDisp.table.tip":           "Astuce",
+        "weekDisp.table.tipBody":       "Survolez un MACC dans la liste pour mettre en évidence ses semaines.",
+        "weekDisp.table.navTooltip":    "cliquer pour naviguer",
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // ── MUI mocks ─────────────────────────────────────────────────────────────────
 vi.mock("@mui/material/styles", async (importOriginal) => {
   const real = await importOriginal<typeof import("@mui/material/styles")>();
@@ -233,26 +261,26 @@ describe("WeekScheduleTable — highlight cellule vide", () => {
 describe("WeekScheduleTable — préférence largeur", () => {
   it("démarre en mode compact par défaut", () => {
     renderTable();
-    expect(screen.getByTitle(/Élargir les cases/)).toBeInTheDocument();
+    expect(screen.getByTitle(/Élargir/)).toBeInTheDocument();
   });
 
   it("restaure le mode large depuis localStorage", () => {
     store["medatwork:week-dispatcher-cell-width"] = "large";
     renderTable();
-    expect(screen.getByTitle(/Rétrécir les cases/)).toBeInTheDocument();
+    expect(screen.getByTitle(/Rétrécir/)).toBeInTheDocument();
   });
 
   it("bascule compact → large et sauvegarde en localStorage", async () => {
     renderTable();
-    await userEvent.click(screen.getByTitle(/Élargir les cases/));
+    await userEvent.click(screen.getByTitle(/Élargir/));
     expect(store["medatwork:week-dispatcher-cell-width"]).toBe("large");
-    expect(screen.getByTitle(/Rétrécir les cases/)).toBeInTheDocument();
+    expect(screen.getByTitle(/Rétrécir/)).toBeInTheDocument();
   });
 
   it("bascule large → compact et sauvegarde en localStorage", async () => {
     store["medatwork:week-dispatcher-cell-width"] = "large";
     renderTable();
-    await userEvent.click(screen.getByTitle(/Rétrécir les cases/));
+    await userEvent.click(screen.getByTitle(/Rétrécir/));
     expect(store["medatwork:week-dispatcher-cell-width"]).toBe("compact");
   });
 });
@@ -268,15 +296,15 @@ describe("WeekScheduleTable — panneau latéral", () => {
 
   it("masque le panneau après clic sur 'Masquer'", async () => {
     renderTable();
-    await userEvent.click(screen.getByText(/Masquer le panneau/));
+    await userEvent.click(screen.getByText(/Masquer le panneau/i));
     expect(screen.queryByText("Charge par MACC")).not.toBeInTheDocument();
   });
 
   it("réaffiche le panneau après double-clic", async () => {
     renderTable();
-    const btn = screen.getByText(/Masquer le panneau/);
+    const btn = screen.getByText(/Masquer le panneau/i);
     await userEvent.click(btn);
-    await userEvent.click(screen.getByText(/Afficher le panneau/));
+    await userEvent.click(screen.getByText(/Afficher le panneau/i));
     expect(screen.getByText("Charge par MACC")).toBeInTheDocument();
   });
 });

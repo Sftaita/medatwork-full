@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import calendarApi from "../../../../../services/calendarApi";
 import { toast } from "react-toastify";
@@ -41,23 +42,24 @@ import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
 import CustomDateTimePicker from "../../../../../components/medium/CustomDateTimeHandler";
 import { handleApiError } from "@/services/apiError";
 
-const validationSchema = yup.object({
-  title: yup
-    .string()
-    .trim()
-    .min(2, "Le titre est trop court")
-    .max(50, "Le titre est trop long")
-    .required("Le titre doit être renseigné"),
-  description: yup.string().trim().max(50, "Description trop longue"),
-  currentResident: yup
-    .number()
-    .typeError("Le MACCS doit être renseigné")
-    .integer()
-    .required("Le MACCS doit être renseigné"),
-});
-
 const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
+
+  const validationSchema = yup.object({
+    title: yup
+      .string()
+      .trim()
+      .min(2, t("calendar.editor.errTitleShort"))
+      .max(50, t("calendar.editor.errTitleLong"))
+      .required(t("calendar.editor.errTitle")),
+    description: yup.string().trim().max(50, t("calendar.editor.errDescLong")),
+    currentResident: yup
+      .number()
+      .typeError(t("calendar.editor.errMaccs"))
+      .integer()
+      .required(t("calendar.editor.errMaccs")),
+  });
 
   const [isLoading, setIsLoading] = useState(false);
   const [isAllDay, setIsAllDay] = useState(false);
@@ -136,7 +138,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
       if (error?.response?.data?.message) {
         toast.error(error?.response?.data?.message, toastError);
       } else {
-        toast.error("Oups! Une erreur s'est produite.", toastError);
+        toast.error(t("calendar.editor.errorGeneric"), toastError);
       }
     } finally {
       setIsLoading(false);
@@ -214,7 +216,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
       if (error?.response?.data?.message) {
         toast.error(error?.response?.data?.message, toastError);
       } else {
-        toast.error("Oups! Une erreur s'est produite.", toastError);
+        toast.error(t("calendar.editor.errorGeneric"), toastError);
       }
     } finally {
       setIsLoading(false);
@@ -350,14 +352,14 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
           <Grid item>
             <Box bgcolor="grey.100" height={"4vh"} padding={2}>
               <Typography variant="h5" align="left" color={"primary"}>
-                {selectedEventId ? "Modifier un évènement" : "Ajouter un évènement"}
+                {selectedEventId ? t("calendar.editor.editTitle") : t("calendar.editor.addTitle")}
               </Typography>
             </Box>
           </Grid>
           <Grid item>
             <Box p={4} spacing={2}>
               <TextField
-                label="Titre*"
+                label={t("calendar.editor.titleField")}
                 name="title"
                 value={formik.values.title}
                 onChange={(e) => {
@@ -397,7 +399,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
               <FormControl fullWidth sx={{ marginBottom: 3 }}>
                 {" "}
                 <CustomDateTimePicker
-                  label={"Début*"}
+                  label={t("calendar.editor.start")}
                   name="dateOfStart"
                   value={formik.values.dateOfStart}
                   views={
@@ -421,7 +423,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
 
               <FormControl fullWidth sx={{ marginBottom: 3 }}>
                 <CustomDateTimePicker
-                  label={"Fin"}
+                  label={t("calendar.editor.end")}
                   name="dateOfEnd"
                   value={formik.values.dateOfEnd}
                   views={
@@ -447,13 +449,13 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
 
               <FormControlLabel
                 control={<Switch checked={isAllDay} onChange={handleSwitchChange} />}
-                label="Toute la journée"
+                label={t("calendar.editor.allDay")}
                 sx={{ marginBottom: 3 }}
               />
 
               <TextField
                 name="description"
-                label="Description"
+                label={t("calendar.editor.description")}
                 rows={3}
                 multiline
                 value={formik.values.description}
@@ -475,7 +477,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
                     loading={isLoading}
                     //onClick={selectedEventId ? handleUpdate : handleAdd}
                   >
-                    {selectedEventId ? "Modifier" : "Enregistrer"}
+                    {selectedEventId ? t("calendar.editor.edit") : t("calendar.editor.save")}
                   </LoadingButton>
                 </Grid>
                 <Grid item>
@@ -484,7 +486,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
                     onClick={handleDrawerClose}
                     disabled={isLoading ? true : false}
                   >
-                    Annuler
+                    {t("calendar.editor.cancel")}
                   </Button>
                 </Grid>
                 {selectedEventId && (
@@ -500,14 +502,12 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
         </Grid>
       </form>
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Supprimer l'évènement</DialogTitle>
+        <DialogTitle>{t("calendar.editor.deleteDialog.title")}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Êtes-vous sûr de vouloir supprimer cet évènement ? Cette action est irréversible.
-          </DialogContentText>
+          <DialogContentText>{t("calendar.editor.deleteDialog.body")}</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Annuler</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t("calendar.editor.deleteDialog.cancel")}</Button>
           <Button
             onClick={() => {
               setDeleteDialogOpen(false);
@@ -516,7 +516,7 @@ const EventEditor = ({ handleDrawerClose, selectedEventId, selectedDate }) => {
             color="error"
             autoFocus
           >
-            Supprimer
+            {t("calendar.editor.deleteDialog.delete")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -3,6 +3,7 @@ import { useFormik } from "formik";
 import * as yup from "yup";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import Box from "@mui/material/Box";
@@ -14,38 +15,8 @@ import { useState } from "react";
 import { Stack } from "@mui/system";
 import { handleApiError } from "@/services/apiError";
 
-const validationSchema = yup.object({
-  firstname: yup
-    .string()
-    .trim()
-    .min(2, "Veuillez saisir un prénom valide")
-    .max(50, "Veuillez saisir un prénom valide")
-    .required("Veuillez spécifier votre prénom"),
-  lastname: yup
-    .string()
-    .trim()
-    .min(2, "Veuillez saisir un nom valide")
-    .max(50, "Veuillez saisir un nom valide")
-    .required("Veuillez spécifier votre nom"),
-  email: yup
-    .string()
-    .trim()
-    .email("Veuillez saisir une adresse e-mail valide")
-    .required("L'adresse e-mail est obligatoire."),
-  message: yup
-    .string()
-    .trim()
-    .min(10, "Le message doit contenir au moins 10 caractères")
-    .max(5000, "Le message ne peut pas dépasser 5000 caractères")
-    .required("Veuillez spécifier votre message"),
-});
-
-interface ContactUsProps {
-  title: string;
-  subtitle: string;
-}
-
-const ContactUs = ({ title, subtitle }: ContactUsProps) => {
+const ContactUs = () => {
+  const { t } = useTranslation();
   const initialValues = {
     firstname: "",
     lastname: "",
@@ -55,13 +26,39 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const validationSchema = yup.object({
+    firstname: yup
+      .string()
+      .trim()
+      .min(2, t("validation.firstnameMin"))
+      .max(50, t("validation.firstnameMax"))
+      .required(t("validation.firstnameRequired")),
+    lastname: yup
+      .string()
+      .trim()
+      .min(2, t("validation.lastnameMin"))
+      .max(50, t("validation.lastnameMax"))
+      .required(t("validation.lastnameRequired")),
+    email: yup
+      .string()
+      .trim()
+      .email(t("validation.emailInvalid"))
+      .required(t("validation.emailRequired")),
+    message: yup
+      .string()
+      .trim()
+      .min(10, t("validation.messageMin"))
+      .max(5000, t("validation.messageMax"))
+      .required(t("validation.messageRequired")),
+  });
+
   const onSubmit = async (values: typeof initialValues, { resetForm }: { resetForm: () => void }) => {
     setLoading(true);
 
     try {
       await publicApi.contactUs(values);
       resetForm();
-      toast.success("Message envoyé !", {
+      toast.success(t("contact.success"), {
         position: "bottom-center",
         autoClose: 3000,
         hideProgressBar: true,
@@ -71,17 +68,14 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
       });
     } catch (error) {
       handleApiError(error);
-      toast.error(
-        "Le message n'a pas pu être envoyé. Veuillez réessayer plus tard ou nous contacter par email.",
-        {
+      toast.error(t("contact.error"), {
           position: "bottom-center",
           autoClose: 5000,
           hideProgressBar: true,
           closeOnClick: true,
           pauseOnHover: false,
           draggable: true,
-        }
-      );
+        });
     } finally {
       setLoading(false);
     }
@@ -97,10 +91,10 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
     <Box maxWidth={600} margin={"0 auto"}>
       <Box marginBottom={4}>
         <Typography variant={"h3"} sx={{ fontWeight: 700 }} align={"center"} gutterBottom>
-          {title}
+          {t("contact.title")}
         </Typography>
         <Typography color="text.secondary" align={"center"}>
-          {subtitle}
+          {t("contact.subtitle")}
         </Typography>
       </Box>
       <Box>
@@ -109,7 +103,7 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
             <Grid item xs={12} sm={6}>
               <TextField
                 sx={{ height: 54 }}
-                label="Prénom"
+                label={t("contact.firstname")}
                 variant="outlined"
                 color="primary"
                 size="medium"
@@ -124,7 +118,7 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
             <Grid item xs={12} sm={6}>
               <TextField
                 sx={{ height: 54 }}
-                label="Nom"
+                label={t("contact.lastname")}
                 variant="outlined"
                 color="primary"
                 size="medium"
@@ -139,7 +133,7 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
             <Grid item xs={12}>
               <TextField
                 sx={{ height: 54 }}
-                label="Email"
+                label={t("contact.email")}
                 type="email"
                 variant="outlined"
                 color="primary"
@@ -154,7 +148,7 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
             </Grid>
             <Grid item xs={12}>
               <TextField
-                label="Message"
+                label={t("contact.message")}
                 multiline
                 rows={6}
                 variant="outlined"
@@ -182,7 +176,7 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
                   type="submit"
                   disabled={loading}
                 >
-                  {loading ? "Envoi…" : "Envoyer"}
+                  {loading ? t("common.sending") : t("contact.send")}
                 </Button>
                 <Button
                   sx={{ height: 54, minWidth: 150 }}
@@ -192,13 +186,13 @@ const ContactUs = ({ title, subtitle }: ContactUsProps) => {
                   disabled={loading}
                   onClick={() => navigate(-1)}
                 >
-                  Retour
+                  {t("contact.back")}
                 </Button>
               </Stack>
             </Grid>
             <Grid item container justifyContent={"center"} xs={12}>
               <Typography color="text.secondary">
-                Nous vous répondrons dans un délai de 1 à 2 jours ouvrables.
+                {t("contact.responseTime")}
               </Typography>
             </Grid>
           </Grid>

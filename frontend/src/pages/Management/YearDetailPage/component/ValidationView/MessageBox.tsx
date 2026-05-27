@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import useValidationContext from "../../../../../hooks/useValidationContext";
 
 // Material UI
@@ -10,19 +11,20 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 
-const notificationData = {
-  ResidentNotification: {
-    title: "Notification au MACCS",
-    text: "Le MACCS ainsi que tous les managers auront la possibilité de consulter cette notification.",
-  },
-  ManagerNotification: {
-    title: "Notification aux Manager",
-    text: "Cette notification sera exclusivement accessible à l'équipe de managers de l'année et figurera dans l'historique de validation.",
-  },
-};
-
 export default function MessageBox({ openDialog, setOpenDialog, notificationType, residentId }) {
+  const { t } = useTranslation();
   const { residentValidationData, setResidentValidationData } = useValidationContext();
+
+  const notificationData = {
+    ResidentNotification: {
+      title: t("yearDetail.validation.msgResident"),
+      text: t("yearDetail.validation.msgResidentDesc"),
+    },
+    ManagerNotification: {
+      title: t("yearDetail.validation.msgManager"),
+      text: t("yearDetail.validation.msgManagerDesc"),
+    },
+  };
   const [message, setMessage] = useState("");
 
   const handleValidation = () => {
@@ -93,7 +95,7 @@ export default function MessageBox({ openDialog, setOpenDialog, notificationType
             autoFocus
             margin="dense"
             id="name"
-            label="Message"
+            label={t("yearDetail.validation.msgLabel")}
             type="text"
             fullWidth
             variant="outlined"
@@ -104,8 +106,8 @@ export default function MessageBox({ openDialog, setOpenDialog, notificationType
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Annuler</Button>
-          <Button onClick={handleValidation}>Valider</Button>
+          <Button onClick={handleClose}>{t("yearDetail.validation.msgCancel")}</Button>
+          <Button onClick={handleValidation}>{t("yearDetail.validation.msgConfirm")}</Button>
         </DialogActions>
       </Dialog>
     </div>

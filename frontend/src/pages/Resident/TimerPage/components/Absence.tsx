@@ -1,59 +1,46 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import absencesApi from "../../../../services/absencesApi";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
-
-// Material UI
 import { useTheme } from "@mui/material/styles";
-import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Divider from "@mui/material/Divider";
-import Grid from "@mui/material/Grid";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import InputLabel from "@mui/material/InputLabel";
-import FormControl from "@mui/material/FormControl";
-import CustomSelect from "../../../../components/medium/CustomSelect";
 import CircularProgress from "@mui/material/CircularProgress";
-import FormHelperText from "@mui/material/FormHelperText";
-
-// general components
-import DateHandler from "../../../../components/medium/DateHandler";
-import CustomSwitch from "../../../../components/small/CustomSwitch";
-import CustomDialog from "../../../../components/medium/CustomDialog";
 import { handleApiError } from "@/services/apiError";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
-const dialogInfo = {
-  title: {
-    sickLeave: "Certificat médical",
-    paternityLeave: "Certificat de naissance",
-    maternityLeave: "Certificat de naissance",
-  },
-  text: {
-    sickLeave:
-      "Un congé maladie doit être couvert par un certificat médical qui doit être envoyé au resource humaine. Vous pouvez l'envoyer à l'adresse suivante:",
-    paternityLeave:
-      " Un congé de paternité doit être justifié par un certificat de naissance afin d'être validé. Vous pouvez l'envoyer à l'adresse suivante:",
-    maternityLeave:
-      " Un congé de maternité doit être justifié par un certificat de naissance afin d'être validé. Vous pouvez l'envoyer à l'adresse suivante:",
-  },
+import { TField, TSelect, TDateField, TToggle } from "./timerUi";
+
+// ─── Absence types with optional note ─────────────────────────────────────────
+
+const SPECIAL_NOTES: Record<string, "sick" | "paternity" | "maternity"> = {
+  sickLeave:      "sick",
+  paternityLeave: "paternity",
+  maternityLeave: "maternity",
 };
 
 const EMPTY_ERRORS = { year: "", dateOfStart: "", dateOfEnd: "", type: "" };
 
-const Absence = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading: boolean; onHelpOpen?: () => void }) => {
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const Absence = ({
+  years,
+  yearsLoading,
+  compact,
+}: {
+  years: any[];
+  yearsLoading: boolean;
+  compact: boolean;
+}) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
   const [loading, setLoading] = useState(false);
+
   const [absence, setAbsence] = useState({
-    year: "",
-    dateOfStart: null,
-    dateOfEnd: null,
-    type: "",
+    year:        "",
+    dateOfStart: null as dayjs.Dayjs | null,
+    dateOfEnd:   null as dayjs.Dayjs | null,
+    type:        "",
   });
 
   const [errors, setErrors] = useState(EMPTY_ERRORS);
@@ -61,48 +48,27 @@ const Absence = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoadi
 
   useEffect(() => {
     if (years.length !== 0) {
-      setAbsence((prev) => ({ ...prev, year: years[0].id }));
+      setAbsence((prev) => ({ ...prev, year: String(years[0].id) }));
     }
   }, [years]);
 
-  const handleChange = ({ target }: { target: { name: string; value: string } }) => {
-    setAbsence((prev) => ({ ...prev, [target.name]: target.value }));
-    setErrors((prev) => ({ ...prev, [target.name]: "" }));
-  };
-
-  const handleDateChange1 = (date) => {
-    setAbsence((prev) => ({ ...prev, dateOfStart: date }));
-    setErrors((prev) => ({ ...prev, dateOfStart: "" }));
-  };
-
-  const handleDateChange2 = (date) => {
-    setAbsence((prev) => ({ ...prev, dateOfEnd: date }));
-    setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
-  };
+  // ── Validation ──────────────────────────────────────────────────────────────
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-
-    if (absence.year === "") {
-      errs.year = "Vous n'avez pas renseigné l'année";
-    }
-    if (absence.type === "") {
-      errs.type = "Vous n'avez pas renseigné le type d'absence";
-    }
-    if (absence.dateOfStart === null) {
-      errs.dateOfStart = "Vous n'avez pas renseigné la date de début d'absence";
-    }
+    if (!absence.year)        errs.year      = t("timer.absence.errYear");
+    if (!absence.type)        errs.type      = t("timer.absence.errType");
+    if (!absence.dateOfStart) errs.dateOfStart = t("timer.absence.errStart");
     if (multidate) {
-      if (absence.dateOfEnd === null) {
-        errs.dateOfEnd = "Vous n'avez pas renseigné la date de fin d'absence";
+      if (!absence.dateOfEnd) {
+        errs.dateOfEnd = t("timer.absence.errEnd");
       } else if (
         dayjs(absence.dateOfEnd).isBefore(dayjs(absence.dateOfStart)) ||
         dayjs(absence.dateOfEnd).isSame(dayjs(absence.dateOfStart))
       ) {
-        errs.dateOfEnd = "La date de fin ne peut pas être avant ou le même jour que la date de début";
+        errs.dateOfEnd = t("timer.absence.errEndBefore");
       }
     }
-
     const hasErrors = Object.keys(errs).length > 0;
     if (hasErrors) setErrors((prev) => ({ ...prev, ...errs }));
     return hasErrors;
@@ -114,28 +80,19 @@ const Absence = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoadi
     setErrors(EMPTY_ERRORS);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault();
     if (validate()) return;
-
     setLoading(true);
     try {
       const { method, url } = absencesApi.create();
       await axiosPrivate[method](url, {
-        ...absence,
+        year:        Number(absence.year) || absence.year,
+        type:        absence.type,
         dateOfStart: dayjs(absence.dateOfStart).format("YYYY-MM-DD"),
-        dateOfEnd: absence.dateOfEnd ? dayjs(absence.dateOfEnd).format("YYYY-MM-DD") : null,
+        dateOfEnd:   absence.dateOfEnd ? dayjs(absence.dateOfEnd).format("YYYY-MM-DD") : null,
       });
-
-      toast.success("Enregistrement validé!", {
-        position: "bottom-center",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: false,
-        draggable: true,
-      });
-
+      toast.success(t("timer.saved"), { position: "bottom-center", autoClose: 3000, hideProgressBar: true, closeOnClick: true });
       resetForm();
     } catch (error) {
       handleApiError(error);
@@ -144,180 +101,170 @@ const Absence = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoadi
     }
   };
 
-  // Dialog
-  const [openDialog, setOpenDialog] = useState(false);
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
+  // ── Special note for sensitive absence types ─────────────────────────────────
 
-  const handleClickOpen = (reference: string) => {
-    setTitle(dialogInfo.title[reference]);
-    setText(dialogInfo.text[reference]);
-    setOpenDialog(true);
+  const noteKey = SPECIAL_NOTES[absence.type];
+  const noteMap: Record<"sick" | "paternity" | "maternity", { title: string; text: string }> = {
+    sick:      { title: t("timer.absence.sickLeaveTitle"),  text: t("timer.absence.sickLeaveText") },
+    paternity: { title: t("timer.absence.birthCertTitle"),  text: t("timer.absence.paternityLeaveText") },
+    maternity: { title: t("timer.absence.birthCertTitle"),  text: t("timer.absence.maternityLeaveText") },
   };
-  const handleClose = () => {
-    setOpenDialog(false);
-  };
+  const note = noteKey ? noteMap[noteKey] : null;
 
-  useEffect(() => {
-    if (
-      absence.type === "sickLeave" ||
-      absence.type === "paternityLeave" ||
-      absence.type === "maternityLeave"
-    ) {
-      handleClickOpen(absence.type);
-    }
-  }, [absence.type]);
+  const absenceTypes = [
+    { value: "annualLeave",             label: t("timer.absence.annualLeave") },
+    { value: "paidLeave",               label: t("timer.absence.paidLeave") },
+    { value: "sickLeave",               label: t("timer.absence.sickLeave") },
+    { value: "paternityLeave",          label: t("timer.absence.paternityLeave") },
+    { value: "maternityLeave",          label: t("timer.absence.maternityLeave") },
+    { value: "scientificLeave",         label: t("timer.absence.scientificLeave") },
+    { value: "casualLeave",             label: t("timer.absence.casualLeave") },
+    { value: "unpaidLeave",             label: t("timer.absence.unpaidLeave") },
+    { value: "compensatoryHolidayLeave", label: t("timer.absence.compensatoryLeave") },
+    { value: "recovery",                label: t("timer.absence.recovery") },
+  ];
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <Box>
-      <Box padding={{ xs: 3, sm: 6 }} component={Card} boxShadow={1} marginBottom={4}>
-        <form noValidate autoComplete="off">
-          <Grid container spacing={4}>
-            <Grid item xs={12}>
-              <CustomSelect
-                label="Année(s)"
-                name="year"
-                error={!!errors.year}
-                value={absence.year}
-                onChange={(event) => handleChange(event)}
-                item={years.map((e) => (
-                  <MenuItem value={e.id} key={e.id}>
-                    {e.title}
-                  </MenuItem>
-                ))}
-                loading={yearsLoading}
-                helperText={errors.year}
-              />
-            </Grid>
+    <div>
+      {/* Year */}
+      <TField label={t("timer.years")} error={errors.year}>
+        <TSelect
+          value={String(absence.year)}
+          options={years.map((y) => ({ value: String(y.id), label: y.title }))}
+          onChange={(v) => {
+            setAbsence((prev) => ({ ...prev, year: v }));
+            setErrors((prev) => ({ ...prev, year: "" }));
+          }}
+          placeholder={yearsLoading ? "…" : undefined}
+        />
+      </TField>
 
-            <Grid item xs={12} md={12}>
-              <CustomSwitch
-                label="Dates multiples"
-                checked={multidate}
-                handleCheck={(event) => setMultidate(event.target.checked)}
-              />
-            </Grid>
+      {/* Multidate toggle */}
+      <TField label={t("timer.absence.multidate")} optional>
+        <TToggle
+          checked={multidate}
+          onChange={(v) => {
+            setMultidate(v);
+            if (!v) {
+              setAbsence((prev) => ({ ...prev, dateOfEnd: null }));
+              setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
+            }
+          }}
+          label={t("timer.absence.multidateDesc")}
+        />
+      </TField>
 
-            <Grid item xs={12} md={multidate ? 6 : 12}>
-              <DateHandler
-                label={"Début de l'absence"}
-                value={absence.dateOfStart}
-                onChange={handleDateChange1}
-                error={!!errors.dateOfStart}
-                helperText={errors.dateOfStart}
-              />
-            </Grid>
+      {/* Date fields */}
+      <div
+        style={{
+          display: compact || !multidate ? "block" : "grid",
+          gridTemplateColumns: compact || !multidate ? undefined : "1fr 1fr",
+          gap: 12,
+        }}
+      >
+        <TField
+          label={multidate ? t("timer.absence.start") : t("timer.absence.date")}
+          error={errors.dateOfStart}
+        >
+          <TDateField
+            value={absence.dateOfStart}
+            ariaLabel={t("timer.absence.start")}
+            onChange={(dateStr) => {
+              setAbsence((prev) => ({ ...prev, dateOfStart: dateStr ? dayjs(dateStr) : null }));
+              setErrors((prev) => ({ ...prev, dateOfStart: "" }));
+            }}
+          />
+        </TField>
 
-            {multidate && (
-              <Grid item xs={12}>
-                <DateHandler
-                  label={"Fin de l'absence"}
-                  value={absence.dateOfEnd}
-                  onChange={handleDateChange2}
-                  error={!!errors.dateOfEnd}
-                  helperText={errors.dateOfEnd}
-                />
-              </Grid>
-            )}
+        {multidate && (
+          <TField label={t("timer.absence.end")} error={errors.dateOfEnd}>
+            <TDateField
+              value={absence.dateOfEnd}
+              ariaLabel={t("timer.absence.end")}
+              onChange={(dateStr) => {
+                setAbsence((prev) => ({ ...prev, dateOfEnd: dateStr ? dayjs(dateStr) : null }));
+                setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
+              }}
+            />
+          </TField>
+        )}
+      </div>
 
-            <Grid item xs={12}>
-              <FormControl fullWidth error={!!errors.type}>
-                <InputLabel id="absence-type-label">Type d'absence</InputLabel>
-                <Select
-                  labelId="absence-type-label"
-                  id="absence-type-select"
-                  name="type"
-                  value={absence.type}
-                  label="Type d'absence"
-                  onChange={(event) => handleChange(event)}
-                >
-                  <MenuItem value={"annualLeave"} key={1}>
-                    Congé annuel
-                  </MenuItem>
-                  <MenuItem value={"paidLeave"} key={2}>
-                    Congé férié
-                  </MenuItem>
-                  <MenuItem value={"sickLeave"} key={3}>
-                    Congé maladie
-                  </MenuItem>
-                  <MenuItem value={"paternityLeave"} key={4}>
-                    Congé paternité
-                  </MenuItem>
-                  <MenuItem value={"maternityLeave"} key={5}>
-                    Congé maternité
-                  </MenuItem>
-                  <MenuItem value={"scientificLeave"} key={6}>
-                    Congé scientifique
-                  </MenuItem>
-                  <MenuItem value={"casualLeave"} key={7}>
-                    Congé de circonstance
-                  </MenuItem>
-                  <MenuItem value={"unpaidLeave"} key={8}>
-                    Congé non rémunéré
-                  </MenuItem>
-                  <MenuItem value={"compensatoryHolidayLeave"} key={9}>
-                    Récupération de jour férié
-                  </MenuItem>
-                  <MenuItem value={"recovery"} key={10}>
-                    Récupération
-                  </MenuItem>
-                </Select>
-                <FormHelperText>{errors.type}</FormHelperText>
-              </FormControl>
-            </Grid>
+      {/* Type */}
+      <TField label={t("timer.absence.type")} error={errors.type}>
+        <TSelect
+          value={absence.type}
+          options={absenceTypes}
+          onChange={(v) => {
+            setAbsence((prev) => ({ ...prev, type: v }));
+            setErrors((prev) => ({ ...prev, type: "" }));
+          }}
+          placeholder={t("timer.absence.typePlaceholder")}
+          ariaLabel={t("timer.absence.type")}
+        />
+      </TField>
 
-            <Grid item xs={12}>
-              <Button
-                sx={{ height: 54 }}
-                variant="contained"
-                color="primary"
-                size="medium"
-                type="submit"
-                fullWidth
-                onClick={handleSubmit}
-                disabled={yearsLoading || loading}
-              >
-                {loading ? <CircularProgress color="inherit" size={24} /> : "Enregistrer"}
-              </Button>
-            </Grid>
+      {/* Inline note for special types */}
+      {note && (
+        <div
+          style={{
+            padding: 14, borderRadius: 10, marginBottom: 18,
+            background: "#faf6ed", border: "1px solid #e8dfca",
+            display: "flex", gap: 10, alignItems: "flex-start",
+          }}
+        >
+          <div
+            style={{
+              width: 22, height: 22, borderRadius: 22,
+              background: "#d4a017", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, fontWeight: 700, flexShrink: 0,
+            }}
+          >
+            !
+          </div>
+          <div style={{ fontSize: 13, color: "#1d1b1a", lineHeight: 1.4 }}>
+            <strong>{note.title}</strong>
+            <br />
+            <span style={{ color: "#5a544c" }}>{note.text}</span>
+          </div>
+        </div>
+      )}
 
-            {onHelpOpen && (
-              <Grid item xs={12} display="flex" justifyContent="center">
-                <Button
-                  size="small"
-                  color="primary"
-                  startIcon={<HelpOutlineIcon fontSize="small" />}
-                  onClick={onHelpOpen}
-                  sx={{ textTransform: "none", fontSize: "0.8rem" }}
-                >
-                  Comment ça fonctionne ?
-                </Button>
-              </Grid>
-            )}
+      {/* Actions */}
+      <div
+        style={{
+          paddingTop: compact ? 0 : 20,
+          borderTop: compact ? "none" : "1px solid #f3efe7",
+          display: "flex", flexDirection: compact ? "column" : "row",
+          justifyContent: "flex-end", gap: 8,
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading || yearsLoading}
+          style={{
+            background: theme.palette.primary.main, color: "#fff", border: 0,
+            borderRadius: compact ? 11 : 10,
+            padding: compact ? "14px 18px" : "10px 26px",
+            fontSize: compact ? 15 : 13.5, fontWeight: 600,
+            cursor: loading || yearsLoading ? "not-allowed" : "pointer",
+            fontFamily: "inherit", opacity: loading || yearsLoading ? 0.7 : 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}
+        >
+          {loading && <CircularProgress color="inherit" size={16} />}
+          {t("timer.save")}
+        </button>
+      </div>
 
-            <Grid item xs={12}>
-              <Divider />
-            </Grid>
-
-            <Grid item container justifyContent={"center"} xs={12}>
-              <Box>
-                <Typography component="p" variant="body2" align="left">
-                  En cliquant sur "enregistrer", votre{" "}
-                  <Box component="span" color={theme.palette.text.primary} fontWeight={"700"}>
-                    maître de stage
-                  </Box>{" "}
-                  aura accès à votre{" "}
-                  <Box component="span" color={theme.palette.text.primary} fontWeight={"700"}>
-                    encodage
-                  </Box>{" "}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </form>
-      </Box>
-      <CustomDialog handleClose={handleClose} open={openDialog} title={title} text={text} />
-    </Box>
+      <p style={{ fontSize: 12, color: "#8a7d72", marginTop: 16, lineHeight: 1.5 }}>
+        {t("timer.disclaimerShared")}
+      </p>
+    </div>
   );
 };
 

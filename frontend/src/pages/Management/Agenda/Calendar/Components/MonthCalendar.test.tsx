@@ -23,6 +23,47 @@ import MonthCalendar, {
   type MCEvent,
 } from "./MonthCalendar";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      const map: Record<string, any> = {
+        "calendar.calDays":     ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."],
+        "calendar.calDaysShort":["L", "M", "M", "J", "V", "S", "D"],
+        "calendar.calDaysFull": ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"],
+        "calendar.calMonths":   ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"],
+        "calendar.views.month":  "Mois",
+        "calendar.views.week":   "Semaine",
+        "calendar.views.day":    "Jour",
+        "calendar.views.agenda": "Planning",
+        "calendar.viewSub.month":  "Vue mensuelle",
+        "calendar.viewSub.week":   "Vue hebdomadaire",
+        "calendar.viewSub.day":    "Vue journalière",
+        "calendar.viewSub.agenda": "Planning",
+        "calendar.today":          "Aujourd'hui",
+        "calendar.filterMaccs":    "Filtrer les MACCs",
+        "calendar.all":            "Tout",
+        "calendar.none":           "Aucun",
+        "calendar.showDetails":    "⮜ Afficher les détails",
+        "calendar.noEvent":        "Aucun événement ce mois.",
+        "calendar.dayDetail":      "Détail du jour",
+        "calendar.noAssignment":   "Aucune affectation ce jour.",
+        "calendar.addAssignment":  "＋ Ajouter une affectation",
+        "calendar.add":            "+ Ajouter",
+        "calendar.clickToSelect":  "Clic : sélectionner — Double-clic : ajouter une affectation",
+        "calendar.dblClickAdd":    "Double-clic : ajouter une affectation",
+        "calendar.exportBtn":      "↓ Exporter",
+        "calendar.exportTooltip":  "Exporter le planning (PDF / impression / email)",
+        "calendar.showAll":        "Afficher tous",
+        "calendar.assignment":     "affectation",
+        "calendar.assignments":    "affectations",
+        "calendar.agendaLabel":    "Agenda",
+        "calendar.searchMacc":     "Rechercher un MACC…",
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // ── MUI mock ──────────────────────────────────────────────────────────────────
 
 vi.mock("@mui/material/styles", async (importOriginal) => {

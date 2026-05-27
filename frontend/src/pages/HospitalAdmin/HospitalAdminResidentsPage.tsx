@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import YearSelect from "../../components/YearSelect";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -62,20 +63,10 @@ import type {
 // ── Status helpers ────────────────────────────────────────────────────────────
 
 type ChipColor = "success" | "warning" | "error" | "default" | "info" | "primary";
+type TFn = (key: string, opts?: any) => string;
 
-const STATUS_LABEL: Record<MaccsStatus, string> = {
-  active:         "Actif",
-  pending:        "En attente",
-  not_registered: "Sans compte",
-  retired:        "Retiré",
-};
-
-const STATUS_TOOLTIP: Record<MaccsStatus, string> = {
-  active:         "Le MACCS a un compte actif et peut se connecter",
-  pending:        "Invitation envoyée — le MACCS n'a pas encore défini son mot de passe",
-  not_registered: "Aucun compte lié — l'invitation n'a jamais été envoyée",
-  retired:        "Le MACCS a été retiré de cette année académique",
-};
+const getResStatusLabel   = (s: MaccsStatus, t: TFn) => t(`haRes.status.${s}`);
+const getResStatusTooltip = (s: MaccsStatus, t: TFn) => t(`haRes.statusTooltip.${s}`);
 
 const STATUS_COLOR: Record<MaccsStatus, ChipColor> = {
   active:         "success",
@@ -109,6 +100,7 @@ const ActionsMenu = ({
   onResend,
   onDelete,
 }: ActionsMenuProps) => {
+  const { t } = useTranslation();
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const close = () => setAnchor(null);
 
@@ -124,59 +116,32 @@ const ActionsMenu = ({
             onView();
           }}
         >
-          Voir le détail
+          {t("haRes.menu.viewDetail")}
         </MenuItem>
         {row.status !== "retired" && (
-          <MenuItem
-            onClick={() => {
-              close();
-              onEdit();
-            }}
-          >
-            Modifier (opting-out)
+          <MenuItem onClick={() => { close(); onEdit(); }}>
+            {t("haRes.menu.editOptingOut")}
           </MenuItem>
         )}
         <Divider />
         {row.status === "pending" && (
-          <MenuItem
-            onClick={() => {
-              close();
-              onResend();
-            }}
-          >
-            Renvoyer l'invitation
+          <MenuItem onClick={() => { close(); onResend(); }}>
+            {t("haRes.menu.resendInvite")}
           </MenuItem>
         )}
         {row.status !== "retired" && (
-          <MenuItem
-            onClick={() => {
-              close();
-              onChangeYear();
-            }}
-          >
-            Changer d'année
+          <MenuItem onClick={() => { close(); onChangeYear(); }}>
+            {t("haRes.menu.changeYear")}
           </MenuItem>
         )}
         {row.status !== "retired" && (
-          <MenuItem
-            onClick={() => {
-              close();
-              onRetire();
-            }}
-            sx={{ color: "error.main" }}
-          >
-            Retirer
+          <MenuItem onClick={() => { close(); onRetire(); }} sx={{ color: "error.main" }}>
+            {t("haRes.menu.retire")}
           </MenuItem>
         )}
         <Divider />
-        <MenuItem
-          onClick={() => {
-            close();
-            onDelete();
-          }}
-          sx={{ color: "error.main", fontWeight: 600 }}
-        >
-          Supprimer définitivement
+        <MenuItem onClick={() => { close(); onDelete(); }} sx={{ color: "error.main", fontWeight: 600 }}>
+          {t("haRes.menu.deletePermanently")}
         </MenuItem>
       </Menu>
     </>
@@ -185,7 +150,9 @@ const ActionsMenu = ({
 
 // ── View drawer ───────────────────────────────────────────────────────────────
 
-const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => void }) => (
+const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => void }) => {
+  const { t } = useTranslation();
+  return (
   <Drawer
     anchor="right"
     open={row !== null}
@@ -204,7 +171,7 @@ const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => voi
               {!row.avatarUrl && (row.firstname?.[0] ?? "?").toUpperCase()}
             </Avatar>
             <Typography variant="h6" fontWeight={700}>
-              Détail MACCS
+              {t("haRes.drawer.title")}
             </Typography>
           </Box>
           <IconButton size="small" onClick={onClose}>
@@ -213,64 +180,45 @@ const ViewDrawer = ({ row, onClose }: { row: MaccsRow | null; onClose: () => voi
         </Box>
         <Stack spacing={2}>
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Nom complet
-            </Typography>
-            <Typography>
-              {row.firstname} {row.lastname}
-            </Typography>
+            <Typography variant="caption" color="text.secondary">{t("haRes.drawer.fullName")}</Typography>
+            <Typography>{row.firstname} {row.lastname}</Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Email
-            </Typography>
+            <Typography variant="caption" color="text.secondary">{t("haRes.drawer.email")}</Typography>
             <Typography>{row.email ?? "—"}</Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Année académique
-            </Typography>
+            <Typography variant="caption" color="text.secondary">{t("haRes.drawer.academicYear")}</Typography>
             <Typography>{row.yearTitle ?? "—"}</Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Opting-out
-            </Typography>
+            <Typography variant="caption" color="text.secondary">{t("haRes.drawer.optingOut")}</Typography>
             <Box mt={0.5}>
               {row.optingOut ? (
-                <Chip label="Oui — exclu des statistiques" size="small" color="primary" variant="outlined" />
+                <Chip label={t("haRes.drawer.optingOutYes")} size="small" color="primary" variant="outlined" />
               ) : (
-                <Typography variant="body2">Non</Typography>
+                <Typography variant="body2">{t("haRes.drawer.optingOutNo")}</Typography>
               )}
             </Box>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Statut
-            </Typography>
+            <Typography variant="caption" color="text.secondary">{t("haRes.drawer.status")}</Typography>
             <Box mt={0.5}>
-              <Tooltip title={STATUS_TOOLTIP[row.status]} arrow>
-                <Chip
-                  label={STATUS_LABEL[row.status]}
-                  color={STATUS_COLOR[row.status]}
-                  variant="outlined"
-                  size="small"
-
-                />
+              <Tooltip title={getResStatusTooltip(row.status, t)} arrow>
+                <Chip label={getResStatusLabel(row.status, t)} color={STATUS_COLOR[row.status]} variant="outlined" size="small" />
               </Tooltip>
             </Box>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Ajouté le
-            </Typography>
+            <Typography variant="caption" color="text.secondary">{t("haRes.drawer.addedOn")}</Typography>
             <Typography>{new Date(row.createdAt).toLocaleDateString("fr-BE")}</Typography>
           </Box>
         </Stack>
       </>
     )}
   </Drawer>
-);
+  );
+};
 
 // ── Edit dialog (optingOut) ───────────────────────────────────────────────────
 
@@ -282,6 +230,7 @@ interface EditDialogProps {
 }
 
 const EditDialog = ({ row, onClose, onSave, isPending }: EditDialogProps) => {
+  const { t } = useTranslation();
   const [optingOut, setOptingOut] = useState(false);
 
   // Sync when row changes
@@ -301,26 +250,18 @@ const EditDialog = ({ row, onClose, onSave, isPending }: EditDialogProps) => {
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle>
-        Modifier — {row.firstname} {row.lastname}
-      </DialogTitle>
+      <DialogTitle>{t("haRes.editDialog.title", { name: `${row.firstname} ${row.lastname}` })}</DialogTitle>
       <DialogContent>
         <FormControlLabel
           control={<Switch checked={optingOut} onChange={(e) => setOptingOut(e.target.checked)} />}
-          label="Opting-out (exclusion statistiques)"
+          label={t("haRes.editDialog.optingOut")}
           sx={{ mt: 1 }}
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isPending}>
-          Annuler
-        </Button>
-        <Button
-          variant="contained"
-          disabled={isPending}
-          onClick={() => onSave(row.yrId, optingOut)}
-        >
-          {isPending ? <CircularProgress size={16} /> : "Enregistrer"}
+        <Button onClick={onClose} disabled={isPending}>{t("haRes.editDialog.cancel")}</Button>
+        <Button variant="contained" disabled={isPending} onClick={() => onSave(row.yrId, optingOut)}>
+          {isPending ? <CircularProgress size={16} /> : t("haRes.editDialog.save")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -338,6 +279,7 @@ interface ChangeYearDialogProps {
 }
 
 const ChangeYearDialog = ({ row, years, onClose, onSave, isPending }: ChangeYearDialogProps) => {
+  const { t } = useTranslation();
   const [newYearId, setNewYearId] = useState<number | "">("");
 
   if (!row) return null;
@@ -346,15 +288,13 @@ const ChangeYearDialog = ({ row, years, onClose, onSave, isPending }: ChangeYear
 
   return (
     <Dialog open={row !== null} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>
-        Changer d'année — {row.firstname} {row.lastname}
-      </DialogTitle>
+      <DialogTitle>{t("haRes.changeYearDialog.title", { name: `${row.firstname} ${row.lastname}` })}</DialogTitle>
       <DialogContent>
         <FormControl fullWidth sx={{ mt: 1 }}>
-          <InputLabel>Nouvelle année</InputLabel>
+          <InputLabel>{t("haRes.changeYearDialog.newYear")}</InputLabel>
           <Select
             value={newYearId}
-            label="Nouvelle année"
+            label={t("haRes.changeYearDialog.newYear")}
             onChange={(e) => setNewYearId(e.target.value as number)}
           >
             {availableYears.map((y) => (
@@ -366,15 +306,10 @@ const ChangeYearDialog = ({ row, years, onClose, onSave, isPending }: ChangeYear
         </FormControl>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isPending}>
-          Annuler
-        </Button>
-        <Button
-          variant="contained"
-          disabled={isPending || newYearId === ""}
-          onClick={() => newYearId !== "" && onSave(row.yrId, newYearId)}
-        >
-          {isPending ? <CircularProgress size={16} /> : "Déplacer"}
+        <Button onClick={onClose} disabled={isPending}>{t("haRes.changeYearDialog.cancel")}</Button>
+        <Button variant="contained" disabled={isPending || newYearId === ""}
+          onClick={() => newYearId !== "" && onSave(row.yrId, newYearId)}>
+          {isPending ? <CircularProgress size={16} /> : t("haRes.changeYearDialog.move")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -413,6 +348,7 @@ const EMPTY_FORM: AddForm = {
 };
 
 const AddDialog = ({ open, years, onClose, onSave, isPending }: AddDialogProps) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState(EMPTY_FORM);
 
   // Reset form whenever the dialog closes (success or cancel)
@@ -429,29 +365,26 @@ const AddDialog = ({ open, years, onClose, onSave, isPending }: AddDialogProps) 
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Ajouter un MACCS</DialogTitle>
+      <DialogTitle>{t("haRes.addDialog.title")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
-          <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
-            Si le résident existe déjà (même email), il sera rattaché à l'année sélectionnée sans
-            créer de compte.
-          </Alert>
+          <Alert severity="info" sx={{ fontSize: "0.8rem" }}>{t("haRes.addDialog.info")}</Alert>
           <TextField
-            label="Prénom"
+            label={t("haRes.addDialog.firstname")}
             value={form.firstname}
             onChange={(e) => set("firstname", e.target.value)}
             fullWidth
             required
           />
           <TextField
-            label="Nom"
+            label={t("haRes.addDialog.lastname")}
             value={form.lastname}
             onChange={(e) => set("lastname", e.target.value)}
             fullWidth
             required
           />
           <TextField
-            label="Email"
+            label={t("haRes.addDialog.email")}
             type="email"
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
@@ -459,10 +392,10 @@ const AddDialog = ({ open, years, onClose, onSave, isPending }: AddDialogProps) 
             required
           />
           <FormControl fullWidth required>
-            <InputLabel>Année académique</InputLabel>
+            <InputLabel>{t("haRes.addDialog.year")}</InputLabel>
             <Select
               value={form.yearId}
-              label="Année académique"
+              label={t("haRes.addDialog.year")}
               onChange={(e) => set("yearId", Number(e.target.value))}
             >
               {years.map((y) => (
@@ -479,14 +412,12 @@ const AddDialog = ({ open, years, onClose, onSave, isPending }: AddDialogProps) 
                 onChange={(e) => set("optingOut", e.target.checked)}
               />
             }
-            label="Opting-out (exclusion statistiques)"
+            label={t("haRes.addDialog.optingOut")}
           />
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isPending}>
-          Annuler
-        </Button>
+        <Button onClick={handleClose} disabled={isPending}>{t("haRes.addDialog.cancel")}</Button>
         <Button
           variant="contained"
           disabled={isPending || !valid}
@@ -501,7 +432,7 @@ const AddDialog = ({ open, years, onClose, onSave, isPending }: AddDialogProps) 
             })
           }
         >
-          {isPending ? <CircularProgress size={16} /> : "Ajouter"}
+          {isPending ? <CircularProgress size={16} /> : t("haRes.addDialog.add")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -516,6 +447,7 @@ interface CsvDialogProps {
 }
 
 const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
+  const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CsvImportResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -536,7 +468,7 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
       const result = await hospitalAdminApi.previewCsvImport(file);
       setPreview(result);
     } catch {
-      toast.error("Erreur lors de l'analyse du CSV.");
+      toast.error(t("haRes.csv.errorAnalysis"));
     } finally {
       setLoading(false);
     }
@@ -549,11 +481,9 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
       const result = await hospitalAdminApi.confirmCsvImport(file);
       setConfirmed(true);
       setPreview(result);
-      toast.success(
-        `Import terminé : ${result.created.length} créés, ${result.attached.length} rattachés.`
-      );
+      toast.success(t("haRes.csv.success"));
     } catch {
-      toast.error("Erreur lors de l'import.");
+      toast.error(t("haRes.csv.errorImport"));
     } finally {
       setLoading(false);
     }
@@ -577,14 +507,12 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>Importer des MACCS via CSV</DialogTitle>
+      <DialogTitle>{t("haRes.csv.title")}</DialogTitle>
       {loading && <LinearProgress />}
       <DialogContent>
         <Stack spacing={2} mt={1}>
           <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
-            Format CSV attendu : <strong>prénom,nom,email,année,opting-out</strong>
-            <br />
-            La première ligne est ignorée (en-têtes). L'opting-out peut être "oui"/"1"/"true".
+            {t("haRes.csv.formatInfo")}
           </Alert>
 
           {!confirmed && (
@@ -594,7 +522,7 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
                 startIcon={<UploadFileIcon />}
                 onClick={() => inputRef.current?.click()}
               >
-                {file ? file.name : "Choisir un fichier CSV"}
+                {file ? file.name : t("haRes.csv.chooseFile")}
               </Button>
               <input
                 ref={inputRef}
@@ -611,7 +539,7 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
               />
               {file && !preview && (
                 <Button variant="contained" onClick={handlePreview} disabled={loading}>
-                  {loading ? <CircularProgress size={16} /> : "Analyser"}
+                  {loading ? <CircularProgress size={16} /> : t("haRes.csv.analyze")}
                 </Button>
               )}
             </Box>
@@ -630,35 +558,35 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
                       onClick={handleDownloadErrors}
                       sx={{ whiteSpace: "nowrap" }}
                     >
-                      Exporter erreurs
+                      {t("haRes.csv.exportErrors")}
                     </Button>
                   }
                 >
                   <Typography variant="body2" fontWeight={600} mb={0.5}>
-                    {preview.errors.length} erreur(s) détectée(s) :
+                    {t("haRes.csv.errorsCount", { count: preview.errors.length })}
                   </Typography>
                   {preview.errors.slice(0, 5).map((e, i) => (
                     <Typography key={i} variant="caption" display="block">
-                      Ligne {e.line}
+                      {t("haRes.csv.linePrefix")} {e.line}
                       {e.email ? ` (${e.email})` : ""} — {e.reason}
                     </Typography>
                   ))}
                   {preview.errors.length > 5 && (
                     <Typography variant="caption" color="text.secondary">
-                      … et {preview.errors.length - 5} autre(s). Exportez pour voir tout.
+                      {t("haRes.csv.moreErrors", { count: preview.errors.length - 5 })}
                     </Typography>
                   )}
                 </Alert>
               )}
 
               <Typography variant="body2" mb={1}>
-                <strong>{preview.created.length}</strong> nouveau(x) résident(s) à créer,{" "}
-                <strong>{preview.attached.length}</strong> à rattacher à une année.
+                <strong>{preview.created.length}</strong> {t("haRes.csv.toCreate")},{" "}
+                <strong>{preview.attached.length}</strong> {t("haRes.csv.toAttach")}.
               </Typography>
 
               {[
-                { title: "À créer", items: preview.created },
-                { title: "À rattacher", items: preview.attached },
+                { title: t("haRes.csv.sectionCreate"), items: preview.created },
+                { title: t("haRes.csv.sectionAttach"), items: preview.attached },
               ].map(({ title, items }) =>
                 items.length > 0 ? (
                   <Box key={title} mb={2}>
@@ -676,18 +604,15 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
             </Box>
           )}
 
-          {confirmed && <Alert severity="success">Import confirmé avec succès.</Alert>}
+          {confirmed && <Alert severity="success">{t("haRes.csv.success")}</Alert>}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>{confirmed ? "Fermer" : "Annuler"}</Button>
+        <Button onClick={handleClose}>{confirmed ? t("haRes.csv.close") : t("haRes.csv.cancel")}</Button>
         {preview && !confirmed && (
-          <Button
-            variant="contained"
-            onClick={handleConfirm}
-            disabled={loading || preview.created.length + preview.attached.length === 0}
-          >
-            {loading ? <CircularProgress size={16} /> : "Confirmer l'import"}
+          <Button variant="contained" onClick={handleConfirm}
+            disabled={loading || preview.created.length + preview.attached.length === 0}>
+            {loading ? <CircularProgress size={16} /> : t("haRes.csv.confirm")}
           </Button>
         )}
       </DialogActions>
@@ -698,12 +623,13 @@ const CsvDialog = ({ open, onClose }: CsvDialogProps) => {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const HospitalAdminResidentsPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const queryClient = useQueryClient();
   const { density, cycleDensity } = useTableDensity();
 
   const [mode, setMode] = useState<"current" | "history">("current");
-  const search = useTopbarSearch("Nom, email, année…");
+  const search = useTopbarSearch(t("haRes.colName") + ", email…");
   const [statusFilter, setStatusFilter] = useState<MaccsStatus | "">("");
   const [yearFilter, setYearFilter] = useState<number | "">("");
   const [sortCol, setSortCol] = useState<"nom" | "email" | "annee" | "optingout" | "statut" | null>("nom");
@@ -738,76 +664,52 @@ const HospitalAdminResidentsPage = () => {
   const editMutation = useMutation({
     mutationFn: ({ yrId, optingOut }: { yrId: number; optingOut: boolean }) =>
       hospitalAdminApi.editYearsResident(yrId, { optingOut }),
-    onSuccess: () => {
-      toast.success("Modifié.");
-      setEditRow(null);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors de la modification."),
+    onSuccess: () => { toast.success(t("haRes.toast.edited")); setEditRow(null); invalidate(); },
+    onError: () => toast.error(t("haRes.toast.editError")),
     meta: { suppressErrorToast: true },
   });
 
   const retireMutation = useMutation({
     mutationFn: (yrId: number) => hospitalAdminApi.retireResident(yrId),
-    onSuccess: () => {
-      toast.success("Résident retiré.");
-      setRetireTarget(null);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors du retrait."),
+    onSuccess: () => { toast.success(t("haRes.toast.retired")); setRetireTarget(null); invalidate(); },
+    onError: () => toast.error(t("haRes.toast.retireError")),
     meta: { suppressErrorToast: true },
   });
 
   const changeYearMutation = useMutation({
     mutationFn: ({ yrId, newYearId }: { yrId: number; newYearId: number }) =>
       hospitalAdminApi.changeResidentYear(yrId, newYearId),
-    onSuccess: () => {
-      toast.success("Année modifiée.");
-      setChangeYearRow(null);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors du changement d'année."),
+    onSuccess: () => { toast.success(t("haRes.toast.yearChanged")); setChangeYearRow(null); invalidate(); },
+    onError: () => toast.error(t("haRes.toast.yearChangeError")),
     meta: { suppressErrorToast: true },
   });
 
   const addMutation = useMutation({
     mutationFn: hospitalAdminApi.addResident,
-    onSuccess: () => {
-      toast.success("MACCS ajouté.");
-      setAddOpen(false);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors de l'ajout."),
+    onSuccess: () => { toast.success(t("haRes.toast.added")); setAddOpen(false); invalidate(); },
+    onError: () => toast.error(t("haRes.toast.addError")),
     meta: { suppressErrorToast: true },
   });
 
   const resendMutation = useMutation({
     mutationFn: (yrId: number) => hospitalAdminApi.resendResidentInvite(yrId),
-    onSuccess: () => toast.success("Invitation renvoyée."),
-    onError: () => toast.error("Erreur lors du renvoi."),
+    onSuccess: () => toast.success(t("haRes.toast.resent")),
+    onError: () => toast.error(t("haRes.toast.resendError")),
     meta: { suppressErrorToast: true },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (residentId: number) => hospitalAdminApi.deleteResident(residentId),
-    onSuccess: () => {
-      toast.success("MACCS supprimé définitivement.");
-      setDeleteTarget(null);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors de la suppression."),
+    onSuccess: () => { toast.success(t("haRes.toast.deleted")); setDeleteTarget(null); invalidate(); },
+    onError: () => toast.error(t("haRes.toast.deleteError")),
     meta: { suppressErrorToast: true },
   });
 
   const bulkEditMutation = useMutation({
     mutationFn: ({ yrIds, changes }: { yrIds: number[]; changes: { optingOut?: boolean } }) =>
       hospitalAdminApi.bulkEditResidents(yrIds, changes),
-    onSuccess: (data) => {
-      toast.success(`${data.updated} MACCS modifié(s)`);
-      setSelected([]);
-      invalidate();
-    },
-    onError: () => toast.error("Erreur lors de la modification en masse"),
+    onSuccess: (data) => { toast.success(t("haRes.toast.bulkEdited", { count: data.updated })); setSelected([]); invalidate(); },
+    onError: () => toast.error(t("haRes.toast.bulkEditError")),
     meta: { suppressErrorToast: true },
   });
 
@@ -821,7 +723,7 @@ const HospitalAdminResidentsPage = () => {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Erreur lors de l'export");
+      toast.error(t("haRes.toast.exportError"));
     }
   };
 
@@ -893,10 +795,8 @@ const HospitalAdminResidentsPage = () => {
       {/* Header */}
       <Box sx={T.pageHead}>
         <Box>
-          <Typography sx={T.pageTitle}>Gestion des MACCS</Typography>
-          <Typography sx={T.pageSub}>
-            Médecins en formation clinique et scientifique de votre hôpital
-          </Typography>
+          <Typography sx={T.pageTitle}>{t("haRes.title")}</Typography>
+          <Typography sx={T.pageSub}>{t("haRes.subtitle")}</Typography>
         </Box>
         <Box display="flex" gap={1}>
           <Button
@@ -905,7 +805,7 @@ const HospitalAdminResidentsPage = () => {
             onClick={() => setCsvOpen(true)}
             sx={{ borderRadius: "8px", height: 36, fontSize: 13 }}
           >
-            Importer CSV
+            {t("haRes.importCsv")}
           </Button>
           <Button
             variant="contained"
@@ -913,7 +813,7 @@ const HospitalAdminResidentsPage = () => {
             onClick={() => setAddOpen(true)}
             sx={{ bgcolor: C.brand600, "&:hover": { bgcolor: C.brand700 }, borderRadius: "8px", height: 36, fontSize: 13 }}
           >
-            Ajouter un MACCS
+            {t("haRes.addMaccs")}
           </Button>
         </Box>
       </Box>
@@ -926,23 +826,23 @@ const HospitalAdminResidentsPage = () => {
           onChange={(_, v) => { if (v) { setMode(v); setSelected([]); } }}
           size="small"
         >
-          <ToggleButton value="current">En cours</ToggleButton>
-          <ToggleButton value="history">Historique</ToggleButton>
+          <ToggleButton value="current">{t("haRes.tabCurrent")}</ToggleButton>
+          <ToggleButton value="history">{t("haRes.tabHistory")}</ToggleButton>
         </ToggleButtonGroup>
 
 
         <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>Statut</InputLabel>
+          <InputLabel>{t("haRes.filterStatus")}</InputLabel>
           <Select
             value={statusFilter}
-            label="Statut"
+            label={t("haRes.filterStatus")}
             onChange={(e) => setStatusFilter(e.target.value as MaccsStatus | "")}
           >
-            <MenuItem value="">Tous</MenuItem>
-            <MenuItem value="active">Actif</MenuItem>
-            <MenuItem value="pending">En attente</MenuItem>
-            <MenuItem value="not_registered">Sans compte</MenuItem>
-            <MenuItem value="retired">Retiré</MenuItem>
+            <MenuItem value="">{t("haRes.filterAll")}</MenuItem>
+            <MenuItem value="active">{t("haRes.status.active")}</MenuItem>
+            <MenuItem value="pending">{t("haRes.status.pending")}</MenuItem>
+            <MenuItem value="not_registered">{t("haRes.status.not_registered")}</MenuItem>
+            <MenuItem value="retired">{t("haRes.status.retired")}</MenuItem>
           </Select>
         </FormControl>
 
@@ -951,7 +851,7 @@ const HospitalAdminResidentsPage = () => {
             years={years}
             value={yearFilter}
             onChange={setYearFilter}
-            label="Année"
+            label={t("haRes.filterYear")}
           />
         </Box>
 
@@ -959,28 +859,22 @@ const HospitalAdminResidentsPage = () => {
 
         {selected.length > 0 && (
           <Box display="flex" gap={1} alignItems="center">
-            <Typography variant="body2" color="text.secondary">{selected.length} sélectionné(s)</Typography>
-            <Button
-              size="small"
-              variant="outlined"
+            <Typography variant="body2" color="text.secondary">{t("haRes.selectedCount", { count: selected.length })}</Typography>
+            <Button size="small" variant="outlined"
               onClick={() => bulkEditMutation.mutate({ yrIds: selected, changes: { optingOut: true } })}
-              disabled={bulkEditMutation.isPending}
-            >
-              Opting-out ON
+              disabled={bulkEditMutation.isPending}>
+              {t("haRes.optingOutOn")}
             </Button>
-            <Button
-              size="small"
-              variant="outlined"
+            <Button size="small" variant="outlined"
               onClick={() => bulkEditMutation.mutate({ yrIds: selected, changes: { optingOut: false } })}
-              disabled={bulkEditMutation.isPending}
-            >
-              Opting-out OFF
+              disabled={bulkEditMutation.isPending}>
+              {t("haRes.optingOutOff")}
             </Button>
           </Box>
         )}
 
         <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
-          Exporter CSV
+          {t("haRes.exportCsv")}
         </Button>
         <DensityToggleButton density={density} onCycle={cycleDensity} />
       </Box>
@@ -993,7 +887,7 @@ const HospitalAdminResidentsPage = () => {
               <TableHead>
                 <TableRow sx={T.headRow}>
                   <TableCell padding="checkbox" sx={{ pl: "18px !important" }}><Skeleton width={16} height={16} /></TableCell>
-                  {["Nom", "Email", "Année académique", "Opting-out", "Statut"].map((h) => (
+                  {[t("haRes.colName"), t("haRes.colEmail"), t("haRes.colYear"), t("haRes.colOptingOut"), t("haRes.colStatus")].map((h) => (
                     <TableCell key={h}><Skeleton width={80} /></TableCell>
                   ))}
                   <TableCell />
@@ -1027,9 +921,7 @@ const HospitalAdminResidentsPage = () => {
         </Box>
       ) : filtered.length === 0 ? (
         <Alert severity="info">
-          {rows.length === 0
-            ? "Aucun MACCS pour cette période."
-            : "Aucun résultat pour cette recherche."}
+          {rows.length === 0 ? t("haRes.noMaccs") : t("haRes.noResults")}
         </Alert>
       ) : (
         <Box sx={T.card}>
@@ -1048,11 +940,11 @@ const HospitalAdminResidentsPage = () => {
                   </TableCell>
                   {(
                     [
-                      { col: "nom",       label: "Nom" },
-                      { col: "email",     label: "Email" },
-                      { col: "annee",     label: "Année académique" },
-                      { col: "optingout", label: "Opting-out", width: 110 },
-                      { col: "statut",    label: "Statut",     width: 120 },
+                      { col: "nom",       label: t("haRes.colName") },
+                      { col: "email",     label: t("haRes.colEmail") },
+                      { col: "annee",     label: t("haRes.colYear") },
+                      { col: "optingout", label: t("haRes.colOptingOut"), width: 110 },
+                      { col: "statut",    label: t("haRes.colStatus"),    width: 120 },
                     ] as { col: SortCol; label: string; width?: number }[]
                   ).map(({ col, label, width }) => (
                     <TableCell
@@ -1119,16 +1011,16 @@ const HospitalAdminResidentsPage = () => {
                             px: "10px", py: "3px", borderRadius: "999px", fontSize: 11, fontWeight: 600,
                             bgcolor: "#fdf3d8", color: C.warn,
                           }}>
-                            Oui
+                            {t("haRes.optingOutYes")}
                           </Box>
                         ) : (
                           <Typography sx={{ fontSize: 13, color: C.ink4 }}>—</Typography>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Tooltip title={STATUS_TOOLTIP[row.status]} arrow>
+                        <Tooltip title={getResStatusTooltip(row.status, t)} arrow>
                           <Box component="span" sx={statusBadgeSx(badgeVariant)}>
-                            {STATUS_LABEL[row.status]}
+                            {getResStatusLabel(row.status, t)}
                           </Box>
                         </Tooltip>
                       </TableCell>
@@ -1155,7 +1047,7 @@ const HospitalAdminResidentsPage = () => {
           {/* Footer */}
           <Box sx={T.footer}>
             <Typography variant="caption">
-              {filtered.length} sur {rows.length} MACCS
+              {t("haRes.footerCount", { filtered: filtered.length, total: rows.length })}
             </Typography>
           </Box>
         </Box>
@@ -1188,24 +1080,19 @@ const HospitalAdminResidentsPage = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Retirer ce MACCS ?</DialogTitle>
+        <DialogTitle>{t("haRes.retireDialog.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            {retireTarget?.firstname} {retireTarget?.lastname} sera marqué comme retiré et n'aura
-            plus accès à cette année académique.
+            {t("haRes.retireDialog.body", { name: `${retireTarget?.firstname} ${retireTarget?.lastname}` })}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRetireTarget(null)} disabled={retireMutation.isPending}>
-            Annuler
+            {t("haRes.retireDialog.cancel")}
           </Button>
-          <Button
-            color="error"
-            variant="contained"
-            disabled={retireMutation.isPending}
-            onClick={() => retireTarget && retireMutation.mutate(retireTarget.yrId)}
-          >
-            {retireMutation.isPending ? <CircularProgress size={16} /> : "Retirer"}
+          <Button color="error" variant="contained" disabled={retireMutation.isPending}
+            onClick={() => retireTarget && retireMutation.mutate(retireTarget.yrId)}>
+            {retireMutation.isPending ? <CircularProgress size={16} /> : t("haRes.retireDialog.retire")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1229,40 +1116,25 @@ const HospitalAdminResidentsPage = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Supprimer définitivement ce MACCS ?</DialogTitle>
+        <DialogTitle>{t("haRes.deleteDialog.title")}</DialogTitle>
         <DialogContent>
           <Typography gutterBottom>
-            <strong>
-              {deleteTarget?.firstname} {deleteTarget?.lastname}
-            </strong>{" "}
-            sera supprimé de toutes les années académiques de cet hôpital. Cette action est{" "}
-            <strong>irréversible</strong>.
+            {t("haRes.deleteDialog.body", { name: `${deleteTarget?.firstname} ${deleteTarget?.lastname}` })}
           </Typography>
           {deleteTarget?.status === "active" && (
             <Alert severity="warning" sx={{ mt: 1 }}>
-              Ce MACCS a un compte actif. La suppression révoquera immédiatement son accès.
+              {t("haRes.deleteDialog.activeWarning")}
             </Alert>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
-            Annuler
+            {t("haRes.deleteDialog.cancel")}
           </Button>
-          <Button
-            color="error"
-            variant="contained"
-            disabled={
-              deleteMutation.isPending ||
-              deleteTarget?.residentId === null ||
-              deleteTarget?.residentId === undefined
-            }
-            onClick={() =>
-              deleteTarget?.residentId !== null &&
-              deleteTarget?.residentId !== undefined &&
-              deleteMutation.mutate(deleteTarget.residentId)
-            }
-          >
-            {deleteMutation.isPending ? <CircularProgress size={16} /> : "Supprimer définitivement"}
+          <Button color="error" variant="contained"
+            disabled={deleteMutation.isPending || deleteTarget?.residentId === null || deleteTarget?.residentId === undefined}
+            onClick={() => deleteTarget?.residentId !== null && deleteTarget?.residentId !== undefined && deleteMutation.mutate(deleteTarget.residentId)}>
+            {deleteMutation.isPending ? <CircularProgress size={16} /> : t("haRes.deleteDialog.delete")}
           </Button>
         </DialogActions>
       </Dialog>

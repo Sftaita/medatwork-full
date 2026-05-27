@@ -27,6 +27,21 @@ import userEvent from "@testing-library/user-event";
 import WeekTaskAllocation from "./WeekTaskAllocation";
 import type { Assignments } from "@/store/weekDispatcherStore";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      const map: Record<string, string> = {
+        "weekDisp.allocation.noYear":           "Vous n'avez actuellement aucune année en cours. Seules les années en cours ou à venir sont susceptibles d'être planifiées.",
+        "weekDisp.allocation.removeAssignment": "Retirer l'assignation",
+        "weekDisp.allocation.updateError":      "Erreur lors de la mise à jour.",
+        "calendar.yearLabel":                   "Année",
+      };
+      if (key === "weekDisp.months") return ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 
 const mockAxios = vi.hoisted(() => ({

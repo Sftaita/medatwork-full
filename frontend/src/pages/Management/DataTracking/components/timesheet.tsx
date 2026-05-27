@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import timesheetsApi from "../../../../services/timesheetsApi";
+import { T, C, bodyRowSx } from "../../../../styles/tableStyles";
+import { useTableDensity } from "../../../../hooks/useTableDensity";
+import { DensityToggleButton } from "../../../../components/DensityToggleButton";
 
 import { monthList } from "../../../../doc/lists";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 
 // Material UI
-import Paper from "@mui/material/Paper";
+import Box from "@mui/material/Box";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -15,84 +19,65 @@ import TableRow from "@mui/material/TableRow";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import Box from "@mui/material/Box";
-import { Checkbox, Chip, Toolbar } from "@mui/material";
+import { Checkbox, Chip } from "@mui/material";
 import PhoneInTalkIcon from "@mui/icons-material/PhoneInTalk";
-import Grid from "@mui/material/Grid";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import DoneIcon from "@mui/icons-material/Done";
-import SearchIcon from "@mui/icons-material/Search";
-import Input from "@mui/material/Input";
 import Stack from "@mui/material/Stack";
-import SvgIcon from "@mui/material/SvgIcon";
 
-// local components
 import Dialog from "./Dialog";
 import OptionsButton from "./OptionsButton";
 
-// General components
 import { specialityAbreviation } from "../../../../doc/lists";
 import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 
-const columns = [
-  { id: "name", label: "Nom", minWidth: 200, align: "left" },
-  { id: "start", label: "Début", minWidth: 100, align: "left" },
-  { id: "end", label: "Fin", minWidth: 100, align: "left" },
-  { id: "pause", label: "Pause", minWidth: 100, align: "center" },
-  { id: "workingTime", label: "Durée", minWidth: 100, align: "center" },
-  { id: "science", label: "Scientifique", minWidth: 100, align: "center" },
-  { id: "title", label: "Année", minWidth: 200, align: "left" },
-];
-
-const Timesheet = ({ month, setMonth, year, setYear }) => {
+const Timesheet = ({ month, setMonth, year, setYear, search }) => {
+  const { t } = useTranslation();
+  const { density, cycleDensity } = useTableDensity();
   const axiosPrivate = useAxiosPrivate();
   const [loading, setLoading] = useState(true);
   const [timesheets, setTimesheets] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
 
+  const columns = [
+    { id: "name",        label: t("data.col.name"),       minWidth: 200, align: "left" as const },
+    { id: "start",       label: t("data.col.start"),      minWidth: 110, align: "left" as const },
+    { id: "end",         label: t("data.col.end"),        minWidth: 110, align: "left" as const },
+    { id: "pause",       label: t("data.col.pause"),      minWidth: 80,  align: "center" as const },
+    { id: "workingTime", label: t("data.col.duration"),   minWidth: 80,  align: "center" as const },
+    { id: "science",     label: t("data.col.scientific"), minWidth: 110, align: "center" as const },
+    { id: "title",       label: t("data.col.year"),       minWidth: 180, align: "left" as const },
+  ];
+
   const handleRowClick = (timesheetId, canValidate) => {
     if (!canValidate) return;
-
-    const newSelectedRows = [...selectedRows];
-    if (newSelectedRows.includes(timesheetId)) {
-      const index = newSelectedRows.indexOf(timesheetId);
-      newSelectedRows.splice(index, 1);
-    } else {
-      newSelectedRows.push(timesheetId);
-    }
-    setSelectedRows(newSelectedRows);
+    const next = [...selectedRows];
+    const idx = next.indexOf(timesheetId);
+    if (idx !== -1) next.splice(idx, 1);
+    else next.push(timesheetId);
+    setSelectedRows(next);
   };
 
-  const isSelected = (timesheetId) => selectedRows.indexOf(timesheetId) !== -1;
+  const isSelected = (id) => selectedRows.includes(id);
 
   const getTimesheets = useCallback(async () => {
     setLoading(true);
     setOpen(false);
-
     try {
       const { method, url } = timesheetsApi.getResidentData();
       const request = await axiosPrivate[method](url + month + "" + year);
-
       if (request.data) {
-        const workflow = [];
-        request?.data.map((item) => {
+        const workflow = request.data.map((item) => {
           const startTime = dayjs(item.dateOfStart);
           const endTime = dayjs(item.dateOfEnd);
-
-          // Calculate working time duration in minutes
           const totalDuration = endTime.diff(startTime, "minutes");
-
-          // Substract breaktime
           const pauseDuration = item.pause ? item.pause : 0;
           const workDuration = totalDuration - pauseDuration;
-
-          // Convert in time format
           const hours = Math.floor(workDuration / 60);
           const minutes = workDuration % 60;
-
-          const t = {
+          return {
             timesheetId: item.id,
             name: item.lastname.toUpperCase() + " " + item.firstname,
             start: dayjs(item.dateOfStart).format("DD-MM-YYYY, HH:mm"),
@@ -106,7 +91,6 @@ const Timesheet = ({ month, setMonth, year, setYear }) => {
             currentManagerCanValidate: item.currentManagerCanViladate,
             workDuration: `${hours}h${minutes ? `${minutes}` : ""}`,
           };
-          workflow.push(t);
         });
         setTimesheets(workflow);
       }
@@ -117,189 +101,148 @@ const Timesheet = ({ month, setMonth, year, setYear }) => {
     }
   }, [axiosPrivate, month, year]);
 
-  useEffect(() => {
-    getTimesheets();
-  }, [getTimesheets]);
+  useEffect(() => { getTimesheets(); }, [getTimesheets]);
 
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
+  const normalizeText = (text: string) =>
+    text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-  const handleClose = (event, reason) => {
-    if (reason !== "backdropClick") {
-      setOpen(false);
-    }
-  };
-
-  // Filters
-  const [searchText, setSearchText] = useState("");
-  const handleSearchChange = (event) => {
-    setSearchText(event.target.value);
-  };
-
-  const normalizeText = (text) => {
-    return text
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  };
-
-  const filteredTimesheets = timesheets.filter(
-    (timesheet) =>
-      normalizeText(timesheet.name).includes(normalizeText(searchText)) ||
-      normalizeText(timesheet.title).includes(normalizeText(searchText)) ||
-      (timesheet.speciality &&
-        normalizeText(timesheet.speciality).includes(normalizeText(searchText)))
+  const q = search ? normalizeText(search) : "";
+  const filtered = timesheets.filter(
+    (r) =>
+      !q ||
+      normalizeText(r.name).includes(q) ||
+      normalizeText(r.title).includes(q) ||
+      (r.speciality && normalizeText(r.speciality).includes(q))
   );
 
   return (
-    <div style={{ height: "40vh", width: "100%" }}>
+    <Box>
+      {loading && (
+        <Box display="flex" justifyContent="center" mt="20vh">
+          <CircularProgress />
+        </Box>
+      )}
       {!loading && (
-        <Paper sx={{ width: "100%", overflow: "hidden" }}>
-          <Toolbar>
-            <Grid container direction="row" justifyContent="space-between" alignItems="center">
-              <Grid item xs={12} md={2}>
-                <Box
-                  component={Button}
-                  variant="outlined"
-                  color="primary"
-                  size="medium"
-                  marginTop={{ xs: 2, sm: 0 }}
-                  fullWidth
-                  onClick={handleClickOpen}
-                >
-                  <KeyboardArrowDownIcon />
-                  {monthList[month] + " " + year}
-                </Box>
-              </Grid>
-              <Grid item>
-                <OptionsButton
-                  selected={selectedRows}
-                  setSelectedRows={setSelectedRows}
-                  setLoading={setLoading}
-                  timesheets={timesheets}
-                  setTimesheets={setTimesheets}
-                />
-              </Grid>
-            </Grid>
-          </Toolbar>
-          <Stack
-            alignItems="center"
-            component="form"
-            direction="row"
-            //onSubmit={""}
-            spacing={2}
-            sx={{ p: 2 }}
+        <Box sx={T.card}>
+          {/* Toolbar */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              px: "18px",
+              py: "12px",
+              borderBottom: `1px solid ${C.line}`,
+              flexWrap: "wrap",
+            }}
           >
-            <SvgIcon>
-              <SearchIcon />
-            </SvgIcon>
-            <Input
-              defaultValue=""
-              disableUnderline
-              fullWidth
-              value={searchText}
-              onChange={handleSearchChange}
-              placeholder="Rechercher par MACCS, titre ou spécialité"
-              sx={{ flexGrow: 1 }}
-            />
-          </Stack>
-          <Stack />
+            <Button
+              variant="outlined"
+              color="primary"
+              size="small"
+              onClick={() => setOpen(true)}
+              startIcon={<KeyboardArrowDownIcon />}
+              sx={{ borderRadius: "8px", textTransform: "none", fontSize: 13 }}
+            >
+              {monthList[month] + " " + year}
+            </Button>
+            <Box display="flex" alignItems="center" gap={1}>
+              <DensityToggleButton density={density} onCycle={cycleDensity} />
+              <OptionsButton
+                selected={selectedRows}
+                setSelectedRows={setSelectedRows}
+                setLoading={setLoading}
+                timesheets={timesheets}
+                setTimesheets={setTimesheets}
+              />
+            </Box>
+          </Box>
+
+          {/* Table */}
           <TableContainer sx={{ maxHeight: "60vh" }}>
-            <Table stickyHeader aria-label="sticky table" size={"small"}>
+            <Table sx={T.table} stickyHeader size="small">
               <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column.id}
-                      align={column.align}
-                      style={{ minWidth: column.minWidth }}
-                      variant="head"
-                      sx={{ backgroundColor: "#f6ebf8" }}
-                    >
-                      <Typography variant="subtitle1">{column.label}</Typography>
+                <TableRow sx={T.headRow}>
+                  {columns.map((col) => (
+                    <TableCell key={col.id} align={col.align} style={{ minWidth: col.minWidth }}>
+                      {col.label}
                     </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredTimesheets.length !== 0 &&
-                  filteredTimesheets.map((row) => {
-                    const isItemSelected = isSelected(row?.timesheetId);
-                    return (
-                      <TableRow
-                        hover
-                        role="checkbox"
-                        tabIndex={-1}
-                        key={row.timesheetId}
-                        selected={isItemSelected}
-                        onClick={() =>
-                          handleRowClick(row.timesheetId, row.currentManagerCanValidate)
-                        }
-                      >
-                        <TableCell>
-                          {" "}
-                          <Stack direction="row" justifyContent="flex-start" alignItems="center">
-                            {row?.currentManagerCanValidate && (
-                              <Checkbox
-                                color="primary"
-                                checked={isItemSelected}
-                                onChange={() =>
-                                  handleRowClick(row.timesheetId, row.currentManagerCanValidate)
-                                }
-                              />
-                            )}
+                {filtered.map((row) => {
+                  const sel = isSelected(row.timesheetId);
+                  return (
+                    <TableRow
+                      key={row.timesheetId}
+                      sx={{
+                        ...bodyRowSx(density),
+                        ...(sel ? { bgcolor: `${C.brand50} !important` } : {}),
+                      }}
+                      onClick={() => handleRowClick(row.timesheetId, row.currentManagerCanValidate)}
+                    >
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" gap={0.5}>
+                          {row.currentManagerCanValidate && (
+                            <Checkbox
+                              size="small"
+                              color="primary"
+                              checked={sel}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => handleRowClick(row.timesheetId, row.currentManagerCanValidate)}
+                            />
+                          )}
+                          <Box sx={{ fontWeight: 600, color: C.ink, fontSize: "inherit" }}>
                             {row.name}
-                            {!row.isEditable && (
-                              <Chip
-                                label="Validé"
-                                icon={<DoneIcon />}
-                                size="small"
-                                color="primary"
-                                sx={{ marginLeft: 1 }}
-                              />
-                            )}{" "}
-                          </Stack>
-                        </TableCell>
-
-                        <TableCell>
-                          {row.start}{" "}
-                          {row.called && <PhoneInTalkIcon fontSize="small" color="primary" />}
-                        </TableCell>
-                        <TableCell>{row.end}</TableCell>
-                        <TableCell align="center">{row.pause}</TableCell>
-                        <TableCell align="center">{row.workDuration}</TableCell>
-                        <TableCell align="center">{row.science}</TableCell>
-                        <TableCell>{row.title}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                          </Box>
+                          {!row.isEditable && (
+                            <Chip
+                              label={t("data.validated")}
+                              icon={<DoneIcon />}
+                              size="small"
+                              color="primary"
+                              sx={{ ml: 1 }}
+                            />
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        {row.start}
+                        {row.called && <PhoneInTalkIcon fontSize="small" color="primary" sx={{ ml: 0.5, verticalAlign: "middle" }} />}
+                      </TableCell>
+                      <TableCell>{row.end}</TableCell>
+                      <TableCell align="center">{row.pause}</TableCell>
+                      <TableCell align="center">{row.workDuration}</TableCell>
+                      <TableCell align="center">{row.science}</TableCell>
+                      <TableCell>{row.title}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
-        </Paper>
+
+          {/* Footer */}
+          <Box sx={T.footer}>
+            <Typography variant="caption" sx={{ color: C.ink3 }}>
+              {filtered.length} / {timesheets.length}
+            </Typography>
+          </Box>
+        </Box>
       )}
+
       <Dialog
         open={open}
         month={month}
         year={year}
-        handleMonthChange={(event) => setMonth(event.target.value)}
-        handleYearChange={(event) => setYear(event.target.value)}
-        handleClose={handleClose}
+        handleMonthChange={(e) => setMonth(e.target.value)}
+        handleYearChange={(e) => setYear(e.target.value)}
+        handleClose={() => setOpen(false)}
         handleSelect={getTimesheets}
       />
-      {loading && (
-        <Box
-          display={"flex"}
-          flexDirection={"row"}
-          width={"100%"}
-          justifyContent={"center"}
-          marginTop={"20vh"}
-        >
-          <CircularProgress />
-        </Box>
-      )}
-    </div>
+    </Box>
   );
 };
 

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import { useTheme } from "@mui/material/styles";
@@ -10,6 +11,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 
 export default function DeleteDialog({ _handleClickOpen, handleClose, open, action }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   return (
     <Dialog
@@ -18,17 +20,16 @@ export default function DeleteDialog({ _handleClickOpen, handleClose, open, acti
       aria-labelledby="alert-dialog-title"
       aria-describedby="alert-dialog-description"
     >
-      <DialogTitle id="alert-dialog-title">{"Suppression d'une semaine type"}</DialogTitle>
+      <DialogTitle id="alert-dialog-title">{t("weekCreator.deleteDialog.title")}</DialogTitle>
       <DialogContent>
         <DialogContentText id="alert-dialog-description">
-          Êtes-vous sûr de vouloir supprimer cette semaine type de votre répertoire de semaines
-          types ?
+          {t("weekCreator.deleteDialog.body")}
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Annuler</Button>
+        <Button onClick={handleClose}>{t("weekCreator.deleteDialog.cancel")}</Button>
         <Button onClick={action} style={{ color: theme.palette.warning.main }} autoFocus>
-          Supprimer
+          {t("weekCreator.deleteDialog.delete")}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // material UI
 import ListItem from "@mui/material/ListItem";
@@ -12,6 +13,7 @@ import { specialityAbreviation } from "../../../../doc/lists";
 import SlideInDialog from "./SenderDialog";
 
 const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
+  const { t } = useTranslation();
   const [target, setTarget] = useState();
 
   const onClick = (target) => {
@@ -31,8 +33,8 @@ const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
   return (
     <>
       <Section
-        title="Renseignements géréraux"
-        subtitle="Concernent les informations relatives à l'année."
+        title={t("yearParams.generalTitle")}
+        subtitle={t("yearParams.generalSubtitle")}
       >
         <ListItem
           disablePadding
@@ -44,7 +46,7 @@ const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
         >
           <ListItemButton onClick={() => onClick("speciality")}>
             <ListItemText
-              primary="Spécialité"
+              primary={t("yearParams.speciality")}
               secondary={specialityAbreviation[yearInfomrations?.speciality]}
             />
           </ListItemButton>
@@ -59,7 +61,7 @@ const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
           }
         >
           <ListItemButton onClick={() => onClick("location")}>
-            <ListItemText primary="Lieu de stage" secondary={yearInfomrations?.location} />
+            <ListItemText primary={t("yearParams.location")} secondary={yearInfomrations?.location} />
           </ListItemButton>
         </ListItem>
         <Divider />
@@ -72,7 +74,7 @@ const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
           }
         >
           <ListItemButton onClick={() => onClick("title")}>
-            <ListItemText primary="Titre" secondary={yearInfomrations?.title} />
+            <ListItemText primary={t("yearParams.titleFull")} secondary={yearInfomrations?.title} />
           </ListItemButton>
         </ListItem>
         <Divider />
@@ -86,14 +88,14 @@ const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
         >
           <ListItemButton onClick={() => onClick("master")}>
             <ListItemText
-              primary="Maître de stage"
+              primary={t("yearParams.master")}
               secondary={
                 yearInfomrations?.master !== null
-                  ? "Dr " +
+                  ? t("yearParams.dr") +
                     yearInfomrations?.masterLastname +
                     " " +
                     yearInfomrations?.masterFirstname
-                  : "Non renseigné"
+                  : t("yearParams.masterNotSet")
               }
             />
           </ListItemButton>

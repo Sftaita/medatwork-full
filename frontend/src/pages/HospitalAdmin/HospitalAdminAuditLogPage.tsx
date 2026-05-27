@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { useQuery } from "@tanstack/react-query";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
@@ -39,21 +40,11 @@ import type { AuditLogEntry } from "../../services/hospitalAdminApi";
 
 // ── Action label/color ────────────────────────────────────────────────────────
 
-const ACTION_LABEL: Record<string, string> = {
-  create_maccs: "Ajout MACCS",
-  delete_maccs: "Suppression MACCS",
-  retire_maccs: "Retrait MACCS",
-  resend_invite_maccs: "Renvoi invitation MACCS",
-  create_manager: "Ajout manager",
-  delete_manager: "Suppression manager",
-  retire_manager: "Retrait manager",
-  resend_invite_manager: "Renvoi invitation manager",
-  import_csv: "Import CSV",
-  bulk_edit: "Modification en masse",
-  create_year: "Création année",
-  update_year: "Modification année",
-  delete_year: "Suppression année",
-};
+type TFn = (key: string, opts?: any) => string;
+const getActionLabel = (action: string, t: TFn): string =>
+  t(`haAudit.actions.${action}`) !== `haAudit.actions.${action}`
+    ? t(`haAudit.actions.${action}`)
+    : action;
 
 const ACTION_BADGE: Record<string, { bg: string; color: string }> = {
   create_maccs:          { bg: C.okBg,     color: C.ok   },
@@ -77,63 +68,46 @@ const PAGE_SIZE = 25;
 
 // ── Help modal ────────────────────────────────────────────────────────────────
 
-const HelpModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-    <DialogTitle>À propos du journal d'activité</DialogTitle>
-    <DialogContent>
-      <Typography variant="body2" gutterBottom>
-        Le journal d'activité enregistre toutes les actions effectuées par les administrateurs de
-        l'hôpital sur la plateforme.
-      </Typography>
-      <Typography variant="body2" fontWeight={600} mt={2} mb={0.5}>
-        Quelles actions sont tracées ?
-      </Typography>
-      <List dense disablePadding>
-        {[
-          ["Ajout / suppression / retrait MACCS", "Création de compte, retrait d'une année, suppression définitive"],
-          ["Renvoi d'invitation", "Chaque renvoi de lien d'activation est enregistré"],
-          ["Gestion des managers", "Ajout, retrait, renvoi d'invitation manager"],
-          ["Import CSV", "Chaque import (prévisualisation et confirmation)"],
-          ["Modification en masse", "Changements groupés sur l'opting-out"],
-          ["Gestion des années", "Création, modification, suppression d'une année académique"],
-        ].map(([action, detail]) => (
-          <ListItem key={action} disableGutters sx={{ alignItems: "flex-start" }}>
-            <ListItemText
-              primary={action}
-              secondary={detail}
-              primaryTypographyProps={{ variant: "body2", fontWeight: 500 }}
-              secondaryTypographyProps={{ variant: "caption" }}
-            />
-          </ListItem>
-        ))}
-      </List>
-      <Typography variant="body2" fontWeight={600} mt={2} mb={0.5}>
-        Qui peut consulter ce journal ?
-      </Typography>
-      <Typography variant="body2">
-        Uniquement les administrateurs de l'hôpital. Chaque hôpital ne voit que ses propres
-        entrées.
-      </Typography>
-      <Typography variant="body2" fontWeight={600} mt={2} mb={0.5}>
-        Conservation des données
-      </Typography>
-      <Typography variant="body2">
-        Les entrées sont conservées indéfiniment. Utilisez l'export CSV pour archiver ou analyser
-        les données dans un tableur.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} variant="contained">Fermer</Button>
-    </DialogActions>
-  </Dialog>
-);
+const HelpModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const { t } = useTranslation();
+  const items = t("haAudit.help.items", { returnObjects: true }) as [string, string][];
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{t("haAudit.help.title")}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" gutterBottom>{t("haAudit.help.intro")}</Typography>
+        <Typography variant="body2" fontWeight={600} mt={2} mb={0.5}>{t("haAudit.help.trackedTitle")}</Typography>
+        <List dense disablePadding>
+          {items.map(([action, detail]) => (
+            <ListItem key={action} disableGutters sx={{ alignItems: "flex-start" }}>
+              <ListItemText
+                primary={action}
+                secondary={detail}
+                primaryTypographyProps={{ variant: "body2", fontWeight: 500 }}
+                secondaryTypographyProps={{ variant: "caption" }}
+              />
+            </ListItem>
+          ))}
+        </List>
+        <Typography variant="body2" fontWeight={600} mt={2} mb={0.5}>{t("haAudit.help.whoTitle")}</Typography>
+        <Typography variant="body2">{t("haAudit.help.whoBody")}</Typography>
+        <Typography variant="body2" fontWeight={600} mt={2} mb={0.5}>{t("haAudit.help.retentionTitle")}</Typography>
+        <Typography variant="body2">{t("haAudit.help.retentionBody")}</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} variant="contained">{t("haAudit.help.close")}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const HospitalAdminAuditLogPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const { density, cycleDensity } = useTableDensity();
-  const search = useTopbarSearch("Admin, action, description…");
+  const search = useTopbarSearch(t("haAudit.colAdmin") + ", " + t("haAudit.colAction") + "…");
   const [page, setPage] = useState(1);
 
   // Reset page quand la recherche topbar change
@@ -176,7 +150,7 @@ const HospitalAdminAuditLogPage = () => {
         if (logDate > to) return false;
       }
       if (q) {
-        const actionLabel = (ACTION_LABEL[log.action] ?? log.action).toLowerCase();
+        const actionLabel = getActionLabel(log.action, t).toLowerCase();
         if (
           !log.adminName.toLowerCase().includes(q) &&
           !actionLabel.includes(q) &&
@@ -191,7 +165,7 @@ const HospitalAdminAuditLogPage = () => {
       switch (sortCol) {
         case "date":   cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); break;
         case "admin":  cmp = a.adminName.localeCompare(b.adminName, "fr", { sensitivity: "base" }); break;
-        case "action": cmp = (ACTION_LABEL[a.action] ?? a.action).localeCompare(ACTION_LABEL[b.action] ?? b.action, "fr", { sensitivity: "base" }); break;
+        case "action": cmp = getActionLabel(a.action, t).localeCompare(getActionLabel(b.action, t), "fr", { sensitivity: "base" }); break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -216,12 +190,13 @@ const HospitalAdminAuditLogPage = () => {
 
   const handleExportCsv = () => {
     if (!filtered.length) return;
+    const csvHeaders = t("haAudit.csvHeaders", { returnObjects: true }) as string[];
     const rows = [
-      ["Date", "Admin", "Action", "Type entité", "Description"],
+      csvHeaders,
       ...filtered.map((l: AuditLogEntry) => [
         new Date(l.createdAt).toLocaleString("fr-BE"),
         l.adminName,
-        ACTION_LABEL[l.action] ?? l.action,
+        getActionLabel(l.action, t),
         l.entityType,
         l.description,
       ]),
@@ -241,35 +216,35 @@ const HospitalAdminAuditLogPage = () => {
       {/* Header */}
       <Box sx={{ pt: 3, mb: 2 }}>
         <Box display="flex" alignItems="center" gap={0.5}>
-          <Typography sx={T.pageTitle}>Journal d'activité</Typography>
+          <Typography sx={T.pageTitle}>{t("haAudit.title")}</Typography>
           <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ color: C.ink3 }}>
             <HelpOutlineIcon fontSize="small" />
           </IconButton>
         </Box>
         <Typography sx={T.pageSub}>
-          Toutes les actions effectuées par les administrateurs de l'hôpital
-          {data && ` — ${data.total} entrée${data.total > 1 ? "s" : ""}`}
+          {t("haAudit.subtitle")}
+          {data && ` — ${t("haAudit.entriesCount", { count: data.total, suffix: data.total > 1 ? "s" : "" })}`}
         </Typography>
       </Box>
 
       {/* Filters + actions — même ligne */}
       <Box sx={{ ...T.toolbar, mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Type d'action</InputLabel>
+          <InputLabel>{t("haAudit.filterActionType")}</InputLabel>
           <Select
             value={filterAction}
-            label="Type d'action"
+            label={t("haAudit.filterActionType")}
             onChange={(e) => handleFilterChange(setFilterAction)(e.target.value)}
           >
-            <MenuItem value="">Toutes les actions</MenuItem>
-            {Object.entries(ACTION_LABEL).map(([key, label]) => (
-              <MenuItem key={key} value={key}>{label}</MenuItem>
+            <MenuItem value="">{t("haAudit.filterAllActions")}</MenuItem>
+            {Object.keys(t("haAudit.actions", { returnObjects: true }) as object).map((key) => (
+              <MenuItem key={key} value={key}>{getActionLabel(key, t)}</MenuItem>
             ))}
           </Select>
         </FormControl>
 
         <TextField
-          label="Du"
+          label={t("haAudit.filterFrom")}
           type="date"
           size="small"
           value={filterFrom}
@@ -278,7 +253,7 @@ const HospitalAdminAuditLogPage = () => {
           sx={{ width: 160 }}
         />
         <TextField
-          label="Au"
+          label={t("haAudit.filterTo")}
           type="date"
           size="small"
           value={filterTo}
@@ -289,7 +264,7 @@ const HospitalAdminAuditLogPage = () => {
 
         {hasFilters && (
           <Button size="small" onClick={handleResetFilters} sx={{ whiteSpace: "nowrap" }}>
-            Réinitialiser
+            {t("haAudit.reset")}
           </Button>
         )}
 
@@ -297,7 +272,7 @@ const HospitalAdminAuditLogPage = () => {
         <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
           {hasFilters && (
             <Typography variant="caption" sx={{ color: C.ink3, whiteSpace: "nowrap" }}>
-              {filtered.length} résultat{filtered.length !== 1 ? "s" : ""}
+              {t("haAudit.resultsCount", { count: filtered.length, suffix: filtered.length !== 1 ? "s" : "" })}
             </Typography>
           )}
           <Button
@@ -307,18 +282,18 @@ const HospitalAdminAuditLogPage = () => {
             disabled={!filtered.length}
             sx={{ borderRadius: "8px", height: 36, fontSize: 13, whiteSpace: "nowrap" }}
           >
-            Exporter CSV
+            {t("haAudit.exportCsv")}
           </Button>
           <DensityToggleButton density={density} onCycle={cycleDensity} />
         </Box>
       </Box>
 
       {isLoading && <Box display="flex" justifyContent="center" mt={4}><CircularProgress sx={{ color: C.brand600 }} /></Box>}
-      {isError && <Alert severity="error" sx={{ borderRadius: "10px" }}>Erreur lors du chargement du journal.</Alert>}
+      {isError && <Alert severity="error" sx={{ borderRadius: "10px" }}>{t("haAudit.loadError")}</Alert>}
 
       {!isLoading && data && filtered.length === 0 && (
         <Alert severity="info" sx={{ borderRadius: "10px" }}>
-          {hasFilters ? "Aucun résultat pour ces filtres." : "Aucune action enregistrée pour le moment."}
+          {hasFilters ? t("haAudit.noResults") : t("haAudit.noEntries")}
         </Alert>
       )}
 
@@ -331,9 +306,9 @@ const HospitalAdminAuditLogPage = () => {
                   <TableRow sx={T.headRow}>
                     {(
                       [
-                        { col: "date",   label: "Date",   width: 150 },
-                        { col: "admin",  label: "Admin",  width: 160 },
-                        { col: "action", label: "Action", width: 180 },
+                        { col: "date",   label: t("haAudit.colDate"),   width: 150 },
+                        { col: "admin",  label: t("haAudit.colAdmin"),  width: 160 },
+                        { col: "action", label: t("haAudit.colAction"), width: 180 },
                       ] as { col: SortCol; label: string; width: number }[]
                     ).map(({ col, label, width }) => (
                       <TableCell
@@ -352,7 +327,7 @@ const HospitalAdminAuditLogPage = () => {
                         </Box>
                       </TableCell>
                     ))}
-                    <TableCell>Description</TableCell>
+                    <TableCell>{t("haAudit.colDesc")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -377,7 +352,7 @@ const HospitalAdminAuditLogPage = () => {
                               borderRadius: "50%", bgcolor: badge.color, flexShrink: 0,
                             },
                           }}>
-                            {ACTION_LABEL[log.action] ?? log.action}
+                            {getActionLabel(log.action, t)}
                           </Box>
                         </TableCell>
                         <TableCell sx={{ color: C.ink2, fontSize: 13 }}>{log.description}</TableCell>
@@ -389,7 +364,7 @@ const HospitalAdminAuditLogPage = () => {
             </Box>
             <Box sx={T.footer}>
               <Typography variant="caption">
-                {filtered.length} entrée{filtered.length !== 1 ? "s" : ""}
+                {t("haAudit.entriesCount", { count: filtered.length, suffix: filtered.length !== 1 ? "s" : "" })}
               </Typography>
               {totalPages > 1 && (
                 <Pagination

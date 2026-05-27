@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import TextField from "@mui/material/TextField";
 import List from "@mui/material/List";
 import Divider from "@mui/material/Divider";
@@ -13,6 +14,7 @@ import { Paper } from "@mui/material";
 import { jobList } from "../../../../doc/lists";
 
 const SearchList = ({ list, handleNext, selectedManager, setSelectedManager }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const [search, setSearch] = useState("");
 
@@ -35,10 +37,10 @@ const SearchList = ({ list, handleNext, selectedManager, setSelectedManager }) =
 
   return (
     <Box marginTop={theme.spacing(2)} sx={{ marginLeft: 0 }}>
-      <Typography variant={"h6"}>Rechercher un nouveau collaborateur</Typography>
+      <Typography variant={"h6"}>{t("yearDetail.search.title")}</Typography>
       <TextField
         id="standard-basic"
-        label="Qui recherchez vous?"
+        label={t("yearDetail.search.placeholder")}
         variant="standard"
         fullWidth
         value={search}

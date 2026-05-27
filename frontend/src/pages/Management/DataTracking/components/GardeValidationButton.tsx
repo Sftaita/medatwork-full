@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import gardesApi from "../../../../services/gardesApi";
 import { toast } from "react-toastify";
@@ -17,6 +18,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { handleApiError } from "@/services/apiError";
 
 const GardeValidationButton = ({ selected, _setSelectedRows, gardes, setGardes }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
@@ -45,7 +47,7 @@ const GardeValidationButton = ({ selected, _setSelectedRows, gardes, setGardes }
         status: status,
         gardeIds: selected,
       });
-      toast.success("Modification(s) enregistrée(s)", toastSuccess);
+      toast.success(t("data.saveSuccess"), toastSuccess);
       return request?.data;
     } catch (error) {
       handleApiError(error);
@@ -70,7 +72,7 @@ const GardeValidationButton = ({ selected, _setSelectedRows, gardes, setGardes }
           key={1}
           icon={<DoneIcon />}
           sx={{ color: theme.palette.primary.main }}
-          tooltipTitle={"Valider les horaires"}
+          tooltipTitle={t("data.validateTooltip")}
           onClick={() => handleUpdate("validate")}
           disabled={isPending}
         />
@@ -78,7 +80,7 @@ const GardeValidationButton = ({ selected, _setSelectedRows, gardes, setGardes }
           key={2}
           icon={<ClearIcon />}
           sx={{ color: theme.palette.primary.main }}
-          tooltipTitle={"Invalider les horaires"}
+          tooltipTitle={t("data.invalidateTooltip")}
           onClick={() => handleUpdate("invalidate")}
           disabled={isPending}
         />

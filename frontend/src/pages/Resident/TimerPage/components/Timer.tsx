@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import timesheetsApi from "../../../../services/timesheetsApi";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
@@ -6,73 +7,55 @@ import dayjs from "dayjs";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router";
 import useAuth from "../../../../hooks/useAuth";
-
-// Material UI
 import { useTheme } from "@mui/material/styles";
-import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Divider from "@mui/material/Divider";
-import Grid from "@mui/material/Grid";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import InputLabel from "@mui/material/InputLabel";
-import FormControl from "@mui/material/FormControl";
-import CustomSelect from "../../../../components/medium/CustomSelect";
 import CircularProgress from "@mui/material/CircularProgress";
-
-// general components
-import CustomDateTimeHandler from "../../../../components/medium/CustomDateTimeHandler";
-import CustomSwitch from "../../../../components/small/CustomSwitch";
 import { handleApiError } from "@/services/apiError";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
-const time = [
-  { value: 0, label: "Pas aujourd'hui" },
-  { value: 15, label: "15 minutes" },
-  { value: 30, label: "30 minutes" },
-  { value: 45, label: "45 minutes" },
-  { value: 60, label: "1 heure" },
-  { value: 75, label: "1 heure 15 minutes" },
-  { value: 90, label: "1 heure 30 minutes" },
-  { value: 105, label: "1 heure 45 minutes" },
-  { value: 120, label: "2 heures" },
-];
+import { TField, TSelect, TDateTimeField, TToggle, fmtHM } from "./timerUi";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getDefaultDates = () => ({
-  dateOfStart: dayjs()
-    .set("hour", 8)
-    .set("minute", 0)
-    .set("second", 0)
-    .set("millisecond", 0)
-    .toDate(),
-  dateOfEnd: dayjs()
-    .set("hour", 18)
-    .set("minute", 0)
-    .set("second", 0)
-    .set("millisecond", 0)
-    .toDate(),
+  dateOfStart: dayjs().set("hour", 8).set("minute", 0).set("second", 0).set("millisecond", 0).toDate(),
+  dateOfEnd:   dayjs().set("hour", 18).set("minute", 0).set("second", 0).set("millisecond", 0).toDate(),
 });
 
-
 const EMPTY_ERRORS = { year: "", dateOfStart: "", dateOfEnd: "", pause: "", scientific: "" };
+
+function Bit({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        padding: "5px 9px", borderRadius: 6,
+        background: "#fff", border: "1px solid #e8dfca",
+      }}
+    >
+      <div style={{ fontSize: 9, color: "#a89e92", textTransform: "uppercase", letterSpacing: ".06em" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 12, color: "#1d1b1a", fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const Timer = ({
   years,
   yearsLoading,
-  onHelpOpen,
+  compact,
 }: {
   years: any[];
   yearsLoading: boolean;
-  onHelpOpen?: () => void;
+  compact: boolean;
 }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
   const navigate = useNavigate();
   const { setSelectedMenuItem } = useAuth();
-
   const { id, type } = useParams();
+
   const [updateMode, setUpdateMode] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -86,6 +69,18 @@ const Timer = ({
 
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
+  const timeOptions = [
+    { value: "0",   label: t("timer.time.none") },
+    { value: "15",  label: t("timer.time.t15") },
+    { value: "30",  label: t("timer.time.t30") },
+    { value: "45",  label: t("timer.time.t45") },
+    { value: "60",  label: t("timer.time.t60") },
+    { value: "75",  label: t("timer.time.t75") },
+    { value: "90",  label: t("timer.time.t90") },
+    { value: "105", label: t("timer.time.t105") },
+    { value: "120", label: t("timer.time.t120") },
+  ];
+
   useEffect(() => {
     if (id && type === "timer") {
       setUpdateMode(true);
@@ -97,23 +92,23 @@ const Timer = ({
   }, [id, type]);
 
   useEffect(() => {
-    if (years.length !== 0 && updateMode === false) {
-      setTimesheet((prev) => ({ ...prev, year: years[0].id }));
+    if (years.length !== 0 && !updateMode) {
+      setTimesheet((prev) => ({ ...prev, year: String(years[0].id) }));
     }
   }, [years, updateMode]);
 
-  const handleFindTimesheet = async (id) => {
+  const handleFindTimesheet = async (timesheetId: string) => {
     setLoading(true);
     try {
       const { method, url } = timesheetsApi.findTimesheetById();
-      const request = await axiosPrivate[method](url + id);
+      const request = await axiosPrivate[method](url + timesheetId);
       setTimesheet({
-        year: request.data.yearId,
-        dateOfStart: dayjs(request.data.dateOfStart),
-        dateOfEnd: dayjs(request.data.dateOfEnd),
-        pause: request.data.pause,
-        scientific: request.data.scientific,
-        called: request.data.called ?? false,
+        year:        String(request.data.yearId),
+        dateOfStart: dayjs(request.data.dateOfStart).toDate(),
+        dateOfEnd:   dayjs(request.data.dateOfEnd).toDate(),
+        pause:       request.data.pause,
+        scientific:  request.data.scientific,
+        called:      request.data.called ?? false,
       });
     } catch (error) {
       handleApiError(error);
@@ -122,39 +117,52 @@ const Timer = ({
     }
   };
 
-  const handleChange = ({ target }) => {
-    setTimesheet((prev) => ({ ...prev, [target.name]: target.value }));
-    setErrors((prev) => ({ ...prev, [target.name]: "" }));
-  };
+  // ── Date helpers ────────────────────────────────────────────────────────────
 
-  const handleDateChange1 = (date) => {
-    setTimesheet((prev) => ({ ...prev, dateOfStart: date }));
+  const onStartDateChange = (dateStr: string) => {
+    const time = dayjs(timesheet.dateOfStart).format("HH:mm");
+    setTimesheet((prev) => ({ ...prev, dateOfStart: dayjs(`${dateStr}T${time}`).toDate() }));
     setErrors((prev) => ({ ...prev, dateOfStart: "" }));
   };
 
-  const handleDateChange2 = (date) => {
-    setTimesheet((prev) => ({ ...prev, dateOfEnd: date }));
+  const onStartTimeChange = (timeStr: string) => {
+    const date = dayjs(timesheet.dateOfStart).format("YYYY-MM-DD");
+    setTimesheet((prev) => ({ ...prev, dateOfStart: dayjs(`${date}T${timeStr}`).toDate() }));
+    setErrors((prev) => ({ ...prev, dateOfStart: "" }));
+  };
+
+  const onEndDateChange = (dateStr: string) => {
+    const time = dayjs(timesheet.dateOfEnd).format("HH:mm");
+    setTimesheet((prev) => ({ ...prev, dateOfEnd: dayjs(`${dateStr}T${time}`).toDate() }));
     setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
   };
 
+  const onEndTimeChange = (timeStr: string) => {
+    const date = dayjs(timesheet.dateOfEnd).format("YYYY-MM-DD");
+    setTimesheet((prev) => ({ ...prev, dateOfEnd: dayjs(`${date}T${timeStr}`).toDate() }));
+    setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
+  };
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+
   const validate = () => {
     const errs: Record<string, any> = { status: false };
-    if (timesheet.year === "") {
-      errs.year = "Vous n'avez pas renseigné l'année";
+    if (!timesheet.year) {
+      errs.year = t("timer.schedule.errYear");
       errs.status = true;
     }
     if (!timesheet.dateOfStart) {
-      errs.dateOfStart = "Vous n'avez pas renseigné l'heure de début";
+      errs.dateOfStart = t("timer.schedule.errStart");
       errs.status = true;
     }
     if (!timesheet.dateOfEnd) {
-      errs.dateOfEnd = "Vous n'avez pas renseigné l'heure de fin";
+      errs.dateOfEnd = t("timer.schedule.errEnd");
       errs.status = true;
     } else if (
       timesheet.dateOfStart &&
       dayjs(timesheet.dateOfEnd).isBefore(dayjs(timesheet.dateOfStart))
     ) {
-      errs.dateOfEnd = "L'heure de fin doit être après l'heure de début";
+      errs.dateOfEnd = t("timer.schedule.errEndBefore");
       errs.status = true;
     }
     if (errs.status) setErrors(errs);
@@ -162,36 +170,27 @@ const Timer = ({
   };
 
   const resetForm = () => {
-    setTimesheet((prev) => ({
-      ...prev,
-      ...getDefaultDates(),
-      pause: 0,
-      scientific: 0,
-      called: false,
-    }));
+    setTimesheet((prev) => ({ ...prev, ...getDefaultDates(), pause: 0, scientific: 0, called: false }));
     setErrors(EMPTY_ERRORS);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (validate()) return;
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
+  const handleSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (validate()) return;
     setLoading(true);
     try {
       const { method, url } = timesheetsApi.create();
       await axiosPrivate[method](url, {
-        ...timesheet,
+        year:        Number(timesheet.year) || timesheet.year,
+        pause:       timesheet.pause,
+        scientific:  timesheet.scientific,
+        called:      timesheet.called,
         dateOfStart: dayjs(timesheet.dateOfStart).format("YYYY-MM-DD HH:mm"),
-        dateOfEnd: dayjs(timesheet.dateOfEnd).format("YYYY-MM-DD HH:mm"),
+        dateOfEnd:   dayjs(timesheet.dateOfEnd).format("YYYY-MM-DD HH:mm"),
       });
-      toast.success("Enregistrement validé!", {
-        position: "bottom-center",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: false,
-        draggable: true,
-      });
+      toast.success(t("timer.saved"), { position: "bottom-center", autoClose: 3000, hideProgressBar: true, closeOnClick: true });
       resetForm();
     } catch (error) {
       handleApiError(error);
@@ -200,26 +199,21 @@ const Timer = ({
     }
   };
 
-  const handleUpdate = async (event) => {
-    event.preventDefault();
+  const handleUpdate = async (e: React.MouseEvent) => {
+    e.preventDefault();
     if (validate()) return;
-
     setLoading(true);
     try {
       const { method, url } = timesheetsApi.updateTimesheet();
       await axiosPrivate[method](url + id, {
-        ...timesheet,
+        year:        Number(timesheet.year) || timesheet.year,
+        pause:       timesheet.pause,
+        scientific:  timesheet.scientific,
+        called:      timesheet.called,
         dateOfStart: dayjs(timesheet.dateOfStart).format("YYYY-MM-DD HH:mm"),
-        dateOfEnd: dayjs(timesheet.dateOfEnd).format("YYYY-MM-DD HH:mm"),
+        dateOfEnd:   dayjs(timesheet.dateOfEnd).format("YYYY-MM-DD HH:mm"),
       });
-      toast.success("Enregistrement validé!", {
-        position: "bottom-center",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: false,
-        draggable: true,
-      });
+      toast.success(t("timer.saved"), { position: "bottom-center", autoClose: 3000, hideProgressBar: true, closeOnClick: true });
       setSelectedMenuItem("Mes encodages");
       navigate("/maccs/data-management");
     } catch (error) {
@@ -229,166 +223,188 @@ const Timer = ({
     }
   };
 
+  // ── Net time ────────────────────────────────────────────────────────────────
+
+  const durationMin = dayjs(timesheet.dateOfEnd).diff(dayjs(timesheet.dateOfStart), "minute");
+  const netMin = Math.max(0, durationMin - timesheet.pause - timesheet.scientific);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (loading && updateMode) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
+        <CircularProgress size={32} />
+      </div>
+    );
+  }
+
   return (
-    <Box>
-      <Box padding={{ xs: 3, sm: 6 }} component={Card} boxShadow={1} marginBottom={4}>
-        <form noValidate autoComplete="off">
-          <Grid container spacing={4}>
-            <Grid item xs={12}>
-              <CustomSelect
-                label="Année(s)"
-                name="year"
-                error={!!errors.year}
-                value={timesheet.year}
-                onChange={(event) => handleChange(event)}
-                item={years.map((e) => (
-                  <MenuItem value={e.id} key={e.id}>
-                    {e.title}
-                  </MenuItem>
-                ))}
-                loading={yearsLoading}
-                helperText={errors.year}
-              />
-            </Grid>
+    <div>
+      {/* Year */}
+      <TField label={t("timer.years")} error={errors.year}>
+        <TSelect
+          value={String(timesheet.year)}
+          options={years.map((y) => ({ value: String(y.id), label: y.title }))}
+          onChange={(v) => {
+            setTimesheet((prev) => ({ ...prev, year: v }));
+            setErrors((prev) => ({ ...prev, year: "" }));
+          }}
+          placeholder={yearsLoading ? "…" : undefined}
+        />
+      </TField>
 
-            <Grid item xs={12}>
-              <CustomDateTimeHandler
-                label={"Début"}
-                value={timesheet.dateOfStart}
-                onChange={handleDateChange1}
-                error={!!errors.dateOfStart}
-                helperText={errors.dateOfStart}
-              />
-            </Grid>
+      {/* Period */}
+      <TField label={t("timer.schedule.start")} error={errors.dateOfStart}>
+        <div
+          style={{
+            display: compact ? "flex" : "grid",
+            flexDirection: compact ? "column" : undefined,
+            gridTemplateColumns: compact ? undefined : "1fr 1fr",
+            gap: compact ? 10 : 12,
+          }}
+        >
+          <TDateTimeField
+            title={t("timer.schedule.start")}
+            value={timesheet.dateOfStart}
+            onDateChange={onStartDateChange}
+            onTimeChange={onStartTimeChange}
+          />
+          <TDateTimeField
+            title={t("timer.schedule.end")}
+            value={timesheet.dateOfEnd}
+            onDateChange={onEndDateChange}
+            onTimeChange={onEndTimeChange}
+            error={errors.dateOfEnd}
+          />
+        </div>
+      </TField>
 
-            <Grid item xs={12}>
-              <CustomDateTimeHandler
-                label={"Fin"}
-                value={timesheet.dateOfEnd}
-                minDateTime={timesheet.dateOfStart}
-                onChange={handleDateChange2}
-                error={!!errors.dateOfEnd}
-                helperText={errors.dateOfEnd}
-              />
-            </Grid>
+      {/* Callback toggle */}
+      <TField label={t("timer.schedule.callBack")} optional>
+        <TToggle
+          checked={timesheet.called}
+          onChange={(v) =>
+            setTimesheet((prev) => ({ ...prev, called: v, pause: 0, scientific: 0 }))
+          }
+          label={t("timer.schedule.callBackDesc")}
+        />
+      </TField>
 
-            <Grid item xs={12}>
-              <CustomSwitch
-                label="Retour en garde"
-                checked={timesheet.called}
-                handleCheck={(event) =>
-                  setTimesheet((prev) => ({
-                    ...prev,
-                    called: event.target.checked,
-                    scientific: 0,
-                    pause: 0,
-                  }))
-                }
-              />
-              {timesheet.called && (
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
-                  Garde appelable — vous avez été rappelé et êtes revenu à l'hôpital.
-                </Typography>
-              )}
-            </Grid>
+      {/* Pause + Scientific */}
+      {!timesheet.called && (
+        <div
+          style={{
+            display: compact ? "block" : "grid",
+            gridTemplateColumns: compact ? undefined : "1fr 1fr",
+            gap: 12,
+          }}
+        >
+          <TField label={t("timer.schedule.pause")} optional>
+            <TSelect
+              value={String(timesheet.pause)}
+              options={timeOptions}
+              onChange={(v) =>
+                setTimesheet((prev) => ({ ...prev, pause: parseInt(v, 10) }))
+              }
+            />
+          </TField>
+          <TField label={t("timer.schedule.scientific")} optional>
+            <TSelect
+              value={String(timesheet.scientific)}
+              options={timeOptions}
+              onChange={(v) =>
+                setTimesheet((prev) => ({ ...prev, scientific: parseInt(v, 10) }))
+              }
+            />
+          </TField>
+        </div>
+      )}
 
-            {!timesheet.called && (
-              <>
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel id="pause-label">Pause</InputLabel>
-                    <Select
-                      labelId="pause-label"
-                      name="pause"
-                      value={timesheet.pause}
-                      label="Pause"
-                      onChange={(event) => handleChange(event)}
-                    >
-                      {time.map(({ value, label }) => (
-                        <MenuItem value={value} key={value}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+      {/* Net time summary */}
+      <div
+        style={{
+          padding: 14, borderRadius: 10,
+          background: "#FAF6ED", border: "1px solid #e8dfca",
+          display: "flex", flexDirection: compact ? "column" : "row",
+          gap: 12, alignItems: compact ? "stretch" : "center",
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 6, height: 38, borderRadius: 3, background: "#3aa676", flexShrink: 0 }} />
+          <div>
+            <div
+              style={{
+                fontSize: 10.5, color: "#8a7d72", fontWeight: 600,
+                letterSpacing: ".1em", textTransform: "uppercase",
+              }}
+            >
+              {t("timer.schedule.netTime")}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#1d1b1a", marginTop: 2 }}>
+              {fmtHM(netMin)}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {durationMin > 0 && <Bit label={t("timer.schedule.gross")} value={fmtHM(durationMin)} />}
+          {timesheet.pause > 0 && <Bit label={t("timer.schedule.pause")} value={`−${fmtHM(timesheet.pause)}`} />}
+          {timesheet.scientific > 0 && <Bit label={t("timer.schedule.scientific")} value={`−${fmtHM(timesheet.scientific)}`} />}
+        </div>
+      </div>
 
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel id="scientific-label">Scientifique</InputLabel>
-                    <Select
-                      labelId="scientific-label"
-                      name="scientific"
-                      value={timesheet.scientific}
-                      label="Scientifique"
-                      onChange={(event) => handleChange(event)}
-                    >
-                      {time.map(({ value, label }) => (
-                        <MenuItem value={value} key={value}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
-            )}
+      {/* Actions */}
+      <div
+        style={{
+          paddingTop: compact ? 0 : 20,
+          borderTop: compact ? "none" : "1px solid #f3efe7",
+          display: "flex", flexDirection: compact ? "column" : "row",
+          justifyContent: "flex-end", gap: 8,
+        }}
+      >
+        <button
+          type="button"
+          onClick={updateMode ? handleUpdate : handleSubmit}
+          disabled={loading || yearsLoading}
+          style={{
+            background: theme.palette.primary.main, color: "#fff", border: 0,
+            borderRadius: compact ? 11 : 10,
+            padding: compact ? "14px 18px" : "10px 26px",
+            fontSize: compact ? 15 : 13.5, fontWeight: 600,
+            cursor: loading || yearsLoading ? "not-allowed" : "pointer",
+            fontFamily: "inherit", opacity: loading || yearsLoading ? 0.7 : 1,
+            order: compact ? 1 : 2,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}
+        >
+          {loading && <CircularProgress color="inherit" size={16} />}
+          {updateMode ? t("timer.edit") : t("timer.save")}
+        </button>
 
-            <Grid item xs={12}>
-              <Button
-                sx={{ height: 54 }}
-                variant="contained"
-                color="primary"
-                size="medium"
-                type="submit"
-                fullWidth
-                onClick={updateMode ? handleUpdate : handleSubmit}
-                disabled={yearsLoading || loading}
-              >
-                {loading ? (
-                  <CircularProgress color="inherit" size={24} />
-                ) : updateMode ? (
-                  "Modifier"
-                ) : (
-                  "Enregistrer"
-                )}
-              </Button>
-            </Grid>
+        {updateMode && (
+          <button
+            type="button"
+            onClick={() => navigate("/maccs/data-management")}
+            style={{
+              background: "transparent", color: "#5a544c",
+              border: compact ? "0" : "1px solid #ece7df",
+              borderRadius: compact ? 11 : 10,
+              padding: compact ? "10px" : "10px 20px",
+              fontSize: 13.5, fontWeight: 500,
+              cursor: "pointer", fontFamily: "inherit",
+              order: compact ? 2 : 1,
+            }}
+          >
+            {t("timer.cancel")}
+          </button>
+        )}
+      </div>
 
-            {onHelpOpen && (
-              <Grid item xs={12} display="flex" justifyContent="center">
-                <Button
-                  size="small"
-                  color="primary"
-                  startIcon={<HelpOutlineIcon fontSize="small" />}
-                  onClick={onHelpOpen}
-                  sx={{ textTransform: "none", fontSize: "0.8rem" }}
-                >
-                  Comment ça fonctionne ?
-                </Button>
-              </Grid>
-            )}
-
-            <Grid item xs={12}>
-              <Divider />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography component="p" variant="body2" align="left">
-                En cliquant sur "enregistrer", vous donnez accès{" "}
-                <Box component="span" color={theme.palette.text.primary} fontWeight={700}>
-                  aux informations
-                </Box>{" "}
-                à votre{" "}
-                <Box component="span" color={theme.palette.text.primary} fontWeight={700}>
-                  maître de stage.
-                </Box>
-              </Typography>
-            </Grid>
-          </Grid>
-        </form>
-      </Box>
-    </Box>
+      {/* Disclaimer */}
+      <p style={{ fontSize: 12, color: "#8a7d72", marginTop: 16, lineHeight: 1.5 }}>
+        {t("timer.disclaimer")}
+      </p>
+    </div>
   );
 };
 

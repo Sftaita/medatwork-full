@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import calendarApi from "../../../../../services/calendarApi";
 import useManagersCalendarContext from "../../../../../hooks/useManagersCalendarContext";
@@ -27,7 +28,9 @@ const ResidentCheckboxList = ({
   selectedResidents,
   onToggleAll,
   onToggle,
-}: ResidentCheckboxListProps) => (
+}: ResidentCheckboxListProps) => {
+  const { t } = useTranslation();
+  return (
   <FormControl>
     <FormLabel>MACCS</FormLabel>
     <FormControlLabel
@@ -38,7 +41,7 @@ const ResidentCheckboxList = ({
           sx={{ "&.Mui-checked": { color: "grey" } }}
         />
       }
-      label="Afficher tous"
+      label={t("calendar.showAll")}
     />
     {yearResidents.map((resident) => (
       <FormControlLabel
@@ -54,10 +57,12 @@ const ResidentCheckboxList = ({
       />
     ))}
   </FormControl>
-);
+  );
+};
 
 // ── ActionView ────────────────────────────────────────────────────────────────
 const ActionView = ({ isMd }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
 
   const {
@@ -183,7 +188,7 @@ const ActionView = ({ isMd }) => {
             years={mappedYears}
             value={currentYear ? parseInt(currentYear.yearId) : ""}
             onChange={handleChangeYear}
-            label="Année académique"
+            label={t("calendar.yearLabel")}
             disabled={isLoading}
           />
         </Grid>

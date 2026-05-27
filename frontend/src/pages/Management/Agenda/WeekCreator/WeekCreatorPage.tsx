@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import { useTheme } from "@mui/material/styles";
@@ -11,6 +12,7 @@ import Grid from "@mui/material/Grid";
 import WeekCreator from "./components/WeekCreator";
 
 const WeekCreatorPage = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -33,7 +35,7 @@ const WeekCreatorPage = () => {
                 fontWeight: 700,
               }}
             >
-              Postes de travail
+              {t("weekCreator.pageTitle")}
             </Typography>
           </Box>
         </Box>

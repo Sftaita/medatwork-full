@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import useWeekShedulerContext from "../../../../../hooks/useWeekShedulerContext";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
@@ -23,6 +24,7 @@ import DeleteDialog from "./addBlocComponents/DeleteDialog";
 import { handleApiError } from "@/services/apiError";
 
 const UpdateWeekTemplates = ({ onCancel }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
 
   const axiosPrivate = useAxiosPrivate();
@@ -58,13 +60,13 @@ const UpdateWeekTemplates = ({ onCancel }) => {
       weekTemplates.map((template) => (template.id === selectedWeekId ? newWeekTemplate : template))
     );
     onCancel();
-    toast.success("Mise à jour de la semaine type.", toastSuccess);
+    toast.success(t("weekCreator.updateTemplate.updateSuccess"), toastSuccess);
     try {
       const { method, url } = weekTemplatesApi.UpdateWeekTemplate(selectedWeekId);
       await axiosPrivate[method](url, newWeekTemplate);
     } catch (error) {
       handleApiError(error);
-      toast.error("Oups! Une erreur s'est produite.", toastError);
+      toast.error(t("weekCreator.updateTemplate.updateError"), toastError);
       // If error occurs, revert back to initial state
       setWeekTemplates(initialWeekTemplates);
     }
@@ -76,13 +78,13 @@ const UpdateWeekTemplates = ({ onCancel }) => {
     setWeekTemplates(weekTemplates.filter((template) => template.id !== selectedWeekId));
     handleClose();
     onCancel();
-    toast.success("Suppression de la semaine type.", toastSuccess);
+    toast.success(t("weekCreator.updateTemplate.deleteSuccess"), toastSuccess);
     try {
       const { method, url } = weekTemplatesApi.DeleteWeekTemplate(selectedWeekId);
       await axiosPrivate[method](url);
     } catch (error) {
       handleApiError(error);
-      toast.error("Oups! Une erreur s'est produite.", toastError);
+      toast.error(t("weekCreator.updateTemplate.deleteError"), toastError);
       setWeekTemplates(initialWeekTemplates);
     }
   };
@@ -95,10 +97,10 @@ const UpdateWeekTemplates = ({ onCancel }) => {
       setWeekTemplates([...weekTemplates, newTemplate]);
       setSelectedWeekId(newTemplate.id);
       onCancel();
-      toast.success("Semaine dupliquée avec succès.", toastSuccess);
+      toast.success(t("weekCreator.updateTemplate.copySuccess"), toastSuccess);
     } catch (error) {
       handleApiError(error);
-      toast.error("Oups! Une erreur s'est produite lors de la duplication.", toastError);
+      toast.error(t("weekCreator.updateTemplate.copyError"), toastError);
     }
   };
 
@@ -124,12 +126,12 @@ const UpdateWeekTemplates = ({ onCancel }) => {
         <Grid container spacing={2} direction="column" padding={4}>
           <Grid item>
             <Typography variant="h5" align="center" color={"primary"}>
-              {selectedWeekTemplate?.canEdit ? "Editer une semaine" : "Détail de la semaine"}
+              {selectedWeekTemplate?.canEdit ? t("weekCreator.updateTemplate.editTitle") : t("weekCreator.updateTemplate.viewTitle")}
             </Typography>
           </Grid>
           <Grid item>
             <TextField
-              label="Titre*"
+              label={t("weekCreator.updateTemplate.titleLabel")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               fullWidth
@@ -142,7 +144,7 @@ const UpdateWeekTemplates = ({ onCancel }) => {
           <Grid item>
             <TextField
               name="description"
-              label="Description"
+              label={t("weekCreator.updateTemplate.descLabel")}
               rows={3}
               multiline
               value={description}
@@ -179,18 +181,18 @@ const UpdateWeekTemplates = ({ onCancel }) => {
               <>
                 <Grid item>
                   <Button type="submit" variant="contained" disabled={title.trim() === ""}>
-                    Modifier
+                    {t("weekCreator.updateTemplate.modify")}
                   </Button>
                 </Grid>
                 <Grid item>
                   <Button variant="outlined" onClick={onCancel}>
-                    Annuler
+                    {t("weekCreator.updateTemplate.cancel")}
                   </Button>
                 </Grid>
               </>
             )}
             <Grid item>
-              <Button onClick={handleCopy} title="Dupliquer">
+              <Button onClick={handleCopy}>
                 <ContentCopyIcon color="primary" />
               </Button>
             </Grid>
@@ -203,9 +205,7 @@ const UpdateWeekTemplates = ({ onCancel }) => {
 
           {!selectedWeekTemplate?.canEdit && (
             <Grid marginLeft={2} marginTop={2}>
-              <Alert severity="info">
-                Vous n'avez pas les droit pour modifier cette semaine type.
-              </Alert>
+              <Alert severity="info">{t("weekCreator.updateTemplate.noPermission")}</Alert>
             </Grid>
           )}
         </Grid>

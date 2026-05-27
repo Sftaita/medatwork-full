@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import "aos/dist/aos.css";
 
 import yearsApi from "../../../../services/yearsApi";
@@ -18,6 +19,7 @@ import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 
 const YearDisplay = ({ year }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
   const navigate = useNavigate();
@@ -28,7 +30,7 @@ const YearDisplay = ({ year }) => {
     try {
       const { method, url } = yearsApi.addYear();
       await axiosPrivate[method](url, { token: year.token });
-      toast.success("Inscription validé!", {
+      toast.success(t("search.registered"), {
         position: "bottom-center",
         autoClose: 3000,
         hideProgressBar: true,
@@ -60,10 +62,10 @@ const YearDisplay = ({ year }) => {
         <Box>
           <Box sx={{ marginBottom: theme.spacing(2) }}>
             <Typography variant="h3" color="primary" gutterBottom>
-              Année de formation trouvée
+              {t("search.found")}
             </Typography>
             <Typography variant="h6" component="p" color="text.primary">
-              Vérifiez l'année, le lieu de stage et le maître de stage.
+              {t("search.verify")}
             </Typography>
           </Box>
           <Box padding={{ xs: 3, sm: 6 }} component={Card} boxShadow={3}>
@@ -114,10 +116,10 @@ const YearDisplay = ({ year }) => {
                   <AccountCircleIcon color={"primary"} sx={{ marginRight: theme.spacing(2) }} />
                   {year?.lastname ? (
                     <Typography>
-                      {"Dr "} {year.firstname} {year.lastname}
+                      {t("years.dr")} {year.firstname} {year.lastname}
                     </Typography>
                   ) : (
-                    <Typography>{"Le maître de stage n'a pas encore été défini"}</Typography>
+                    <Typography>{t("search.noSupervisor")}</Typography>
                   )}
                 </Grid>
               </Box>
@@ -130,7 +132,7 @@ const YearDisplay = ({ year }) => {
                     onClick={handleClick}
                     disabled={loading ? true : false}
                   >
-                    S'enregistrer
+                    {t("search.register")}
                   </Button>
                 )}
                 {loading && (

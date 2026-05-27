@@ -34,6 +34,7 @@
  */
 
 import { useState, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select, { type SelectChangeEvent } from "@mui/material/Select";
@@ -79,12 +80,14 @@ const YearSelect = ({
   years,
   value,
   onChange,
-  label = "Année académique",
+  label,
   required = false,
   disabled = false,
   size = "small",
   disabledYearIds,
 }: YearSelectProps) => {
+  const { t } = useTranslation();
+  const resolvedLabel = label ?? t("yearSelect.defaultLabel");
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -107,13 +110,13 @@ const YearSelect = ({
 
   return (
     <FormControl fullWidth size={size} required={required} disabled={disabled}>
-      <InputLabel>{label}</InputLabel>
+      <InputLabel>{resolvedLabel}</InputLabel>
       <Select<number | "">
         value={value}
-        label={label}
+        label={resolvedLabel}
         onChange={handleChange}
         renderValue={(selected) => {
-          if (selected === "") return <em>Sélectionner une année</em>;
+          if (selected === "") return <em>{t("yearSelect.placeholder")}</em>;
           const year = years.find((y) => y.id === selected);
           return year ? year.title : String(selected);
         }}
@@ -137,7 +140,7 @@ const YearSelect = ({
           <TextField
             size="small"
             fullWidth
-            placeholder="Rechercher une année…"
+            placeholder={t("yearSelect.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onClick={(e) => e.stopPropagation()}
@@ -150,13 +153,13 @@ const YearSelect = ({
                 </InputAdornment>
               ),
             }}
-            inputProps={{ "aria-label": "Rechercher une année" }}
+            inputProps={{ "aria-label": t("yearSelect.search") }}
           />
         </Box>
 
         {filtered.length === 0 && (
           <MenuItem disabled>
-            <Typography variant="body2" color="text.secondary">Aucune année trouvée</Typography>
+            <Typography variant="body2" color="text.secondary">{t("yearSelect.noResults")}</Typography>
           </MenuItem>
         )}
 
@@ -171,7 +174,7 @@ const YearSelect = ({
                 {y.period && (
                   <Typography variant="caption" color="text.secondary" display="block">
                     {y.period}{y.location ? ` — ${y.location}` : ""}
-                    {isDisabled ? " (déjà attribué)" : ""}
+                    {isDisabled ? t("yearSelect.alreadyAssigned") : ""}
                   </Typography>
                 )}
               </Box>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import yearsApi from "../../../../../services/yearsApi";
 import { toast } from "react-toastify";
@@ -34,6 +35,7 @@ import { handleApiError } from "@/services/apiError";
 
 function Row(props) {
   const { row, index, openRowId, setOpenRowId, yearId, adminRights, fetchResidentList } = props;
+  const { t } = useTranslation();
   const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
 
@@ -71,7 +73,7 @@ function Row(props) {
 
     setOpenRowId(-1);
     setIsModified(false);
-    toast.success("Mise à jour", toastSuccess);
+    toast.success(t("yearDetail.residentTable.updated"), toastSuccess);
 
     try {
       const { method, url } = yearsApi.updateYearResident();
@@ -79,7 +81,7 @@ function Row(props) {
       await axiosPrivate[method](url + row.yearResidentId, data);
     } catch (error) {
       handleApiError(error);
-      toast.error("Oops, une erreur c'est produite", toastError);
+      toast.error(t("yearDetail.residentTable.updateError"), toastError);
 
       setDateOfStart(row?.dateOfStart);
       setOptingOut(row?.optingOut);
@@ -205,7 +207,7 @@ function Row(props) {
           {allowed && (
             <Stack direction="row" alignItems={"center"} spacing={1} marginRight={theme.spacing(1)}>
               <CheckCircleOutlineIcon color="primary" />
-              <Typography color={"text.secondary"}>Validé</Typography>
+              <Typography color={"text.secondary"}>{t("yearDetail.residentTable.validated")}</Typography>
             </Stack>
           )}
           {!allowed && (
@@ -219,7 +221,7 @@ function Row(props) {
                     startIcon={<AddTaskIcon />}
                     onClick={() => acceptResident(row?.residentId)}
                   >
-                    Accepter
+                    {t("yearDetail.residentTable.accept")}
                   </Button>
                   <Button
                     variant="outlined"
@@ -228,7 +230,7 @@ function Row(props) {
                     startIcon={<CloseIcon />}
                     onClick={() => refuseResident(row?.yearResidentId)}
                   >
-                    Refuser
+                    {t("yearDetail.residentTable.refuse")}
                   </Button>
                 </Stack>
               ) : null}
@@ -248,13 +250,13 @@ function Row(props) {
             <Grid container spacing={2} padding={(5, 2, 2, 2)}>
               <Grid item xs={12} md={6}>
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Information générales
+                  {t("yearDetail.residentTable.generalInfo")}
                 </Typography>
                 <Divider />
                 <Grid container justifyContent="space-between" marginTop={1}>
                   <Grid item>
                     <DateHandler
-                      label={"Début de l'année académique"}
+                      label={t("yearDetail.residentTable.startDate")}
                       value={dateOfStart}
                       onChange={(value) => setDateOfStart(value)}
                       size={"small"}
@@ -262,7 +264,7 @@ function Row(props) {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <CustomSwitch
-                      label={"Opting out"}
+                      label={t("yearDetail.residentTable.optingOut")}
                       checked={optingOut}
                       handleCheck={() => setOptingOut(!optingOut)}
                     />
@@ -271,7 +273,7 @@ function Row(props) {
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography gutterBottom component="div" fontWeight={600}>
-                  Congés
+                  {t("yearDetail.residentTable.leaves")}
                 </Typography>
                 <Divider />
                 <Grid container spacing={2} marginTop={1}>
@@ -283,7 +285,7 @@ function Row(props) {
                       fullWidth
                       value={legalLeaves}
                       onChange={(event) => setLegalLeaves(event.target.value)}
-                      label={"Jours de congé"}
+                      label={t("yearDetail.residentTable.legalLeaves")}
                       size="small"
                     />
                   </Grid>
@@ -295,7 +297,7 @@ function Row(props) {
                       fullWidth
                       value={scientificLeaves}
                       onChange={(event) => setScientificLeaves(event.target.value)}
-                      label={"Jours de scientifique"}
+                      label={t("yearDetail.residentTable.scientificLeaves")}
                       size="small"
                     />
                   </Grid>
@@ -307,7 +309,7 @@ function Row(props) {
                       fullWidth
                       value={maternityLeaves}
                       onChange={(event) => setMaternityLeaves(event.target.value)}
-                      label={"Jours de maternité"}
+                      label={t("yearDetail.residentTable.maternityLeaves")}
                       size="small"
                     />
                   </Grid>
@@ -319,7 +321,7 @@ function Row(props) {
                       fullWidth
                       value={paternityLeaves}
                       onChange={(event) => setPaternityLeaves(event.target.value)}
-                      label={"Jours de paternité"}
+                      label={t("yearDetail.residentTable.paternityLeaves")}
                       size="small"
                     />
                   </Grid>
@@ -331,7 +333,7 @@ function Row(props) {
                       fullWidth
                       value={unpaidLeaves}
                       onChange={(event) => setUnpaidLeaves(event.target.value)}
-                      label={"Jours non rémunéré"}
+                      label={t("yearDetail.residentTable.unpaidLeaves")}
                       size="small"
                     />
                   </Grid>
@@ -348,12 +350,12 @@ function Row(props) {
                       disabled={!isModified}
                       onClick={() => handleUpdateResident(row)}
                     >
-                      Modifier
+                      {t("yearDetail.residentTable.edit")}
                     </Button>
                   </Grid>
                   <Grid item>
                     <Button variant="text" onClick={() => handleClose()}>
-                      Annuler
+                      {t("yearDetail.residentTable.cancel")}
                     </Button>
                   </Grid>
                 </Grid>
@@ -373,6 +375,7 @@ export default function ResidentTable({
   adminRights,
   fetchResidentList,
 }) {
+  const { t } = useTranslation();
   const [openRowId, setOpenRowId] = React.useState(-1);
 
   return (
@@ -381,10 +384,10 @@ export default function ResidentTable({
         <TableHead>
           <TableRow>
             <TableCell width={10} />
-            <TableCell align="left">Nom</TableCell>
-            <TableCell align="left">Email</TableCell>
-            <TableCell align="left">Status</TableCell>
-            <TableCell align="left">Dernière connection</TableCell>
+            <TableCell align="left">{t("yearDetail.residentTable.colName")}</TableCell>
+            <TableCell align="left">{t("yearDetail.residentTable.colEmail")}</TableCell>
+            <TableCell align="left">{t("yearDetail.residentTable.colStatus")}</TableCell>
+            <TableCell align="left">{t("yearDetail.residentTable.colLastLogin")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import yearsApi from "../../../../services/yearsApi";
@@ -16,6 +17,7 @@ import Grid from "@mui/material/Grid";
 import { handleApiError } from "@/services/apiError";
 
 const SearchBox = ({ handleSearch }) => {
+  const { t } = useTranslation();
   AOS.init();
   const axiosPrivate = useAxiosPrivate();
   const [search, setSearch] = useState();
@@ -53,10 +55,10 @@ const SearchBox = ({ handleSearch }) => {
       <Box>
         <Box marginBottom={4}>
           <Typography variant="h3" color="primary" gutterBottom>
-            Possédez-vous un code d'identification?
+            {t("search.title")}
           </Typography>
           <Typography variant="h6" component="p" color="text.primary">
-            Le code d'identification année est unique et est fourni par votre maître de stage.
+            {t("search.subtitle")}
           </Typography>
         </Box>
         <Box>
@@ -111,7 +113,7 @@ const SearchBox = ({ handleSearch }) => {
                   onClick={() => handleClick(search)}
                   disabled={loading || !search ? true : false}
                 >
-                  Rechercher
+                  {t("search.search")}
                 </Button>
               </Grid>
             </Grid>

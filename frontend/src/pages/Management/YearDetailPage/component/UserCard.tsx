@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { jobList } from "../../../../doc/lists";
 
 // Material UI
@@ -15,6 +16,7 @@ import Man from "../../../../images/icons/Man.png";
 import Women from "../../../../images/icons/Woman.png";
 
 const UserCard = ({ selectedManager }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   return (
     <Box bgcolor={"alternate.main"}>
@@ -69,7 +71,7 @@ const UserCard = ({ selectedManager }) => {
           <Box flexGrow={1} />
 
           <Button component={"a"} variant={"outlined"} color={"primary"} fullWidth disabled>
-            Voir le profil
+            {t("yearDetail.userCard.viewProfile")}
           </Button>
         </Card>
       </Grid>

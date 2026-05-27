@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import absencesApi from "../../../../services/absencesApi";
+import { T, C, bodyRowSx } from "../../../../styles/tableStyles";
+import { useTableDensity } from "../../../../hooks/useTableDensity";
+import { DensityToggleButton } from "../../../../components/DensityToggleButton";
 
-import { monthList } from "../../../../doc/lists";
-import { absenceTypeList } from "../../../../doc/lists";
+import { monthList, absenceTypeList } from "../../../../doc/lists";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 
 // Material UI
-import Paper from "@mui/material/Paper";
+import Box from "@mui/material/Box";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -16,79 +19,64 @@ import TableRow from "@mui/material/TableRow";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import Box from "@mui/material/Box";
-import { Toolbar, Checkbox, Chip } from "@mui/material";
-import Grid from "@mui/material/Grid";
+import { Checkbox, Chip } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import DoneIcon from "@mui/icons-material/Done";
-import SearchIcon from "@mui/icons-material/Search";
-import Input from "@mui/material/Input";
 import Stack from "@mui/material/Stack";
-import SvgIcon from "@mui/material/SvgIcon";
 
-//
 import Dialog from "./Dialog";
 import AbsenceValidationButton from "./AbsenceValidationButton";
 
-// General components
 import { specialityAbreviation } from "../../../../doc/lists";
 import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 
-const columns = [
-  { id: "name", label: "Nom", minWidth: 200, align: "left" },
-  { id: "start", label: "Début", minWidth: 150, align: "left" },
-  { id: "end", label: "Fin", minWidth: 150, align: "left" },
-  { id: "type", label: "Type", minWidth: 200, align: "left" },
-  { id: "title", label: "Année", minWidth: 200, align: "left" },
-];
-
-const Absence = ({ month, setMonth, year, setYear }) => {
+const Absence = ({ month, setMonth, year, setYear, search }) => {
+  const { t } = useTranslation();
+  const { density, cycleDensity } = useTableDensity();
   const axiosPrivate = useAxiosPrivate();
   const [loading, setLoading] = useState(true);
   const [absences, setAbsences] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
 
+  const columns = [
+    { id: "name",  label: t("data.col.name"),  minWidth: 200, align: "left" as const },
+    { id: "start", label: t("data.col.start"), minWidth: 140, align: "left" as const },
+    { id: "end",   label: t("data.col.end"),   minWidth: 140, align: "left" as const },
+    { id: "type",  label: t("data.col.type"),  minWidth: 200, align: "left" as const },
+    { id: "title", label: t("data.col.year"),  minWidth: 180, align: "left" as const },
+  ];
+
   const handleRowClick = (absenceId, canValidate) => {
     if (!canValidate) return;
-
-    const newSelectedRows = [...selectedRows];
-    if (newSelectedRows.includes(absenceId)) {
-      const index = newSelectedRows.indexOf(absenceId);
-      newSelectedRows.splice(index, 1);
-    } else {
-      newSelectedRows.push(absenceId);
-    }
-    setSelectedRows(newSelectedRows);
+    const next = [...selectedRows];
+    const idx = next.indexOf(absenceId);
+    if (idx !== -1) next.splice(idx, 1);
+    else next.push(absenceId);
+    setSelectedRows(next);
   };
 
-  const isSelected = (absenceId) => selectedRows.indexOf(absenceId) !== -1;
+  const isSelected = (id) => selectedRows.includes(id);
 
   const getAbsences = useCallback(async () => {
     setLoading(true);
     setOpen(false);
-
     try {
       const { method, url } = absencesApi.getResidentData();
       const request = await axiosPrivate[method](url + month + "" + year);
-
       if (request.data) {
-        const workflow = [];
-        request?.data.map((item) => {
-          const t = {
-            absenceId: item.id,
-            name: item.lastname.toUpperCase() + " " + item.firstname,
-            start: dayjs(item.dateOfStart).format("DD-MM-YYYY"),
-            end: item.dateOfEnd ? dayjs(item.dateOfEnd).format("DD-MM-YYYY") : null,
-            type: item.type,
-            title: item.title,
-            speciality: specialityAbreviation[item.speciality],
-            isEditable: item.isEditable,
-            currentManagerCanValidate: item.currentManagerCanViladate,
-          };
-          workflow.push(t);
-        });
+        const workflow = request.data.map((item) => ({
+          absenceId: item.id,
+          name: item.lastname.toUpperCase() + " " + item.firstname,
+          start: dayjs(item.dateOfStart).format("DD-MM-YYYY"),
+          end: item.dateOfEnd ? dayjs(item.dateOfEnd).format("DD-MM-YYYY") : null,
+          type: item.type,
+          title: item.title,
+          speciality: specialityAbreviation[item.speciality],
+          isEditable: item.isEditable,
+          currentManagerCanValidate: item.currentManagerCanViladate,
+        }));
         setAbsences(workflow);
       }
     } catch (error) {
@@ -98,178 +86,142 @@ const Absence = ({ month, setMonth, year, setYear }) => {
     }
   }, [axiosPrivate, month, year]);
 
-  useEffect(() => {
-    getAbsences();
-  }, [getAbsences]);
+  useEffect(() => { getAbsences(); }, [getAbsences]);
 
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
+  const normalizeText = (text: string) =>
+    text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-  const handleClose = (event, reason) => {
-    if (reason !== "backdropClick") {
-      setOpen(false);
-    }
-  };
-
-  // Filters
-  const [searchText, setSearchText] = useState("");
-  const handleSearchChange = (event) => {
-    setSearchText(event.target.value);
-  };
-
-  const normalizeText = (text) => {
-    return text
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  };
-
-  const filteredAbsences = absences.filter(
-    (absences) =>
-      normalizeText(absences.name).includes(normalizeText(searchText)) ||
-      normalizeText(absences.title).includes(normalizeText(searchText)) ||
-      (absences.speciality &&
-        normalizeText(absences.speciality).includes(normalizeText(searchText)))
+  const q = search ? normalizeText(search) : "";
+  const filtered = absences.filter(
+    (r) =>
+      !q ||
+      normalizeText(r.name).includes(q) ||
+      normalizeText(r.title).includes(q) ||
+      (r.speciality && normalizeText(r.speciality).includes(q))
   );
 
   return (
-    <div style={{ height: "40vh", width: "100%" }}>
+    <Box>
+      {loading && (
+        <Box display="flex" justifyContent="center" mt="20vh">
+          <CircularProgress />
+        </Box>
+      )}
       {!loading && (
-        <Paper sx={{ width: "100%", overflow: "hidden" }}>
-          <Toolbar>
-            <Grid container direction="row" justifyContent="space-between" alignItems="center">
-              <Grid item xs={12} md={2}>
-                <Box
-                  component={Button}
-                  variant="outlined"
-                  color="primary"
-                  size="medium"
-                  marginTop={{ xs: 2, sm: 0 }}
-                  fullWidth
-                  onClick={handleClickOpen}
-                >
-                  <KeyboardArrowDownIcon />
-                  {monthList[month] + " " + year}
-                </Box>
-              </Grid>
-              <Grid item>
-                <AbsenceValidationButton
-                  selected={selectedRows}
-                  setSelectedRows={setSelectedRows}
-                  absences={absences}
-                  setAbsences={setAbsences}
-                />
-              </Grid>
-            </Grid>
-          </Toolbar>
-          <Stack
-            alignItems="center"
-            component="form"
-            direction="row"
-            //onSubmit={""}
-            spacing={2}
-            sx={{ p: 2 }}
+        <Box sx={T.card}>
+          {/* Toolbar */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              px: "18px",
+              py: "12px",
+              borderBottom: `1px solid ${C.line}`,
+              flexWrap: "wrap",
+            }}
           >
-            <SvgIcon>
-              <SearchIcon />
-            </SvgIcon>
-            <Input
-              defaultValue=""
-              disableUnderline
-              fullWidth
-              value={searchText}
-              onChange={handleSearchChange}
-              placeholder="Rechercher par MACCS, titre ou spécialité"
-              sx={{ flexGrow: 1 }}
-            />
-          </Stack>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="small"
+              onClick={() => setOpen(true)}
+              startIcon={<KeyboardArrowDownIcon />}
+              sx={{ borderRadius: "8px", textTransform: "none", fontSize: 13 }}
+            >
+              {monthList[month] + " " + year}
+            </Button>
+            <Box display="flex" alignItems="center" gap={1}>
+              <DensityToggleButton density={density} onCycle={cycleDensity} />
+              <AbsenceValidationButton
+                selected={selectedRows}
+                setSelectedRows={setSelectedRows}
+                absences={absences}
+                setAbsences={setAbsences}
+              />
+            </Box>
+          </Box>
+
+          {/* Table */}
           <TableContainer sx={{ maxHeight: "60vh" }}>
-            <Table stickyHeader aria-label="sticky table" size={"small"}>
+            <Table sx={T.table} stickyHeader size="small">
               <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column.id}
-                      align={column.align}
-                      style={{ minWidth: column.minWidth }}
-                      variant="head"
-                      sx={{ backgroundColor: "#f6ebf8" }}
-                    >
-                      <Typography variant="subtitle1">{column.label}</Typography>
+                <TableRow sx={T.headRow}>
+                  {columns.map((col) => (
+                    <TableCell key={col.id} align={col.align} style={{ minWidth: col.minWidth }}>
+                      {col.label}
                     </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAbsences.lentgh !== 0 &&
-                  filteredAbsences.map((row) => {
-                    const isItemSelected = isSelected(row?.absenceId);
-                    return (
-                      <TableRow
-                        hover
-                        role="checkbox"
-                        tabIndex={-1}
-                        key={row.id}
-                        selected={isItemSelected}
-                        onClick={() => handleRowClick(row.absenceId, row.currentManagerCanValidate)}
-                      >
-                        <TableCell>
-                          <Stack direction="row" justifyContent="flex-start" alignItems="center">
-                            {row?.currentManagerCanValidate && (
-                              <Checkbox
-                                color="primary"
-                                checked={isItemSelected}
-                                onChange={() =>
-                                  handleRowClick(row.absenceId, row.currentManagerCanValidate)
-                                }
-                              />
-                            )}
+                {filtered.map((row) => {
+                  const sel = isSelected(row.absenceId);
+                  return (
+                    <TableRow
+                      key={row.absenceId}
+                      sx={{
+                        ...bodyRowSx(density),
+                        ...(sel ? { bgcolor: `${C.brand50} !important` } : {}),
+                      }}
+                      onClick={() => handleRowClick(row.absenceId, row.currentManagerCanValidate)}
+                    >
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" gap={0.5}>
+                          {row.currentManagerCanValidate && (
+                            <Checkbox
+                              size="small"
+                              color="primary"
+                              checked={sel}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => handleRowClick(row.absenceId, row.currentManagerCanValidate)}
+                            />
+                          )}
+                          <Box sx={{ fontWeight: 600, color: C.ink, fontSize: "inherit" }}>
                             {row.name}
-                            {!row.isEditable && (
-                              <Chip
-                                label="Validé"
-                                icon={<DoneIcon />}
-                                size="small"
-                                color="primary"
-                                sx={{ marginLeft: 1 }}
-                              />
-                            )}{" "}
-                          </Stack>
-                        </TableCell>
-                        <TableCell>{row.start}</TableCell>
-                        <TableCell>{row.end}</TableCell>
-                        <TableCell align="left">{absenceTypeList[row.type]}</TableCell>
-                        <TableCell>{row.title}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                          </Box>
+                          {!row.isEditable && (
+                            <Chip
+                              label={t("data.validated")}
+                              icon={<DoneIcon />}
+                              size="small"
+                              color="primary"
+                              sx={{ ml: 1 }}
+                            />
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{row.start}</TableCell>
+                      <TableCell>{row.end}</TableCell>
+                      <TableCell>{absenceTypeList[row.type]}</TableCell>
+                      <TableCell>{row.title}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
-        </Paper>
+
+          {/* Footer */}
+          <Box sx={T.footer}>
+            <Typography variant="caption" sx={{ color: C.ink3 }}>
+              {filtered.length} / {absences.length}
+            </Typography>
+          </Box>
+        </Box>
       )}
+
       <Dialog
         open={open}
         month={month}
         year={year}
-        handleMonthChange={(event) => setMonth(event.target.value)}
-        handleYearChange={(event) => setYear(event.target.value)}
-        handleClose={handleClose}
+        handleMonthChange={(e) => setMonth(e.target.value)}
+        handleYearChange={(e) => setYear(e.target.value)}
+        handleClose={() => setOpen(false)}
         handleSelect={getAbsences}
       />
-      {loading && (
-        <Box
-          display={"flex"}
-          flexDirection={"row"}
-          width={"100%"}
-          justifyContent={"center"}
-          marginTop={"20vh"}
-        >
-          <CircularProgress />
-        </Box>
-      )}
-    </div>
+    </Box>
   );
 };
 

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useTopbarSearch } from "../../hooks/useTopbarSearch";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
@@ -72,12 +73,9 @@ import type { HospitalYear, DashboardStats, YearInput, YearStatus } from "../../
 
 // ── Status chip constants ─────────────────────────────────────────────────────
 
-const STATUS_LABEL: Record<YearStatus, string> = {
-  draft: "Brouillon",
-  active: "Active",
-  closed: "Fermée",
-  archived: "Archivée",
-};
+type TFn = (key: string) => string;
+const getStatusLabel = (status: YearStatus, t: TFn): string =>
+  t(`haDash.status.${status}`);
 
 const STATUS_COLOR: Record<YearStatus, "default" | "success" | "warning" | "error"> = {
   draft: "default",
@@ -176,6 +174,7 @@ interface YearCardProps {
 }
 
 const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -185,7 +184,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
     if (!year.token) return;
     navigator.clipboard.writeText(year.token).then(() => {
       setCopied(true);
-      toast.success("Code copié !");
+      toast.success(t("haDash.codeCopied"));
       setTimeout(() => setCopied(false), 2000);
     });
   };
@@ -266,7 +265,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
             >
               {year.title}
             </Typography>
-            <Chip label={STATUS_LABEL[year.status]} color={STATUS_COLOR[year.status]} size="small" sx={{ flexShrink: 0, mt: 0.25 }} />
+            <Chip label={getStatusLabel(year.status, t)} color={STATUS_COLOR[year.status]} size="small" sx={{ flexShrink: 0, mt: 0.25 }} />
             <IconButton
               size="small"
               sx={{ flexShrink: 0, mt: -0.5, mr: -0.5 }}
@@ -297,7 +296,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           <Box display="flex" gap={1} flexWrap="wrap">
             {/* Residents */}
             <Tooltip
-              title={<NameTooltip names={residentNames} emptyLabel="Aucun résident" />}
+              title={<NameTooltip names={residentNames} emptyLabel={t("haDash.noResidents")} />}
               placement="top"
               arrow
             >
@@ -328,14 +327,14 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
                   fontWeight={600}
                   color={residentMatch ? "success.main" : "text.secondary"}
                 >
-                  {residentCount}&nbsp;résident{residentCount !== 1 ? "s" : ""}
+                  {residentCount}&nbsp;{t("haDash.resident")}{residentCount !== 1 ? "s" : ""}
                 </Typography>
               </Box>
             </Tooltip>
 
             {/* Managers */}
             <Tooltip
-              title={<NameTooltip names={managerNames} emptyLabel="Aucun manager" />}
+              title={<NameTooltip names={managerNames} emptyLabel={t("haDash.noManagers")} />}
               placement="top"
               arrow
             >
@@ -366,7 +365,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
                   fontWeight={600}
                   color={managerMatch ? "success.main" : "text.secondary"}
                 >
-                  {managerCount}&nbsp;manager{managerCount !== 1 ? "s" : ""}
+                  {managerCount}&nbsp;{t("haDash.manager")}{managerCount !== 1 ? "s" : ""}
                 </Typography>
               </Box>
             </Tooltip>
@@ -387,7 +386,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
             onEdit(year);
           }}
         >
-          {editable ? "Modifier" : "Voir / changer le statut"}
+          {editable ? t("haDash.menuEdit") : t("haDash.menuViewStatus")}
         </MenuItem>
         <Divider />
         <MenuItem
@@ -397,7 +396,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           }}
           sx={{ color: "error.main" }}
         >
-          Supprimer
+          {t("haDash.menuDelete")}
         </MenuItem>
       </Menu>
 
@@ -416,7 +415,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           onClick={(e) => { e.stopPropagation(); goToParams(); }}
           sx={{ fontSize: "0.75rem", color: "text.secondary" }}
         >
-          Paramètres
+          {t("haDash.settings")}
         </Button>
       </Box>
 
@@ -447,7 +446,7 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
             >
               {year.token}
             </Typography>
-            <Tooltip title={copied ? "Copié !" : "Copier le code"} placement="top" arrow>
+            <Tooltip title={copied ? t("haDash.copied") : t("haDash.copyCode")} placement="top" arrow>
               <IconButton
                 size="small"
                 onClick={handleCopy}
@@ -550,6 +549,7 @@ interface YearFormDialogProps {
 }
 
 const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLocation }: YearFormDialogProps) => {
+  const { t } = useTranslation();
   const emptyForm: YearInput = {
     ...EMPTY_FORM,
     location: defaultLocation ?? "",
@@ -590,11 +590,11 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
 
   const handleSave = () => {
     if (!form.title.trim() || !form.location.trim() || !form.dateOfStart || !form.dateOfEnd) {
-      toast.error("Titre, lieu et dates sont obligatoires");
+      toast.error(t("haDash.form.errRequired"));
       return;
     }
     if (form.dateOfStart && form.dateOfEnd && form.dateOfEnd < form.dateOfStart) {
-      toast.error("La date de fin doit être postérieure à la date de début.");
+      toast.error(t("haDash.form.errEndDate"));
       return;
     }
     onSave(form);
@@ -602,14 +602,14 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{initial ? "Modifier l'année" : "Nouvelle année"}</DialogTitle>
+      <DialogTitle>{initial ? t("haDash.form.editYear") : t("haDash.form.newYear")}</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>
 
           {/* Titre — pleine largeur */}
           <Grid item xs={12}>
             <TextField
-              label="Titre *"
+              label={t("haDash.form.titleField")}
               value={form.title}
               onChange={set("title")}
               fullWidth
@@ -620,7 +620,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
           {/* Lieu + Période */}
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Lieu *"
+              label={t("haDash.form.location")}
               value={form.location}
               onChange={set("location")}
               fullWidth
@@ -629,10 +629,10 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
           </Grid>
           <Grid item xs={12} sm={6}>
             <FormControl size="small" fullWidth>
-              <InputLabel>Période *</InputLabel>
+              <InputLabel>{t("haDash.form.period")}</InputLabel>
               <Select
                 value={form.period}
-                label="Période *"
+                label={t("haDash.form.period")}
                 onChange={(e) => setForm((prev) => ({ ...prev, period: e.target.value }))}
               >
                 {periodOptions.map((p) => (
@@ -645,7 +645,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
           {/* Dates */}
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Date de début *"
+              label={t("haDash.form.startDate")}
               type="date"
               value={form.dateOfStart}
               onChange={set("dateOfStart")}
@@ -656,7 +656,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Date de fin *"
+              label={t("haDash.form.endDate")}
               type="date"
               value={form.dateOfEnd}
               onChange={set("dateOfEnd")}
@@ -675,17 +675,17 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
                 setForm((prev) => ({ ...prev, speciality: newValue ?? "" }))
               }
               renderInput={(params) => (
-                <TextField {...params} label="Spécialité" size="small" />
+                <TextField {...params} label={t("haDash.form.speciality")} size="small" />
               )}
               fullWidth
-              noOptionsText="Aucune spécialité correspondante"
+              noOptionsText={t("haDash.form.noSpeciality")}
             />
           </Grid>
 
           {/* Commentaire */}
           <Grid item xs={12}>
             <TextField
-              label="Commentaire"
+              label={t("haDash.form.comment")}
               value={form.comment ?? ""}
               onChange={set("comment")}
               fullWidth
@@ -699,16 +699,16 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
           {initial && (
             <Grid item xs={12}>
               <FormControl size="small" fullWidth>
-                <InputLabel>Statut</InputLabel>
+                <InputLabel>{t("haDash.form.statusField")}</InputLabel>
                 <Select
                   value={form.status ?? "active"}
-                  label="Statut"
+                  label={t("haDash.form.statusField")}
                   onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as YearStatus }))}
                 >
-                  <MenuItem value="draft">Brouillon</MenuItem>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="closed">Fermée</MenuItem>
-                  <MenuItem value="archived">Archivée</MenuItem>
+                  <MenuItem value="draft">{t("haDash.status.draft")}</MenuItem>
+                  <MenuItem value="active">{t("haDash.status.active")}</MenuItem>
+                  <MenuItem value="closed">{t("haDash.status.closed")}</MenuItem>
+                  <MenuItem value="archived">{t("haDash.status.archived")}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -717,9 +717,9 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isPending}>Annuler</Button>
+        <Button onClick={handleClose} disabled={isPending}>{t("haDash.cancel")}</Button>
         <Button variant="contained" onClick={handleSave} disabled={isPending}>
-          {isPending ? <CircularProgress size={16} /> : initial ? "Enregistrer" : "Créer"}
+          {isPending ? <CircularProgress size={16} /> : initial ? t("haDash.form.save") : t("haDash.form.create")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -803,6 +803,7 @@ interface PendingInvitesDialogProps {
 }
 
 const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogProps) => {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);          // key of the row being acted on
   const [confirmKey, setConfirmKey] = useState<string | null>(null); // inline confirm state
@@ -829,11 +830,10 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
     setBusy(`r-${yrId}`);
     try {
       await hospitalAdminApi.resendResidentInvite(yrId);
-      // MACCS pending → toujours un lien d'activation de compte
-      toast.success("Lien d'activation renvoyé");
+      toast.success(t("haDash.toast.activationSent"));
       invalidateAll();
     }
-    catch { toast.error("Erreur lors de l'envoi"); }
+    catch { toast.error(t("haDash.toast.sendError")); }
     finally { setBusy(null); }
   };
 
@@ -845,26 +845,26 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
       await hospitalAdminApi.resendManagerInvite(myId);
       toast.success(
         mgr?.accountActivated
-          ? "Invitation à l'année renvoyée"
-          : "Lien de création de compte renvoyé",
+          ? t("haDash.toast.yearInviteSent")
+          : t("haDash.toast.accountLinkSent"),
       );
       invalidateAll();
     }
-    catch { toast.error("Erreur lors de l'envoi"); }
+    catch { toast.error(t("haDash.toast.sendError")); }
     finally { setBusy(null); }
   };
 
   const cancelResident = async (yrId: number) => {
     setBusy(`rc-${yrId}`);
-    try { await hospitalAdminApi.retireResident(yrId); toast.success("Invitation annulée"); setConfirmKey(null); invalidateAll(); }
-    catch { toast.error("Erreur lors de l'annulation"); }
+    try { await hospitalAdminApi.retireResident(yrId); toast.success(t("haDash.toast.cancelOk")); setConfirmKey(null); invalidateAll(); }
+    catch { toast.error(t("haDash.toast.cancelError")); }
     finally { setBusy(null); }
   };
 
   const cancelManager = async (myId: number) => {
     setBusy(`mc-${myId}`);
-    try { await hospitalAdminApi.removeManagerYear(myId); toast.success("Invitation annulée"); setConfirmKey(null); invalidateAll(); }
-    catch { toast.error("Erreur lors de l'annulation"); }
+    try { await hospitalAdminApi.removeManagerYear(myId); toast.success(t("haDash.toast.cancelOk")); setConfirmKey(null); invalidateAll(); }
+    catch { toast.error(t("haDash.toast.cancelError")); }
     finally { setBusy(null); }
   };
 
@@ -876,7 +876,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
     if (!accountActivated) {
       return (
         <Chip
-          label="Compte non activé"
+          label={t("haDash.pending.notActivated")}
           size="small"
           color="warning"
           variant="outlined"
@@ -887,7 +887,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
     // accountActivated=true + status=pending → year invitation not yet accepted
     return (
       <Chip
-        label={isManager ? "Invitation non acceptée" : "En attente de rejoindre l'année"}
+        label={isManager ? t("haDash.pending.notAccepted") : t("haDash.pending.pendingJoin")}
         size="small"
         color="info"
         variant="outlined"
@@ -908,24 +908,24 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
           <Button size="small" color="error" variant="contained" disabled={isBusy}
             onClick={() => cancelResident(yrId)}
             startIcon={busy === `rc-${yrId}` ? <CircularProgress size={12} sx={{ color: "inherit" }} /> : undefined}>
-            Confirmer
+            {t("haDash.confirm")}
           </Button>
-          <Button size="small" disabled={isBusy} onClick={() => setConfirmKey(null)}>Non</Button>
+          <Button size="small" disabled={isBusy} onClick={() => setConfirmKey(null)}>{t("haDash.no")}</Button>
         </Stack>
       );
     }
     return (
       <Stack direction="row" gap={0.5} alignItems="center">
-        <Tooltip title="Renvoie le lien pour créer et activer son compte MED@WORK. Une fois activé, le MACCS rejoint l'année automatiquement." arrow placement="top">
+        <Tooltip title={t("haDash.pending.resendResidentTip")} arrow placement="top">
           <span>
             <Button size="small" variant="outlined" disabled={isBusy}
               startIcon={busy === `r-${yrId}` ? <CircularProgress size={12} /> : <SendIcon sx={{ fontSize: 14 }} />}
               onClick={() => resendResident(yrId)}>
-              Renvoyer l'invitation
+              {t("haDash.pending.resend")}
             </Button>
           </span>
         </Tooltip>
-        <Tooltip title="Annuler et retirer ce MACCS de l'année" arrow>
+        <Tooltip title={t("haDash.pending.cancelResidentTip")} arrow>
           <span>
             <IconButton size="small" color="error" disabled={isBusy} onClick={() => setConfirmKey(key)}>
               <CloseIcon sx={{ fontSize: 16 }} />
@@ -951,20 +951,20 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
           <Button size="small" color="error" variant="contained" disabled={isBusy}
             onClick={() => cancelManager(myId)}
             startIcon={busy === `mc-${myId}` ? <CircularProgress size={12} sx={{ color: "inherit" }} /> : undefined}>
-            Confirmer
+            {t("haDash.confirm")}
           </Button>
-          <Button size="small" disabled={isBusy} onClick={() => setConfirmKey(null)}>Non</Button>
+          <Button size="small" disabled={isBusy} onClick={() => setConfirmKey(null)}>{t("haDash.no")}</Button>
         </Stack>
       );
     }
 
-    const resendLabel    = accountActivated ? "Renvoyer l'invitation" : "Renvoyer l'invitation";
+    const resendLabel    = t("haDash.pending.resend");
     const resendTooltip  = accountActivated
-      ? "Renvoie le lien pour accepter ou refuser cette année de stage"
-      : "Renvoie le lien de création de compte. Une fois activé, le manager rejoint l'année automatiquement.";
+      ? t("haDash.pending.resendManagerTip1")
+      : t("haDash.pending.resendManagerTip2");
     const cancelTooltip  = accountActivated
-      ? "Retirer ce manager de cette année"
-      : "Annuler l'invitation de compte";
+      ? t("haDash.pending.cancelManagerTip1")
+      : t("haDash.pending.cancelManagerTip2");
 
     return (
       <Stack direction="row" gap={0.5} alignItems="center">
@@ -992,7 +992,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <HourglassEmptyIcon sx={{ color: "warning.main", fontSize: 22 }} />
-        Invitations en attente
+        {t("haDash.pending.dialogTitle")}
         {!isLoading && (
           <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
             ({total})
@@ -1010,7 +1010,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
         {!isLoading && total === 0 && (
           <Box px={3} py={3}>
             <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-              Aucune invitation en attente — tout le monde a activé son compte !
+              {t("haDash.pending.noPending")}
             </Alert>
           </Box>
         )}
@@ -1019,7 +1019,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
         <Collapse in={!isLoading && pendingResidents.length > 0}>
           <Box px={3} pt={2} pb={0.5}>
             <Typography variant="overline" color="text.secondary" fontWeight={700}>
-              MACCS ({pendingResidents.length})
+              {t("haDash.pending.maccsSection", { count: pendingResidents.length })}
             </Typography>
           </Box>
           <List disablePadding dense>
@@ -1055,7 +1055,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
         <Collapse in={!isLoading && pendingManagers.length > 0}>
           <Box px={3} pt={2} pb={0.5}>
             <Typography variant="overline" color="text.secondary" fontWeight={700}>
-              Managers ({pendingManagers.length})
+              {t("haDash.pending.managersSection", { count: pendingManagers.length })}
             </Typography>
           </Box>
           <List disablePadding dense>
@@ -1089,7 +1089,7 @@ const PendingInvitesDialog = ({ open, onClose, onResent }: PendingInvitesDialogP
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>Fermer</Button>
+        <Button onClick={handleClose}>{t("haDash.close")}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -1104,6 +1104,7 @@ interface YearListRowProps {
 }
 
 const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -1139,7 +1140,7 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
       </TableCell>
       <TableCell>{year.period}</TableCell>
       <TableCell>
-        <Chip label={STATUS_LABEL[year.status]} color={STATUS_COLOR[year.status]} size="small" />
+        <Chip label={getStatusLabel(year.status, t)} color={STATUS_COLOR[year.status]} size="small" />
       </TableCell>
       <TableCell>
         <Box display="flex" gap={1} alignItems="center">
@@ -1154,7 +1155,7 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
         </Box>
       </TableCell>
       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-        <Tooltip title="Paramètres" placement="top" arrow>
+        <Tooltip title={t("haDash.settings")} placement="top" arrow>
           <IconButton size="small" onClick={goToParams}>
             <SettingsOutlinedIcon fontSize="small" />
           </IconButton>
@@ -1164,11 +1165,11 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
         </IconButton>
         <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
           <MenuItem onClick={() => { setMenuAnchor(null); onEdit(year); }}>
-            {editable ? "Modifier" : "Voir / changer le statut"}
+            {editable ? t("haDash.menuEdit") : t("haDash.menuViewStatus")}
           </MenuItem>
           <Divider />
           <MenuItem onClick={() => { setMenuAnchor(null); onDelete(year); }} sx={{ color: "error.main" }}>
-            Supprimer
+            {t("haDash.menuDelete")}
           </MenuItem>
         </Menu>
       </TableCell>
@@ -1189,6 +1190,7 @@ const loadView = (): "grid" | "list" => {
 const ALL_TAB = "__all__";
 
 const HospitalAdminDashboardPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -1205,7 +1207,7 @@ const HospitalAdminDashboardPage = () => {
     queryFn: hospitalAdminApi.getDashboardStats,
   });
 
-  const search = useTopbarSearch("Titre, résident, manager…");
+  const search = useTopbarSearch(t("haDash.search"));
   const [tab, setTab] = useState(ALL_TAB);
   const [viewMode, setViewMode] = useState<"grid" | "list">(loadView);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -1217,7 +1219,6 @@ const HospitalAdminDashboardPage = () => {
     try { localStorage.setItem(VIEW_KEY, val); } catch { /* noop */ }
   };
 
-  const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<HospitalYear | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HospitalYear | null>(null);
   const [pendingOpen, setPendingOpen] = useState(false);
@@ -1272,25 +1273,19 @@ const HospitalAdminDashboardPage = () => {
     qc.invalidateQueries({ queryKey: ["hospital-admin-dashboard-stats"] });
   };
 
-  const createMutation = useMutation({
-    mutationFn: hospitalAdminApi.createYear,
-    onSuccess: () => { toast.success("Année créée"); setAddOpen(false); invalidate(); },
-    onError: () => toast.error("Erreur lors de la création"),
-  });
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<YearInput> }) =>
       hospitalAdminApi.updateYear(id, data),
-    onSuccess: () => { toast.success("Année mise à jour"); setEditTarget(null); invalidate(); },
+    onSuccess: () => { toast.success(t("haDash.toast.yearUpdated")); setEditTarget(null); invalidate(); },
     onError: (err: { response?: { data?: { message?: string } } }) =>
-      toast.error(err?.response?.data?.message ?? "Erreur lors de la mise à jour"),
+      toast.error(err?.response?.data?.message ?? t("haDash.toast.createError")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: hospitalAdminApi.forceDeleteYear,
-    onSuccess: () => { toast.success("Année supprimée"); setDeleteTarget(null); invalidate(); },
+    onSuccess: () => { toast.success(t("haDash.toast.yearDeleted")); setDeleteTarget(null); invalidate(); },
     onError: (err: { response?: { data?: { message?: string } } }) =>
-      toast.error(err?.response?.data?.message ?? "Impossible de supprimer cette année"),
+      toast.error(err?.response?.data?.message ?? t("haDash.toast.deleteError")),
   });
 
   return (
@@ -1312,21 +1307,21 @@ const HospitalAdminDashboardPage = () => {
             <Box>
               <Box display="flex" alignItems="center" gap={0.5}>
                 <Typography variant="h5" fontWeight={700}>
-                  Tableau de bord
+                  {t("haDash.title")}
                 </Typography>
-                <Tooltip title="Comprendre les statuts" arrow>
+                <Tooltip title={t("haDash.help.title")} arrow>
                   <IconButton size="small" onClick={() => setHelpOpen(true)} sx={{ color: "text.disabled", mt: "-2px" }}>
                     <HelpOutlineIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Années de formation rattachées à votre hôpital
+                {t("haDash.subtitle")}
               </Typography>
             </Box>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-            Nouvelle année
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/hospital-admin/year")}>
+            {t("haDash.newYear")}
           </Button>
         </Box>
 
@@ -1334,26 +1329,26 @@ const HospitalAdminDashboardPage = () => {
         <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <HelpOutlineIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-            Comprendre les statuts
+            {t("haDash.help.title")}
           </DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2.5}>
               {([
                 {
-                  chip: { label: "Compte non activé", color: "warning" as const },
-                  text: "La personne a reçu un email d'invitation mais n'a pas encore créé son compte. Une fois son compte activé, elle rejoint automatiquement l'année — aucune autre action n'est requise.",
+                  chip: { label: t("haDash.help.notActivatedLabel"), color: "warning" as const },
+                  text: t("haDash.help.notActivatedDesc"),
                 },
                 {
-                  chip: { label: "Invitation non acceptée", color: "info" as const },
-                  text: "La personne a déjà un compte MED@WORK (activé via un hôpital précédent ou une autre année) mais n'a pas encore accepté l'invitation à rejoindre cette année spécifique.",
+                  chip: { label: t("haDash.help.notAcceptedLabel"), color: "info" as const },
+                  text: t("haDash.help.notAcceptedDesc"),
                 },
                 {
-                  chip: { label: "Actif", color: "success" as const },
-                  text: "La personne a accès à l'année. Elle peut se connecter et consulter ses données.",
+                  chip: { label: t("haDash.help.activeLabel"), color: "success" as const },
+                  text: t("haDash.help.activeDesc"),
                 },
                 {
-                  chip: { label: "Ajout automatique", color: "default" as const },
-                  text: "Le manager appartient déjà à cet hôpital (relation directe). Il est ajouté à la nouvelle année sans invitation : si son compte est activé il peut se connecter immédiatement, sinon il reçoit un lien pour finaliser son compte.",
+                  chip: { label: t("haDash.help.autoAddedLabel"), color: "default" as const },
+                  text: t("haDash.help.autoAddedDesc"),
                 },
               ] as const).map(({ chip, text }) => (
                 <Box key={chip.label} display="flex" gap={2} alignItems="flex-start">
@@ -1364,7 +1359,7 @@ const HospitalAdminDashboardPage = () => {
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setHelpOpen(false)}>Fermer</Button>
+            <Button onClick={() => setHelpOpen(false)}>{t("haDash.close")}</Button>
           </DialogActions>
         </Dialog>
 
@@ -1376,7 +1371,7 @@ const HospitalAdminDashboardPage = () => {
             scrollButtons="auto"
             sx={{ flex: 1, minWidth: 0 }}
           >
-            <Tab label="Toutes" value={ALL_TAB} />
+            <Tab label={t("haDash.allTab")} value={ALL_TAB} />
             {periods.map((p) => (
               <Tab key={p} label={p} value={p} />
             ))}
@@ -1388,13 +1383,13 @@ const HospitalAdminDashboardPage = () => {
             size="small"
             sx={{ flexShrink: 0 }}
           >
-            <ToggleButton value="grid" aria-label="vue carte">
-              <Tooltip title="Vue carte" placement="top" arrow>
+            <ToggleButton value="grid" aria-label={t("haDash.gridView")}>
+              <Tooltip title={t("haDash.gridView")} placement="top" arrow>
                 <ViewModuleIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
-            <ToggleButton value="list" aria-label="vue liste">
-              <Tooltip title="Vue liste" placement="top" arrow>
+            <ToggleButton value="list" aria-label={t("haDash.listView")}>
+              <Tooltip title={t("haDash.listView")} placement="top" arrow>
                 <ViewListIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
@@ -1414,41 +1409,41 @@ const HospitalAdminDashboardPage = () => {
           <>
             <Grid item xs={6} sm={3}>
               <StatCard
-                label="MACCS actifs"
+                label={t("haDash.stats.maccsActive")}
                 value={stats.maccs.active}
                 icon={<CheckCircleOutlineIcon />}
                 color="success"
-                sublabel={`${stats.maccs.total} au total · voir la liste`}
+                sublabel={t("haDash.stats.totalSubLabel", { total: stats.maccs.total })}
                 onClick={() => navigate("/hospital-admin/residents")}
               />
             </Grid>
             <Grid item xs={6} sm={3}>
               <StatCard
-                label="Managers actifs"
+                label={t("haDash.stats.managersActive")}
                 value={stats.managers.active}
                 icon={<PersonOutlineIcon />}
                 color="info"
-                sublabel={`${stats.managers.total} au total · voir la liste`}
+                sublabel={t("haDash.stats.totalSubLabel", { total: stats.managers.total })}
                 onClick={() => navigate("/hospital-admin/managers")}
               />
             </Grid>
             <Grid item xs={6} sm={3}>
               <StatCard
-                label="Invitations en attente"
+                label={t("haDash.stats.pendingInvites")}
                 value={stats.pendingInvites}
                 icon={<HourglassEmptyIcon />}
                 color="warning"
-                sublabel={stats.pendingInvites > 0 ? "Cliquer pour gérer" : "Tout le monde a accepté"}
+                sublabel={stats.pendingInvites > 0 ? t("haDash.stats.clickToManage") : t("haDash.stats.allAccepted")}
                 onClick={stats.pendingInvites > 0 ? () => setPendingOpen(true) : undefined}
               />
             </Grid>
             <Grid item xs={6} sm={3}>
               <StatCard
-                label="Années de formation"
+                label={t("haDash.stats.trainingYears")}
                 value={stats.totalYears}
                 icon={<CalendarMonthOutlinedIcon />}
                 color="secondary"
-                sublabel={`${stats.activeYears.length} en cours`}
+                sublabel={t("haDash.stats.inProgress", { count: stats.activeYears.length })}
               />
             </Grid>
           </>
@@ -1487,10 +1482,10 @@ const HospitalAdminDashboardPage = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: "action.hover" }}>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">ANNÉE</Typography></TableCell>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">PÉRIODE</Typography></TableCell>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">STATUT</Typography></TableCell>
-                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">MEMBRES</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">{t("haDash.colYear")}</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">{t("haDash.colPeriod")}</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">{t("haDash.colStatus")}</Typography></TableCell>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">{t("haDash.colMembers")}</Typography></TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -1528,11 +1523,11 @@ const HospitalAdminDashboardPage = () => {
         >
           {years.length === 0 ? (
             <Alert severity="info" sx={{ maxWidth: 440 }}>
-              Aucune année de formation enregistrée pour cet hôpital.
+              {t("haDash.noYearsForHospital")}
             </Alert>
           ) : (
             <Typography variant="h6" color="text.secondary" fontWeight={500}>
-              Aucune année trouvée
+              {t("haDash.noYearsFound")}
             </Typography>
           )}
         </Box>
@@ -1543,14 +1538,6 @@ const HospitalAdminDashboardPage = () => {
         open={pendingOpen}
         onClose={() => setPendingOpen(false)}
         onResent={() => qc.invalidateQueries({ queryKey: ["hospital-admin-dashboard-stats"] })}
-      />
-
-      {/* ── Create dialog ─────────────────────────────────────────────────── */}
-      <YearFormDialog
-        open={addOpen}
-        isPending={createMutation.isPending}
-        onClose={() => setAddOpen(false)}
-        onSave={(data) => createMutation.mutate(data)}
       />
 
       {/* ── Edit dialog ───────────────────────────────────────────────────── */}
@@ -1564,25 +1551,26 @@ const HospitalAdminDashboardPage = () => {
 
       {/* ── Delete confirm ────────────────────────────────────────────────── */}
       <Dialog open={deleteTarget !== null} onClose={() => !deleteMutation.isPending && setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ color: "error.main" }}>Supprimer définitivement cette année ?</DialogTitle>
+        <DialogTitle sx={{ color: "error.main" }}>{t("haDash.delete.title")}</DialogTitle>
         <DialogContent>
           <Alert severity="error" sx={{ mb: 2 }}>
-            Cette action est <strong>irréversible</strong>. Toutes les données associées seront effacées :
-            feuilles de temps, gardes, absences, plannings, validations de période.
+            {t("haDash.delete.warning")}
           </Alert>
           <Typography variant="body2" mb={1}>
-            Année : <strong>{deleteTarget?.title}</strong>
+            {t("haDash.delete.yearRow")} <strong>{deleteTarget?.title}</strong>
           </Typography>
           {((deleteTarget?.residentCount ?? 0) > 0 || (deleteTarget?.managerCount ?? 0) > 0) && (
             <Typography variant="body2" color="text.secondary">
-              {deleteTarget?.residentCount ?? 0} résident(s) et {deleteTarget?.managerCount ?? 0} manager(s) liés
-              seront <strong>notifiés par email</strong>.
+              {t("haDash.delete.notify", {
+                residents: deleteTarget?.residentCount ?? 0,
+                managers: deleteTarget?.managerCount ?? 0,
+              })}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
-            Annuler
+            {t("haDash.cancel")}
           </Button>
           <Button
             color="error"
@@ -1590,7 +1578,7 @@ const HospitalAdminDashboardPage = () => {
             disabled={deleteMutation.isPending}
             onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
           >
-            {deleteMutation.isPending ? <CircularProgress size={16} /> : "Supprimer tout"}
+            {deleteMutation.isPending ? <CircularProgress size={16} /> : t("haDash.delete.deleteAll")}
           </Button>
         </DialogActions>
       </Dialog>

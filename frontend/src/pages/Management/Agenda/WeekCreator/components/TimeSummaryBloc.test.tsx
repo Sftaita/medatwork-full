@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import TimeSummaryBloc from "./TimeSummaryBloc";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      if (key === "weekCreator.days") return ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+      return key;
+    },
+  }),
+}));
+
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 const mockStore = vi.hoisted(() => ({
   selectedWeekId: 42,

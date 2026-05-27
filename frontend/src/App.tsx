@@ -91,6 +91,9 @@ const HospitalAdminAuditTimelinePage = lazy(
 const HospitalAdminExportsPage = lazy(
   () => import("./pages/HospitalAdmin/HospitalAdminExportsPage")
 );
+const HospitalAdminYearPage = lazy(
+  () => import("./pages/HospitalAdmin/HospitalAdminYearPage")
+);
 const ProfilePage         = lazy(() => import("./pages/Profile/ProfilePage"));
 const ProfileSettingsPage = lazy(() => import("./pages/Profile/ProfileSettingsPage"));
 const ProfileAccountPage  = lazy(() => import("./pages/Profile/ProfileAccountPage"));
@@ -145,14 +148,6 @@ function App() {
             <WithFixedSidebar>
               <Routes>
                 {/* Public routes */}
-                <Route
-                  path="/"
-                  element={
-                    <Suspense fallback={<PageSkeleton />}>
-                      <Homepage />
-                    </Suspense>
-                  }
-                />
                 <Route
                   path="/description"
                   element={
@@ -287,6 +282,15 @@ function App() {
                   element={
                     <Suspense fallback={<PageSkeleton />}>
                       <ManagerSetupPage />
+                    </Suspense>
+                  }
+                />
+
+                <Route
+                  path="/"
+                  element={
+                    <Suspense fallback={<PageSkeleton />}>
+                      <Homepage />
                     </Suspense>
                   }
                 />
@@ -438,6 +442,14 @@ function App() {
                       element={
                         <Suspense fallback={<PageSkeleton />}>
                           <HospitalAdminAuditTimelinePage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/hospital-admin/year"
+                      element={
+                        <Suspense fallback={<PageSkeleton />}>
+                          <HospitalAdminYearPage />
                         </Suspense>
                       }
                     />

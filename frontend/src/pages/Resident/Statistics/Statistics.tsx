@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import timesheetsApi from "../../../services/timesheetsApi";
-import { monthList } from "../../../doc/lists";
 import useAxiosPrivate from "../../../hooks/useAxiosPrivate";
 
 // material UI
@@ -22,6 +22,7 @@ import { Container } from "@mui/system";
 import { handleApiError } from "@/services/apiError";
 
 const Statistics = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -110,7 +111,7 @@ const Statistics = () => {
             color={"secondary"}
             align={"center"}
           >
-            Activité par mois
+            {t("stats.title")}
           </Typography>
           <Typography
             variant="h4"
@@ -120,7 +121,7 @@ const Statistics = () => {
               fontWeight: 700,
             }}
           >
-            En temps réel
+            {t("stats.subtitle")}
           </Typography>
         </Box>
         <>
@@ -161,7 +162,7 @@ const Statistics = () => {
                   onClick={handleClickOpen}
                 >
                   <KeyboardArrowDownIcon />
-                  {monthList[month] + " " + year}
+                  {(t("stats.months", { returnObjects: true }) as string[])[month] + " " + year}
                 </Box>
               </Grid>
             </Grid>

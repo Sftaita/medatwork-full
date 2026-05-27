@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchStore } from "../../store/searchStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -77,66 +78,53 @@ function fmtDate(iso: string | null | undefined): string {
 
 // ── Tutorial modal ────────────────────────────────────────────────────────────
 
-const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-    <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      Guide — Exports RH
-      <IconButton size="small" onClick={onClose}><CloseIcon /></IconButton>
-    </DialogTitle>
-    <DialogContent dividers>
-      <Stack spacing={3}>
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Onglet Staff Planner</Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Génère un fichier <code>.txt</code> pour le logiciel Staff Planner contenant les horaires des résidents.
-            Les validations sont organisées par mois, avec un résultat par MACCS.
-          </Typography>
-          <Box component="ol" sx={{ mt: 1, mb: 0, pl: 2, "& li": { mb: 0.5 } }}>
-            <li><Typography variant="body2">Sélectionnez l'année académique.</Typography></li>
-            <li><Typography variant="body2">Les lignes <strong>non traitées</strong> sont présélectionnées automatiquement.</Typography></li>
-            <li><Typography variant="body2">Développez les mois pour voir les MACCS concernés.</Typography></li>
-            <li><Typography variant="body2">Cochez / décochez individuellement ou via les cases de mois.</Typography></li>
-            <li><Typography variant="body2">Cliquez <strong>Générer</strong> — fichier téléchargé, lignes passent en <em>Traité</em>.</Typography></li>
-            <li><Typography variant="body2">Le switch <em>Traité</em> permet de corriger manuellement.</Typography></li>
+const TutorialModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const { t } = useTranslation();
+  const steps = t("haExp.tutorial.spSteps", { returnObjects: true }) as string[];
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {t("haExp.tutorial.title")}
+        <IconButton size="small" onClick={onClose}><CloseIcon /></IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>{t("haExp.tutorial.spTitle")}</Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>{t("haExp.tutorial.spDesc")}</Typography>
+            <Box component="ol" sx={{ mt: 1, mb: 0, pl: 2, "& li": { mb: 0.5 } }}>
+              {steps.map((step, i) => (
+                <li key={i}><Typography variant="body2">{step}</Typography></li>
+              ))}
+            </Box>
           </Box>
-        </Box>
-        <Divider />
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Colonnes du tableau</Typography>
-          <Stack spacing={0.5}>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Validé MDS</strong> — V = le maître de stage a validé l'horaire de ce résident pour ce mois.
-              Informatif — ne bloque pas la génération.
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Statut</strong> — indique si cet item a été inclus dans un export Staff Planner.
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Exports</strong> — nombre de fois que ce MACCS × mois a été exporté, avec la date du dernier export.
-            </Typography>
-          </Stack>
-        </Box>
-        <Divider />
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Onglet Excel</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Génère un fichier Excel <strong>par résident</strong> couvrant toute l'année académique.
-          </Typography>
-        </Box>
-        <Divider />
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Accès</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Admin hôpital, Super Admin, et Managers Ressources Humaines.
-          </Typography>
-        </Box>
-      </Stack>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose}>Fermer</Button>
-    </DialogActions>
-  </Dialog>
-);
+          <Divider />
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>{t("haExp.tutorial.colsTitle")}</Typography>
+            <Stack spacing={0.5}>
+              <Typography variant="body2" color="text.secondary">{t("haExp.tutorial.colValidated")}</Typography>
+              <Typography variant="body2" color="text.secondary">{t("haExp.tutorial.colStatus")}</Typography>
+              <Typography variant="body2" color="text.secondary">{t("haExp.tutorial.colExports")}</Typography>
+            </Stack>
+          </Box>
+          <Divider />
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>{t("haExp.tutorial.excelTitle")}</Typography>
+            <Typography variant="body2" color="text.secondary">{t("haExp.tutorial.excelDesc")}</Typography>
+          </Box>
+          <Divider />
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>{t("haExp.tutorial.accessTitle")}</Typography>
+            <Typography variant="body2" color="text.secondary">{t("haExp.tutorial.accessDesc")}</Typography>
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{t("haExp.tutorial.close")}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── HRID Missing Modal ────────────────────────────────────────────────────────
 
@@ -150,88 +138,65 @@ const HridMissingModal = ({
   residents: HridResident[];
   onClose: () => void;
   onGoToParams: () => void;
-}) => (
-  <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-    <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1 }}>
-      <ErrorOutlineIcon color="info" />
-      Ressources Staff Planner manquantes
-    </DialogTitle>
-    <DialogContent dividers>
-      <Stack spacing={2.5}>
-        <Typography variant="body2" color="text.secondary">
-          Le fichier Staff Planner nécessite deux identifiants par MACCS, définis dans votre
-          logiciel Staff Planner :
-        </Typography>
-        <Stack spacing={0.75} pl={1}>
-          <Typography variant="body2">
-            <strong>Matricule (WorkerHRID)</strong> — identifiant du travailleur dans Staff Planner
-          </Typography>
-          <Typography variant="body2">
-            <strong>Code service (SectionHRID)</strong> — identifiant du service ou de l'unité
-          </Typography>
-        </Stack>
-
-        <Divider />
-
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-            MACCS concernés ({residents.length})
-          </Typography>
-          <Stack spacing={0.5}>
-            {residents.map((r, i) => (
-              <Box key={i} display="flex" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    bgcolor: "info.main", flexShrink: 0,
-                  }}
-                />
-                <Typography variant="body2">
-                  {[r.firstname, r.lastname].filter(Boolean).join(" ") || "—"}
-                </Typography>
-              </Box>
-            ))}
-          </Stack>
-        </Box>
-
-        <Divider />
-
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-            Comment corriger
-          </Typography>
+}) => {
+  const { t } = useTranslation();
+  const steps = t("haExp.hrid.steps", { returnObjects: true }) as string[];
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1 }}>
+        <ErrorOutlineIcon color="info" />
+        {t("haExp.hrid.title")}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
+          <Typography variant="body2" color="text.secondary">{t("haExp.hrid.intro")}</Typography>
           <Stack spacing={0.75} pl={1}>
-            {[
-              "Ouvrez la page de l'année académique concernée",
-              'Cliquez sur l\'onglet "Paramètres"',
-              'Dans la section "Staff Planner", renseignez le Matricule et le Code service pour chaque MACCS listé ci-dessus',
-              "Relancez l'export",
-            ].map((step, i) => (
-              <Typography key={i} variant="body2" color="text.secondary">
-                <strong style={{ color: "#1a1620" }}>{i + 1}.</strong> {step}
-              </Typography>
-            ))}
+            <Typography variant="body2"><strong>{t("haExp.hrid.workerHrid")}</strong></Typography>
+            <Typography variant="body2"><strong>{t("haExp.hrid.sectionHrid")}</strong></Typography>
           </Stack>
-        </Box>
-      </Stack>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} color="inherit">Fermer</Button>
-      <Button
-        variant="outlined"
-        color="primary"
-        endIcon={<ArrowForwardIcon />}
-        onClick={onGoToParams}
-      >
-        Aller aux paramètres
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+          <Divider />
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+              {t("haExp.hrid.affected", { count: residents.length })}
+            </Typography>
+            <Stack spacing={0.5}>
+              {residents.map((r, i) => (
+                <Box key={i} display="flex" alignItems="center" gap={1}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "info.main", flexShrink: 0 }} />
+                  <Typography variant="body2">
+                    {[r.firstname, r.lastname].filter(Boolean).join(" ") || "—"}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+          <Divider />
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>{t("haExp.hrid.howToFix")}</Typography>
+            <Stack spacing={0.75} pl={1}>
+              {steps.map((step, i) => (
+                <Typography key={i} variant="body2" color="text.secondary">
+                  <strong style={{ color: "#1a1620" }}>{i + 1}.</strong> {step}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="inherit">{t("haExp.hrid.close")}</Button>
+        <Button variant="outlined" color="primary" endIcon={<ArrowForwardIcon />} onClick={onGoToParams}>
+          {t("haExp.hrid.goToParams")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const HospitalAdminExportsPage = () => {
+  const { t } = useTranslation();
   useAxiosPrivate();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -258,7 +223,7 @@ const HospitalAdminExportsPage = () => {
 
   // Topbar search — placeholder selon l'onglet actif
   useEffect(() => {
-    register(tab === 0 ? "MACCS, mois…" : "Nom, email…");
+    register(tab === 0 ? t("haExp.colMaccs") + "…" : t("haExp.colName") + "…");
     return () => unregister();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -334,7 +299,7 @@ const HospitalAdminExportsPage = () => {
       yearResidentId: number; month: number; calendarYear: number; treated: boolean;
     }) => exportsRhApi.setItemTreated(yearResidentId, month, calendarYear, treated),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ha-exports-months", selectedYearId] }),
-    onError: () => toast.error("Erreur lors de la mise à jour du statut."),
+    onError: () => toast.error(t("haExp.toast.treatedError")),
   });
 
   // ── Lock mutation (Phase 5) ───────────────────────────────────────────────
@@ -355,9 +320,9 @@ const HospitalAdminExportsPage = () => {
       qc.invalidateQueries({ queryKey: ["ha-exports-months", selectedYearId] });
       setLockDialog(null);
       setLockReason("");
-      toast.success("Statut de clôture mis à jour.");
+      toast.success(t("haExp.toast.lockSuccess"));
     },
-    onError: () => toast.error("Erreur lors de la mise à jour de la clôture."),
+    onError: () => toast.error(t("haExp.toast.lockError")),
   });
 
   const confirmLock = () => {
@@ -472,7 +437,7 @@ const HospitalAdminExportsPage = () => {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      toast.success("Fichier Staff Planner généré.");
+      toast.success(t("haExp.toast.spGenerated"));
       qc.invalidateQueries({ queryKey: ["ha-exports-months", selectedYearId] });
     } catch (err: any) {
       try {
@@ -489,7 +454,7 @@ const HospitalAdminExportsPage = () => {
           if (json?.message) { toast.error(json.message); return; }
         }
       } catch {}
-      toast.error("Erreur lors de la génération.");
+      toast.error(t("haExp.toast.spError"));
     } finally {
       setGenerating(false);
     }
@@ -501,9 +466,9 @@ const HospitalAdminExportsPage = () => {
     setDownloadingId(resident.id);
     try {
       await exportsRhApi.downloadResidentExcel(selectedYearId, resident.id, name);
-      toast.success(`Excel téléchargé pour ${name}`);
+      toast.success(t("haExp.toast.excelOk", { name }));
     } catch (err: any) {
-      toast.error(err?.response?.status === 401 ? "Accès refusé." : "Erreur lors du téléchargement.");
+      toast.error(err?.response?.status === 401 ? t("haExp.toast.accessDenied") : t("haExp.toast.downloadError"));
     } finally {
       setDownloadingId(null);
     }
@@ -556,19 +521,19 @@ const HospitalAdminExportsPage = () => {
       <Box sx={{ ...T.pageHead, mb: 3 }}>
         <Box>
           <Box display="flex" alignItems="center" gap={0.5}>
-            <Typography sx={T.pageTitle}>Exports RH</Typography>
-            <Tooltip title="Guide d'utilisation" arrow>
+            <Typography sx={T.pageTitle}>{t("haExp.title")}</Typography>
+            <Tooltip title={t("haExp.guideTooltip")} arrow>
               <IconButton onClick={() => setTutorialOpen(true)} size="small" sx={{ color: C.ink3 }}>
                 <HelpOutlineIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
-          <Typography sx={T.pageSub}>Staff Planner et exports Excel annuels par MACCS</Typography>
+          <Typography sx={T.pageSub}>{t("haExp.subtitle")}</Typography>
         </Box>
       </Box>
 
       {selectedYearId === "" && !yearsLoading ? (
-        <Alert severity="info">Sélectionnez une année académique.</Alert>
+        <Alert severity="info">{t("haExp.selectYear")}</Alert>
       ) : (
         <>
           {/* Barre de navigation : contenu + périodes */}
@@ -588,8 +553,8 @@ const HospitalAdminExportsPage = () => {
               indicatorColor="primary"
               sx={{ flexShrink: 0 }}
             >
-              <Tab label="Staff Planner" />
-              <Tab label="Excel" />
+              <Tab label={t("haExp.tabSP")} />
+              <Tab label={t("haExp.tabExcel")} />
             </Tabs>
 
             {/* Divider vertical léger */}
@@ -648,7 +613,7 @@ const HospitalAdminExportsPage = () => {
             <>
               <Box sx={{ ...T.toolbar, mb: 2 }}>
                 <Typography sx={{ ...T.pageSub, flex: 1 }}>
-                  Sélectionnez les validations à exporter. Les lignes non traitées sont présélectionnées.
+                  {t("haExp.spDesc")}
                 </Typography>
               </Box>
 
@@ -657,10 +622,10 @@ const HospitalAdminExportsPage = () => {
                   {[...Array(3)].map((_, i) => <Skeleton key={i} variant="rectangular" height={52} sx={{ borderRadius: 1 }} />)}
                 </Stack>
               ) : monthsError ? (
-                <Alert severity="error" sx={{ mb: 2 }}>Erreur lors du chargement des mois.</Alert>
+                <Alert severity="error" sx={{ mb: 2 }}>{t("haExp.monthsError")}</Alert>
               ) : filteredGroups.length === 0 ? (
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  {spQuery ? "Aucun résultat." : "Aucune validation pour cette année."}
+                  {spQuery ? t("haExp.noResults") : t("haExp.noValidationsYear")}
                 </Alert>
               ) : (
                 <>
@@ -675,8 +640,8 @@ const HospitalAdminExportsPage = () => {
                     />
                     <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                       {selected.size > 0
-                        ? `${selected.size} validation${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`
-                        : "Tout sélectionner / désélectionner"}
+                        ? t("haExp.selectedCount", { count: selected.size, suffix: selected.size > 1 ? "s" : "" })
+                        : t("haExp.selectAll")}
                     </Typography>
                     <Button
                       size="small"
@@ -685,7 +650,7 @@ const HospitalAdminExportsPage = () => {
                       sx={{ textTransform: "none", fontSize: "0.75rem" }}
                       aria-label="Présélectionner les non traités"
                     >
-                      Non traités
+                      {t("haExp.btnUntreated")}
                     </Button>
                     <Button
                       size="small"
@@ -696,7 +661,7 @@ const HospitalAdminExportsPage = () => {
                       sx={{ textTransform: "none", fontSize: "0.75rem" }}
                       aria-label="Présélectionner les modifiés depuis export"
                     >
-                      Modifiés depuis export
+                      {t("haExp.btnDirty")}
                     </Button>
                   </Box>
 
@@ -708,12 +673,14 @@ const HospitalAdminExportsPage = () => {
                       startIcon={generating ? <CircularProgress size={16} color="inherit" /> : undefined}
                     >
                       {generating
-                        ? "Génération en cours…"
-                        : `Générer Staff Planner${selected.size > 0 ? ` (${selected.size})` : ""}`}
+                        ? t("haExp.generating")
+                        : selected.size > 0
+                          ? t("haExp.btnGenerateCount", { count: selected.size })
+                          : t("haExp.btnGenerate")}
                     </Button>
                     {selected.size === 0 && (
                       <Typography variant="caption" color="text.secondary">
-                        Sélectionnez au moins une validation
+                        {t("haExp.selectAtLeast")}
                       </Typography>
                     )}
                   </Box>
@@ -745,7 +712,7 @@ const HospitalAdminExportsPage = () => {
                               {keys.length > 0 ? (
                                 <Stack direction="row" spacing={1} alignItems="center">
                                   <Chip
-                                    label={`${keys.length} MACCS`}
+                                    label={t("haExp.maccsCount", { count: keys.length })}
                                     size="small"
                                     variant="outlined"
                                     color="primary"
@@ -760,7 +727,7 @@ const HospitalAdminExportsPage = () => {
                                   )}
                                 </Stack>
                               ) : (
-                                <Chip label="Aucune validation" size="small" variant="outlined" />
+                                <Chip label={t("haExp.chipNoValidation")} size="small" variant="outlined" />
                               )}
                             </Box>
                           </AccordionSummary>
@@ -768,7 +735,7 @@ const HospitalAdminExportsPage = () => {
                           {group.items.length === 0 ? (
                             <AccordionDetails sx={{ py: 1 }}>
                               <Typography variant="body2" color="text.secondary">
-                                Aucune validation pour ce mois.
+                                {t("haExp.noValidationsMonth")}
                               </Typography>
                             </AccordionDetails>
                           ) : (
@@ -778,30 +745,30 @@ const HospitalAdminExportsPage = () => {
                                   <TableHead>
                                     <TableRow sx={T.headRow}>
                                       <TableCell padding="checkbox" />
-                                      <TableCell>MACCS</TableCell>
-                                      <TableCell>EMAIL</TableCell>
+                                      <TableCell>{t("haExp.colMaccs")}</TableCell>
+                                      <TableCell>{t("haExp.colEmail")}</TableCell>
                                       <TableCell>
-                                        <Tooltip title="V = horaire validé par le maître de stage. Informatif — ne bloque pas l'export." arrow>
-                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>VALIDÉ MDS</span>
+                                        <Tooltip title={t("haExp.tooltipValidatedMds")} arrow>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>{t("haExp.colValidatedMds")}</span>
                                         </Tooltip>
                                       </TableCell>
                                       <TableCell>
-                                        <Tooltip title="⚠ Modifié depuis export : les données ont changé depuis le dernier export Staff Planner." arrow>
-                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>MODIF.</span>
+                                        <Tooltip title={t("haExp.tooltipModif")} arrow>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>{t("haExp.colModif")}</span>
                                         </Tooltip>
                                       </TableCell>
-                                      <TableCell>STATUT</TableCell>
+                                      <TableCell>{t("haExp.colStatus")}</TableCell>
                                       <TableCell>
-                                        <Tooltip title="Nombre d'exports Staff Planner incluant ce MACCS pour ce mois" arrow>
-                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>EXPORTS</span>
+                                        <Tooltip title={t("haExp.tooltipExports")} arrow>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>{t("haExp.colExports")}</span>
                                         </Tooltip>
                                       </TableCell>
                                       <TableCell>
-                                        <Tooltip title="Clôture RH officielle — bloque toute modification" arrow>
-                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>CLÔTURE</span>
+                                        <Tooltip title={t("haExp.tooltipClosure")} arrow>
+                                          <span style={{ cursor: "help", textDecoration: "underline dotted" }}>{t("haExp.colClosure")}</span>
                                         </Tooltip>
                                       </TableCell>
-                                      <TableCell>TRAITÉ</TableCell>
+                                      <TableCell>{t("haExp.colTreated")}</TableCell>
                                     </TableRow>
                                   </TableHead>
                                   <TableBody>
@@ -860,12 +827,12 @@ const HospitalAdminExportsPage = () => {
                                               arrow
                                             >
                                               <Chip
-                                                label="Modifié"
+                                                label={t("haExp.chipModified")}
                                                 size="small"
                                                 color="warning"
                                                 variant="outlined"
                                                 icon={<WarningAmberIcon />}
-                                                aria-label="Modifié depuis export"
+                                                aria-label={t("haExp.chipModifiedAriaLabel")}
                                                 sx={{ cursor: "help" }}
                                               />
                                             </Tooltip>
@@ -875,7 +842,7 @@ const HospitalAdminExportsPage = () => {
                                         </TableCell>
                                         <TableCell>
                                           <Chip
-                                            label={item.treated ? "Traité" : "Non traité"}
+                                            label={item.treated ? t("haExp.chipTreated") : t("haExp.chipUntreated")}
                                             size="small"
                                             color={item.treated ? "success" : "default"}
                                             variant="outlined"
@@ -884,7 +851,7 @@ const HospitalAdminExportsPage = () => {
                                         <TableCell>
                                           {item.downloadCount > 0 ? (
                                             <Tooltip
-                                              title={`Dernier export : ${fmtDate(item.lastGeneratedAt)}`}
+                                              title={t("haExp.lastExport", { date: fmtDate(item.lastGeneratedAt) })}
                                               arrow
                                             >
                                               <Chip
@@ -908,14 +875,14 @@ const HospitalAdminExportsPage = () => {
                                                 arrow
                                               >
                                                 <Chip
-                                                  label="Verrouillé RH"
+                                                  label={t("haExp.chipLocked")}
                                                   size="small"
                                                   color="error"
                                                   icon={<LockIcon />}
                                                   sx={{ cursor: "help" }}
                                                 />
                                               </Tooltip>
-                                              <Tooltip title="Déverrouiller la période" arrow>
+                                              <Tooltip title={t("haExp.tooltipUnlock")} arrow>
                                                 <span>
                                                   <IconButton
                                                     size="small"
@@ -930,7 +897,7 @@ const HospitalAdminExportsPage = () => {
                                               </Tooltip>
                                             </Stack>
                                           ) : (
-                                            <Tooltip title="Clôturer officiellement la période — bloque toute modification" arrow>
+                                            <Tooltip title={t("haExp.tooltipLock")} arrow>
                                               <span>
                                                 <IconButton
                                                   size="small"
@@ -983,7 +950,7 @@ const HospitalAdminExportsPage = () => {
             <>
               <Box sx={{ ...T.toolbar, mb: 2 }}>
                 <Typography sx={{ ...T.pageSub, flex: 1 }}>
-                  Téléchargez le fichier Excel annuel pour chaque MACCS.
+                  {t("haExp.excelDesc")}
                 </Typography>
               </Box>
 
@@ -992,10 +959,10 @@ const HospitalAdminExportsPage = () => {
                   {[...Array(3)].map((_, i) => <Skeleton key={i} variant="rectangular" height={52} sx={{ borderRadius: 1 }} />)}
                 </Stack>
               ) : residentsError ? (
-                <Alert severity="error">Erreur lors du chargement.</Alert>
+                <Alert severity="error">{t("haExp.residentsError")}</Alert>
               ) : filteredResidents.length === 0 ? (
                 <Alert severity="info">
-                  {residents.length === 0 ? "Aucun MACCS pour cette année." : "Aucun résultat."}
+                  {residents.length === 0 ? t("haExp.noMaccsYear") : t("haExp.noResults")}
                 </Alert>
               ) : (
                 <Box sx={T.card}>
@@ -1003,10 +970,10 @@ const HospitalAdminExportsPage = () => {
                     <Table sx={T.table}>
                       <TableHead>
                         <TableRow sx={T.headRow}>
-                          <TableCell>NOM</TableCell>
-                          <TableCell>EMAIL</TableCell>
-                          <TableCell>STATUT</TableCell>
-                          <TableCell align="right">EXPORT</TableCell>
+                          <TableCell>{t("haExp.colName")}</TableCell>
+                          <TableCell>{t("haExp.colEmail")}</TableCell>
+                          <TableCell>{t("haExp.colStatus")}</TableCell>
+                          <TableCell align="right">{t("haExp.colExport")}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1029,10 +996,10 @@ const HospitalAdminExportsPage = () => {
                                 <Box sx={T.sub}>{r.email ?? "—"}</Box>
                               </TableCell>
                               <TableCell>
-                                <Chip label="Actif" size="small" color="success" variant="outlined" />
+                                <Chip label={t("haExp.chipActive")} size="small" color="success" variant="outlined" />
                               </TableCell>
                               <TableCell align="right">
-                                <Tooltip title="Télécharger le fichier Excel annuel" arrow>
+                                <Tooltip title={t("haExp.tooltipAnnualExcel")} arrow>
                                   <span>
                                     <Button
                                       size="small"
@@ -1042,7 +1009,7 @@ const HospitalAdminExportsPage = () => {
                                       sx={{ position: "relative" }}
                                     >
                                       <span style={{ visibility: isDownloading ? "hidden" : "visible" }}>
-                                        Excel annuel
+                                        {t("haExp.btnAnnualExcel")}
                                       </span>
                                       {isDownloading && (
                                         <CircularProgress size={14} color="inherit" sx={{ position: "absolute" }} />
@@ -1059,7 +1026,7 @@ const HospitalAdminExportsPage = () => {
                   </Box>
                   <Box sx={T.footer}>
                     <Typography variant="caption" sx={{ color: C.ink3 }}>
-                      {filteredResidents.length} MACCS
+                      {t("haExp.maccsCount", { count: filteredResidents.length })}
                     </Typography>
                   </Box>
                   {filteredResidents.length > excelPageSize && (
@@ -1070,7 +1037,7 @@ const HospitalAdminExportsPage = () => {
                       rowsPerPage={excelPageSize}
                       rowsPerPageOptions={[]}
                       onPageChange={(_, p) => setExcelPage(p)}
-                      labelDisplayedRows={({ from, to, count }) => `${from}–${to} sur ${count}`}
+                      labelDisplayedRows={({ from, to, count }) => t("haExp.paginationOf", { from, to, count })}
                     />
                   )}
                 </Box>
@@ -1104,35 +1071,35 @@ const HospitalAdminExportsPage = () => {
         fullWidth
       >
         <DialogTitle>
-          {lockDialog?.action === "lock" ? "Clôturer la période" : "Déverrouiller la période"}
+          {lockDialog?.action === "lock" ? t("haExp.lock.lockTitle") : t("haExp.lock.unlockTitle")}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} pt={1}>
             {lockDialog && (
               <Typography variant="body2" color="text.secondary">
                 {lockDialog.action === "lock"
-                  ? `Clôturer la période bloquera toute modification des horaires pour ${fullName(lockDialog.item)} — ${lockDialog.group.label}. Cette action est enregistrée dans l'audit RH.`
-                  : `Déverrouiller permettra à nouveau les modifications pour ${fullName(lockDialog.item)} — ${lockDialog.group.label}.`}
+                  ? t("haExp.lock.lockBody", { name: fullName(lockDialog.item), month: lockDialog.group.label })
+                  : t("haExp.lock.unlockBody", { name: fullName(lockDialog.item), month: lockDialog.group.label })}
               </Typography>
             )}
             {lockDialog?.action === "lock" && (
               <TextField
-                label="Raison de la clôture"
-                placeholder="Ex. : Clôture définitive décembre 2024"
+                label={t("haExp.lock.reasonLabel")}
+                placeholder={t("haExp.lock.reasonPlaceholder")}
                 value={lockReason}
                 onChange={(e) => setLockReason(e.target.value)}
                 fullWidth
                 required
                 autoFocus
                 size="small"
-                helperText="Obligatoire — sera enregistré dans l'audit RH."
+                helperText={t("haExp.lock.reasonHelper")}
               />
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setLockDialog(null); setLockReason(""); }} disabled={lockMutation.isPending}>
-            Annuler
+            {t("haExp.lock.cancel")}
           </Button>
           <Button
             variant="contained"
@@ -1146,8 +1113,8 @@ const HospitalAdminExportsPage = () => {
             }
           >
             {lockMutation.isPending
-              ? "En cours…"
-              : lockDialog?.action === "lock" ? "Clôturer" : "Déverrouiller"}
+              ? t("haExp.lock.inProgress")
+              : lockDialog?.action === "lock" ? t("haExp.lock.lockBtn") : t("haExp.lock.unlockBtn")}
           </Button>
         </DialogActions>
       </Dialog>

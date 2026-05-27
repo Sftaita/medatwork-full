@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import Logo from "../../../../images/logo.png";
 import useAuth from "../../../../hooks/useAuth";
 import useLogout from "../../../../hooks/useLogout";
@@ -38,18 +38,13 @@ import logger from "../../../../services/logger";
 import Woman from "../../../../images/icons/Woman.png";
 import Man from "../../../../images/icons/Man.png";
 import InstallPrompt from "../../../small/InstallPrompt";
+import LanguageSwitcher from "../../../small/LanguageSwitcher";
 
 const HINT_KEY = "medatwork_v3_profile_hint";
 type HintState = "prompt" | "later" | "done";
 
 const linkTextSx = { textDecoration: "none", textTransform: "uppercase", color: "#2d3748" };
 
-const ROLE_LABELS: Record<string, string> = {
-  manager:        "Manager",
-  resident:       "MACCS",
-  hospital_admin: "Administrateur",
-  super_admin:    "Super Admin",
-};
 
 interface TopbarProps {
   onSidebarOpen: () => void;
@@ -62,8 +57,10 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
   const { authentication }             = useAuth();
   const { collapsed, toggle }          = useSidebarStore();
   const { active: searchActive, placeholder: searchPlaceholder, value: searchValue, setValue: setSearchValue } = useSearchStore();
-  const navigate = useNavigate();
-  const logout   = useLogout();
+  const navigate  = useNavigate();
+  const logout    = useLogout();
+  const location  = useLocation();
+  const isHome    = location.pathname === "/";
 
   const [profileHint, setProfileHint] = useState<HintState>(() => {
     const s = localStorage.getItem(HINT_KEY);
@@ -74,6 +71,13 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
 
   // ── Menu déroulant ────────────────────────────────────────────────────────
   const { t } = useTranslation();
+
+  const ROLE_LABELS: Record<string, string> = {
+    manager:        t("topbar.roleManager"),
+    resident:       t("topbar.roleResident"),
+    hospital_admin: t("topbar.roleHospitalAdmin"),
+    super_admin:    t("topbar.roleSuperAdmin"),
+  };
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchor);
 
@@ -125,10 +129,10 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
       <Box flex={1} display="flex" alignItems="center" gap={1.5}>
         {/* Bouton < / > — desktop authentifié */}
         {isMd && authentication.isAuthenticated && (
-          <Tooltip title={collapsed ? "Agrandir le menu" : "Réduire le menu"} arrow>
+          <Tooltip title={collapsed ? t("topbar.expandMenu") : t("topbar.collapseMenu")} arrow>
             <IconButton
               onClick={toggle}
-              aria-label={collapsed ? "Agrandir le menu" : "Réduire le menu"}
+              aria-label={collapsed ? t("topbar.expandMenu") : t("topbar.collapseMenu")}
               sx={{
                 width: 32, height: 32,
                 borderRadius: "8px",
@@ -148,12 +152,43 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
 
         {/* Logo — mobile toujours + desktop si non authentifié (pas de sidebar) */}
         {(!isMd || !authentication.isAuthenticated) && (
-          <>
+          <Box
+            onClick={() => {
+              if (isHome) {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
+                navigate("/");
+              }
+            }}
+            sx={{ display: "flex", alignItems: "center", gap: 1, cursor: "pointer" }}
+          >
             <Box component="img" sx={{ height: 28 }} alt="Logo Medatwork" src={Logo} />
             <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">
               MED<span style={{ opacity: 0.55, margin: "0 1px" }}>@</span>WORK
             </Typography>
-          </>
+          </Box>
+        )}
+
+        {/* Nav links landing — desktop non-authentifié, page d'accueil uniquement */}
+        {!authentication.isAuthenticated && isMd && isHome && (
+          <Box display="flex" alignItems="center" gap={0.5} ml={1}>
+            {[
+              { label: "Pour qui",        href: "#audiences" },
+              { label: "Fonctionnalités", href: "#planning"  },
+              { label: "Workflow",        href: "#workflow"  },
+              { label: "Sécurité",        href: "#tech"      },
+            ].map((link) => (
+              <Button
+                key={link.href}
+                variant="text"
+                component="a"
+                href={link.href}
+                sx={{ textTransform: "none", color: "text.secondary", fontSize: 14, fontWeight: 500, px: 1.5 }}
+              >
+                {link.label}
+              </Button>
+            ))}
+          </Box>
         )}
       </Box>
 
@@ -204,16 +239,17 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
       {/* ── Droite (flex:1) : actions — justifié à droite ────────────────── */}
       <Box flex={1} display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
 
+        {!authentication.isAuthenticated && (
+          <LanguageSwitcher />
+        )}
+
         {!authentication.isAuthenticated && isMd && (
           <>
-            <NavLink to="/description" style={linkTextSx}>
-              <Button variant="text">Notre service</Button>
-            </NavLink>
             <NavLink to="/login" style={linkTextSx}>
-              <Button variant="contained" color="primary">Se connecter</Button>
+              <Button variant="contained" color="primary">{t("nav.signIn")}</Button>
             </NavLink>
             <NavLink to="/connecting" style={linkTextSx}>
-              <Button variant="outlined">S'enregistrer</Button>
+              <Button variant="outlined">{t("nav.register")}</Button>
             </NavLink>
           </>
         )}
@@ -225,7 +261,7 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
             {/* Avatar + nom + sous-titre — desktop */}
             <Tooltip
               open={profileHint === "later"}
-              title="Cliquez sur votre avatar pour configurer votre photo de profil"
+              title={t("topbar.avatarTooltip")}
               arrow placement="bottom-end"
             >
               <Box
@@ -345,12 +381,14 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           </Box>
         )}
 
-        {/* Burger mobile */}
-        <Box sx={{ display: { xs: "block", md: "none" } }}>
-          <IconButton onClick={() => onSidebarOpen()} aria-label="Menu" size="small">
-            <MenuIcon />
-          </IconButton>
-        </Box>
+        {/* Burger mobile — uniquement pour les utilisateurs connectés */}
+        {authentication.isAuthenticated && (
+          <Box sx={{ display: { xs: "block", md: "none" } }}>
+            <IconButton onClick={() => onSidebarOpen()} aria-label="Menu" size="small">
+              <MenuIcon />
+            </IconButton>
+          </Box>
+        )}
       </Box>
 
       {/* Onboarding */}
@@ -365,12 +403,12 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
           sx={{ alignItems: "center" }}
           action={
             <Box display="flex" gap={1} ml={1}>
-              <Button size="small" color="inherit" onClick={handleHintLater}>Plus tard</Button>
-              <Button size="small" color="inherit" variant="outlined" onClick={handleHintConfigure}>Configurer</Button>
+              <Button size="small" color="inherit" onClick={handleHintLater}>{t("topbar.later")}</Button>
+              <Button size="small" color="inherit" variant="outlined" onClick={handleHintConfigure}>{t("topbar.configure")}</Button>
             </Box>
           }
         >
-          Nouveau — ajoutez une photo à votre profil !
+          {t("topbar.profileHint")}
         </Alert>
       </Snackbar>
     </Box>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
 import managersApi from "../../../../../services/managersApi";
 import useValidationContext from "../../../../../hooks/useValidationContext";
@@ -21,6 +22,7 @@ import { toastSuccess, toastError } from "../../../../../doc/ToastParams";
 import { handleApiError } from "@/services/apiError";
 
 export default function ResidentValidation({ periodReport }) {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const [openRowId, setOpenRowId] = React.useState(-1);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -41,13 +43,13 @@ export default function ResidentValidation({ periodReport }) {
     try {
       const { method, url } = managersApi.updateResidentValidationPeriod();
       await axiosPrivate[method](url + periodId, residentValidationData);
-      toast.success("Validation(s) enregistrée(s)", toastSuccess);
+      toast.success(t("yearDetail.validation.saved"), toastSuccess);
     } catch (error) {
       handleApiError(error);
       if (error?.response?.data?.message) {
         toast.error(error?.response?.data?.message, toastError);
       } else {
-        toast.error("Oups! Une erreur s'est produite.", toastError);
+        toast.error(t("yearDetail.validation.saveError"), toastError);
       }
     } finally {
       setSaveLoading(false);
@@ -61,10 +63,10 @@ export default function ResidentValidation({ periodReport }) {
           <TableHead>
             <TableRow>
               <TableCell width={10} />
-              <TableCell align="left">Nom</TableCell>
+              <TableCell align="left">{t("yearDetail.validation.colName")}</TableCell>
               <TableCell align="right">
                 <LoadingButton variant="outlined" onClick={saveValidations} loading={saveLoading}>
-                  Enregistrer
+                  {t("yearDetail.validation.save")}
                 </LoadingButton>
               </TableCell>
             </TableRow>
@@ -85,8 +87,7 @@ export default function ResidentValidation({ periodReport }) {
       )}
       {periodReport?.length === 0 && (
         <Alert severity="info">
-          Cette période ne peut être validée car aucun encodage n'a été effectué par les MACCS pour
-          ce mois-ci
+          {t("yearDetail.validation.empty")}
         </Alert>
       )}
     </TableContainer>

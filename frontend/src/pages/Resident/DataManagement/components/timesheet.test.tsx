@@ -30,6 +30,24 @@ vi.mock("../../../../hooks/useAuth", () => ({
 }));
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => ({
+      "data.col.start":      "Début",
+      "data.col.end":        "Fin",
+      "data.col.pause":      "Pause",
+      "data.col.duration":   "Durée",
+      "data.col.scientific": "Scientifique",
+      "data.col.year":       "Année",
+      "data.col.edit":       "Modifier",
+      "data.col.delete":     "Supprimer",
+      "data.tabs.schedules": "Horaires",
+      "data.validated":      "Validé",
+      "data.deleted":        "Événement supprimé avec succès.",
+    }[key] ?? key),
+    i18n: { language: "fr" },
+  }),
+}));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const MOCK_TIMESHEETS = [

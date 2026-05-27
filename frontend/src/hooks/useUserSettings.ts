@@ -4,6 +4,7 @@ import settingsApi, { type UserSettingsPatch, type UserSettings } from "../servi
 import { useThemeStore } from "../store/themeStore";
 import { useSidebarStore } from "../store/sidebarStore";
 import useAxiosPrivate from "./useAxiosPrivate";
+import useAuth from "./useAuth";
 
 const QUERY_KEY = ["user-settings"] as const;
 
@@ -49,11 +50,13 @@ export const DEFAULT_SETTINGS: UserSettings = {
  */
 export function useUserSettings() {
   useAxiosPrivate();
+  const { authentication } = useAuth();
   const setMode      = useThemeStore((s) => s.setMode);
   const setCollapsed = useSidebarStore((s) => s.setCollapsed);
 
   return useQuery({
     queryKey: QUERY_KEY,
+    enabled:  !!authentication.AccessToken,
     queryFn:  async () => {
       const res = await settingsApi.getSettings();
       // Server wins over localStorage for both stores

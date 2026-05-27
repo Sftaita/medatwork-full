@@ -1,48 +1,100 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import gardesApi from "../../../../services/gardesApi";
 import { toast } from "react-toastify";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import dayjs from "dayjs";
-
-// Material UI
 import { useTheme } from "@mui/material/styles";
-import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Divider from "@mui/material/Divider";
-import Grid from "@mui/material/Grid";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import InputLabel from "@mui/material/InputLabel";
-import FormControl from "@mui/material/FormControl";
-import CustomSelect from "../../../../components/medium/CustomSelect";
 import CircularProgress from "@mui/material/CircularProgress";
-import FormHelperText from "@mui/material/FormHelperText";
-import AddCommentIcon from "@mui/icons-material/AddComment";
-import TextField from "@mui/material/TextField";
-import CloseIcon from "@mui/icons-material/Close";
-import Tooltip from "@mui/material/Tooltip";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-
-// general components
-import CustomDateTimeHandler from "../../../../components/medium/CustomDateTimeHandler";
 import { handleApiError } from "@/services/apiError";
 
+import { TField, TSelect, TDateTimeField, fmtHM } from "./timerUi";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const getDefaultDates = () => {
-  const start = new Date();
-  start.setDate(start.getDate() - 1);
-  start.setHours(18, 0, 0, 0);
-
-  const end = new Date();
-  end.setHours(8, 0, 0, 0);
-
+  const start = dayjs().subtract(1, "day").set("hour", 18).set("minute", 0).set("second", 0).toDate();
+  const end   = dayjs().set("hour", 8).set("minute", 0).set("second", 0).toDate();
   return { dateOfStart: start, dateOfEnd: end };
 };
 
 const EMPTY_ERRORS = { year: "", dateOfStart: "", dateOfEnd: "", type: "", comment: "" };
 
-const Garde = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading: boolean; onHelpOpen?: () => void }) => {
+// ─── GardeTypePicker ──────────────────────────────────────────────────────────
+
+function GardeTypePicker({
+  value, onChange, callableLabel, callableDesc, hospitalLabel, hospitalDesc, error,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  callableLabel: string;
+  callableDesc: string;
+  hospitalLabel: string;
+  hospitalDesc: string;
+  error?: string;
+}) {
+  const theme = useTheme();
+  const types = [
+    { id: "callable", label: callableLabel, desc: callableDesc },
+    { id: "hospital", label: hospitalLabel, desc: hospitalDesc },
+  ];
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {types.map((tp) => {
+          const sel = value === tp.id;
+          return (
+            <button
+              key={tp.id}
+              type="button"
+              onClick={() => onChange(tp.id)}
+              style={{
+                cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                border: sel ? `2px solid ${theme.palette.primary.main}` : "1px solid #ece7df",
+                background: sel ? "#faf2ff" : "#fff",
+                borderRadius: 11, padding: "14px 14px",
+                display: "flex", flexDirection: "column", gap: 4,
+                transition: "all .12s",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <div
+                  style={{
+                    width: 16, height: 16, borderRadius: 16,
+                    background: sel ? theme.palette.primary.main : "#fff",
+                    border: sel ? "none" : "1.5px solid #d2c4ad",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {sel && <div style={{ width: 6, height: 6, borderRadius: 6, background: "#fff" }} />}
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1d1b1a" }}>{tp.label}</div>
+              </div>
+              <div style={{ fontSize: 11.5, color: "#5a544c", lineHeight: 1.4, paddingLeft: 24 }}>
+                {tp.desc}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {error && <div style={{ fontSize: 11.5, color: "#ba1a1a", marginTop: 4 }}>{error}</div>}
+    </>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const Garde = ({
+  years,
+  yearsLoading,
+  compact,
+}: {
+  years: any[];
+  yearsLoading: boolean;
+  compact: boolean;
+}) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
   const [loading, setLoading] = useState(false);
@@ -59,43 +111,44 @@ const Garde = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading
 
   useEffect(() => {
     if (years.length !== 0) {
-      setGarde((prev) => ({ ...prev, year: years[0].id }));
+      setGarde((prev) => ({ ...prev, year: String(years[0].id) }));
     }
   }, [years]);
 
-  const handleChange = ({ target }) => {
-    setGarde((prev) => ({ ...prev, [target.name]: target.value }));
-    setErrors((prev) => ({ ...prev, [target.name]: "" }));
-  };
+  // ── Date helpers ────────────────────────────────────────────────────────────
 
-  const handleDateChange1 = (date) => {
-    setGarde((prev) => ({ ...prev, dateOfStart: date }));
+  const onStartDateChange = (dateStr: string) => {
+    const time = dayjs(garde.dateOfStart).format("HH:mm");
+    setGarde((prev) => ({ ...prev, dateOfStart: dayjs(`${dateStr}T${time}`).toDate() }));
     setErrors((prev) => ({ ...prev, dateOfStart: "" }));
   };
 
-  const handleDateChange2 = (date) => {
-    setGarde((prev) => ({ ...prev, dateOfEnd: date }));
+  const onStartTimeChange = (timeStr: string) => {
+    const date = dayjs(garde.dateOfStart).format("YYYY-MM-DD");
+    setGarde((prev) => ({ ...prev, dateOfStart: dayjs(`${date}T${timeStr}`).toDate() }));
+    setErrors((prev) => ({ ...prev, dateOfStart: "" }));
+  };
+
+  const onEndDateChange = (dateStr: string) => {
+    const time = dayjs(garde.dateOfEnd).format("HH:mm");
+    setGarde((prev) => ({ ...prev, dateOfEnd: dayjs(`${dateStr}T${time}`).toDate() }));
     setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
   };
 
+  const onEndTimeChange = (timeStr: string) => {
+    const date = dayjs(garde.dateOfEnd).format("YYYY-MM-DD");
+    setGarde((prev) => ({ ...prev, dateOfEnd: dayjs(`${date}T${timeStr}`).toDate() }));
+    setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
+  };
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+
   const validate = () => {
     const errs: Record<string, any> = { status: false };
-    if (garde.year === "") {
-      errs.year = "Vous n'avez pas renseigné l'année";
-      errs.status = true;
-    }
-    if (!garde.dateOfStart) {
-      errs.dateOfStart = "Vous n'avez pas renseigné la date de début de garde";
-      errs.status = true;
-    }
-    if (!garde.dateOfEnd) {
-      errs.dateOfEnd = "Vous n'avez pas renseigné la date de fin de garde";
-      errs.status = true;
-    }
-    if (garde.type === "") {
-      errs.type = "Vous n'avez pas renseigné le type de garde";
-      errs.status = true;
-    }
+    if (!garde.year) { errs.year = t("timer.garde.errYear"); errs.status = true; }
+    if (!garde.dateOfStart) { errs.dateOfStart = t("timer.garde.errStart"); errs.status = true; }
+    if (!garde.dateOfEnd) { errs.dateOfEnd = t("timer.garde.errEnd"); errs.status = true; }
+    if (!garde.type) { errs.type = t("timer.garde.errType"); errs.status = true; }
     if (errs.status) setErrors(errs);
     return errs.status;
   };
@@ -106,26 +159,20 @@ const Garde = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading
     setAddComment(false);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault();
     if (validate()) return;
-
     setLoading(true);
     try {
       const { method, url } = gardesApi.create();
       await axiosPrivate[method](url, {
-        ...garde,
+        year:        Number(garde.year) || garde.year,
+        type:        garde.type,
+        comment:     garde.comment,
         dateOfStart: dayjs(garde.dateOfStart).format("YYYY-MM-DD HH:mm"),
-        dateOfEnd: dayjs(garde.dateOfEnd).format("YYYY-MM-DD HH:mm"),
+        dateOfEnd:   dayjs(garde.dateOfEnd).format("YYYY-MM-DD HH:mm"),
       });
-      toast.success("Enregistrement validé!", {
-        position: "bottom-center",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: false,
-        draggable: true,
-      });
+      toast.success(t("timer.saved"), { position: "bottom-center", autoClose: 3000, hideProgressBar: true, closeOnClick: true });
       resetForm();
     } catch (error) {
       handleApiError(error);
@@ -134,143 +181,156 @@ const Garde = ({ years, yearsLoading, onHelpOpen }: { years: any[]; yearsLoading
     }
   };
 
+  // ── Duration ─────────────────────────────────────────────────────────────────
+
+  const durationMin = garde.dateOfStart && garde.dateOfEnd
+    ? dayjs(garde.dateOfEnd).diff(dayjs(garde.dateOfStart), "minute")
+    : null;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
-    <Box>
-      <Box padding={{ xs: 3, sm: 6 }} component={Card} boxShadow={1} marginBottom={4}>
-        <form noValidate autoComplete="off">
-          <Grid container spacing={4}>
-            <Grid item xs={12}>
-              <CustomSelect
-                label="Année(s)"
-                name="year"
-                error={!!errors.year}
-                value={garde.year}
-                onChange={(event) => handleChange(event)}
-                item={years.map((e) => (
-                  <MenuItem value={e.id} key={e.id}>
-                    {e.title}
-                  </MenuItem>
-                ))}
-                loading={yearsLoading}
-                helperText={errors.year}
-              />
-            </Grid>
+    <div>
+      {/* Year */}
+      <TField label={t("timer.years")} error={errors.year}>
+        <TSelect
+          value={String(garde.year)}
+          options={years.map((y) => ({ value: String(y.id), label: y.title }))}
+          onChange={(v) => {
+            setGarde((prev) => ({ ...prev, year: v }));
+            setErrors((prev) => ({ ...prev, year: "" }));
+          }}
+          placeholder={yearsLoading ? "…" : undefined}
+        />
+      </TField>
 
-            <Grid item xs={12}>
-              <CustomDateTimeHandler
-                label={"Début de la garde"}
-                value={garde.dateOfStart}
-                onChange={handleDateChange1}
-                error={!!errors.dateOfStart}
-                helperText={errors.dateOfStart}
-              />
-            </Grid>
+      {/* Garde period */}
+      <TField label={t("timer.garde.start")} error={errors.dateOfStart}>
+        <div
+          style={{
+            display: compact ? "flex" : "grid",
+            flexDirection: compact ? "column" : undefined,
+            gridTemplateColumns: compact ? undefined : "1fr 1fr",
+            gap: compact ? 10 : 12,
+          }}
+        >
+          <TDateTimeField
+            title={t("timer.garde.start")}
+            value={garde.dateOfStart}
+            onDateChange={onStartDateChange}
+            onTimeChange={onStartTimeChange}
+          />
+          <TDateTimeField
+            title={t("timer.garde.end")}
+            value={garde.dateOfEnd}
+            onDateChange={onEndDateChange}
+            onTimeChange={onEndTimeChange}
+            error={errors.dateOfEnd}
+          />
+        </div>
 
-            <Grid item xs={12}>
-              <CustomDateTimeHandler
-                label={"Fin de la garde"}
-                value={garde.dateOfEnd}
-                minDateTime={garde.dateOfStart}
-                onChange={handleDateChange2}
-                error={!!errors.dateOfEnd}
-                helperText={errors.dateOfEnd}
-              />
-            </Grid>
+        {/* Duration badge */}
+        {durationMin !== null && durationMin > 0 && (
+          <div
+            style={{
+              marginTop: 10, padding: "10px 14px",
+              display: "flex", alignItems: "center", gap: 10,
+              background: "#faf6ed", border: "1px solid #e8dfca", borderRadius: 10,
+              fontSize: 13, color: "#5a544c",
+            }}
+          >
+            <span style={{ flex: 1 }}>{t("timer.garde.duration")}</span>
+            <span style={{ fontWeight: 700, color: "#1d1b1a", fontSize: 14 }}>
+              {fmtHM(durationMin)}
+            </span>
+          </div>
+        )}
+      </TField>
 
-            <Grid item xs={12}>
-              <FormControl fullWidth error={!!errors.type}>
-                <InputLabel id="garde-type-label">Type de garde</InputLabel>
-                <Select
-                  labelId="garde-type-label"
-                  name="type"
-                  value={garde.type}
-                  label="Type de garde"
-                  onChange={(event) => handleChange(event)}
-                >
-                  <MenuItem value={"callable"}>Garde appelable</MenuItem>
-                  <MenuItem value={"hospital"}>Garde sur place</MenuItem>
-                </Select>
-                <FormHelperText>{errors.type}</FormHelperText>
-              </FormControl>
-            </Grid>
+      {/* Type de garde */}
+      <TField label={t("timer.garde.type")}>
+        <GardeTypePicker
+          value={garde.type}
+          onChange={(v) => {
+            setGarde((prev) => ({ ...prev, type: v }));
+            setErrors((prev) => ({ ...prev, type: "" }));
+          }}
+          callableLabel={t("timer.garde.callable")}
+          callableDesc={t("timer.garde.callableDesc")}
+          hospitalLabel={t("timer.garde.hospital")}
+          hospitalDesc={t("timer.garde.hospitalDesc")}
+          error={errors.type}
+        />
+      </TField>
 
-            <Grid item xs={12}>
-              <Tooltip title={addComment ? "Supprimer le commentaire" : "Ajouter un commentaire"}>
-                <Button
-                  onClick={() => setAddComment((prev) => !prev)}
-                  aria-label={addComment ? "Supprimer le commentaire" : "Ajouter un commentaire"}
-                  startIcon={addComment ? <CloseIcon /> : <AddCommentIcon />}
-                  size="small"
-                >
-                  {addComment ? "Supprimer le commentaire" : "Ajouter un commentaire"}
-                </Button>
-              </Tooltip>
-            </Grid>
+      {/* Comment toggle */}
+      <TField label={t("timer.garde.comment")} optional>
+        {!addComment ? (
+          <button
+            type="button"
+            onClick={() => setAddComment(true)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              background: "#faf8f4", border: "1.5px dashed #d2c4ad",
+              borderRadius: 10, padding: "12px 14px",
+              cursor: "pointer", fontFamily: "inherit",
+              fontSize: 13.5, color: "#8a7d72", width: "100%",
+            }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>＋</span>
+            <span>{t("timer.garde.addComment")}</span>
+          </button>
+        ) : (
+          <textarea
+            aria-label={t("timer.garde.comment")}
+            value={garde.comment}
+            onChange={(e) => setGarde((prev) => ({ ...prev, comment: e.target.value }))}
+            placeholder={t("timer.garde.commentPlaceholder")}
+            rows={3}
+            maxLength={250}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              border: "1px solid #ece7df", borderRadius: 10,
+              padding: "10px 14px", fontSize: 13.5, color: "#1d1b1a",
+              fontFamily: "inherit", resize: "vertical", outline: "none",
+              background: "#fff",
+            }}
+          />
+        )}
+      </TField>
 
-            {addComment && (
-              <Grid item xs={12}>
-                <TextField
-                  label="Commentaire"
-                  multiline
-                  fullWidth
-                  rows={2}
-                  name="comment"
-                  value={garde.comment}
-                  onChange={(event) => handleChange(event)}
-                  inputProps={{ maxLength: 250 }}
-                />
-              </Grid>
-            )}
+      {/* Actions */}
+      <div
+        style={{
+          paddingTop: compact ? 0 : 20,
+          borderTop: compact ? "none" : "1px solid #f3efe7",
+          display: "flex", flexDirection: compact ? "column" : "row",
+          justifyContent: "flex-end", gap: 8,
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading || yearsLoading}
+          style={{
+            background: theme.palette.primary.main, color: "#fff", border: 0,
+            borderRadius: compact ? 11 : 10,
+            padding: compact ? "14px 18px" : "10px 26px",
+            fontSize: compact ? 15 : 13.5, fontWeight: 600,
+            cursor: loading || yearsLoading ? "not-allowed" : "pointer",
+            fontFamily: "inherit", opacity: loading || yearsLoading ? 0.7 : 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}
+        >
+          {loading && <CircularProgress color="inherit" size={16} />}
+          {t("timer.save")}
+        </button>
+      </div>
 
-            <Grid item xs={12}>
-              <Button
-                sx={{ height: 54 }}
-                variant="contained"
-                color="primary"
-                size="medium"
-                type="submit"
-                fullWidth
-                onClick={handleSubmit}
-                disabled={yearsLoading || loading}
-              >
-                {loading ? <CircularProgress color="inherit" size={24} /> : "Enregistrer"}
-              </Button>
-            </Grid>
-
-            {onHelpOpen && (
-              <Grid item xs={12} display="flex" justifyContent="center">
-                <Button
-                  size="small"
-                  color="primary"
-                  startIcon={<HelpOutlineIcon fontSize="small" />}
-                  onClick={onHelpOpen}
-                  sx={{ textTransform: "none", fontSize: "0.8rem" }}
-                >
-                  Comment ça fonctionne ?
-                </Button>
-              </Grid>
-            )}
-
-            <Grid item xs={12}>
-              <Divider />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography component="p" variant="body2" align="left">
-                En cliquant sur "enregistrer", votre{" "}
-                <Box component="span" color={theme.palette.text.primary} fontWeight={700}>
-                  maître de stage
-                </Box>{" "}
-                aura accès à votre{" "}
-                <Box component="span" color={theme.palette.text.primary} fontWeight={700}>
-                  encodage
-                </Box>
-              </Typography>
-            </Grid>
-          </Grid>
-        </form>
-      </Box>
-    </Box>
+      <p style={{ fontSize: 12, color: "#8a7d72", marginTop: 16, lineHeight: 1.5 }}>
+        {t("timer.disclaimerShared")}
+      </p>
+    </div>
   );
 };
 

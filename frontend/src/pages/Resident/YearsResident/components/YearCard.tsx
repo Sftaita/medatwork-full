@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-
+import { useTranslation } from "react-i18next";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 
@@ -21,6 +21,7 @@ import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 
 const YearCard = ({ years, handleLoading }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
@@ -45,7 +46,7 @@ const YearCard = ({ years, handleLoading }) => {
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement("a");
         link.href = url;
-        link.setAttribute("download", "Horaire.xlsx");
+        link.setAttribute("download", t("years.filename"));
         document.body.appendChild(link);
         link.click();
       });
@@ -84,12 +85,12 @@ const YearCard = ({ years, handleLoading }) => {
                         </Typography>
                         {year?.firstname && (
                           <Typography>
-                            Dr {year.lastname} {year.firstname}
+                            {t("years.dr")} {year.lastname} {year.firstname}
                           </Typography>
                         )}
 
                         <Typography>
-                          Période: {dayjs(year.dateOfStart).format("DD/MM/YYYY")} -
+                          {t("years.period")} {dayjs(year.dateOfStart).format("DD/MM/YYYY")} -
                           {" " + dayjs(year.dateOfEnd).format("DD/MM/YYYY")}
                         </Typography>
                       </Box>
@@ -102,12 +103,12 @@ const YearCard = ({ years, handleLoading }) => {
                             fullWidth={isMd ? false : true}
                             onClick={() => excel(year.id)}
                           >
-                            Générer un carnet
+                            {t("years.generate")}
                           </Button>
                         )}
                         {!year?.residentAllowed && (
                           <Chip
-                            label="En attente d'acceptation"
+                            label={t("years.pending")}
                             color="primary"
                             variant="outlined"
                             icon={<HourglassEmptyIcon />}
@@ -142,18 +143,16 @@ const YearCard = ({ years, handleLoading }) => {
                               {year.token}
                             </Typography>
                             <CopyToClipboard text={year.token}>
-                              <Button>Copier</Button>
+                              <Button>{t("years.copy")}</Button>
                             </CopyToClipboard>
                           </Grid>
 
                           <Typography>
-                            Envoyez ce code d'identification à vos collègues afin qu'ils puissent{" "}
-                            <br />
-                            rejoindre cette année de formation.
+                            {t("years.tokenDesc")}
                           </Typography>
                         </Box>
                         <Button size={"large"} variant={"contained"} disabled={true}>
-                          INFO
+                          {t("years.info")}
                         </Button>
                       </Box>
                     </Grid>

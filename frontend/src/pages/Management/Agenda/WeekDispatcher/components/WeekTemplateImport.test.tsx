@@ -3,6 +3,23 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import WeekTemplateImport from "./WeekTemplateImport";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        "weekDisp.import.dialogTitle": "Importer un poste à cette année",
+        "weekDisp.import.noTemplates": "Vous n'avez pas encore créé de modèles de semaine. Une fois que vous aurez créé ces modèles, vous pourrez les associer à l'année correspondante afin d'y assigner vos résidents.",
+        "weekDisp.import.allImported": "Tous vos modèles de semaine ont déjà été importés pour cette année. Si aucun ne répond à vos besoins, n'hésitez pas à en créer de nouveaux.",
+        "weekDisp.import.import":  "Importer",
+        "weekDisp.import.success": "Importation réussie !",
+        "weekDisp.import.error":   "Oups, une erreur s'est produite.",
+        "common.cancel":           "Annuler",
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 const mockGet = vi.hoisted(() => vi.fn());
 const mockPost = vi.hoisted(() => vi.fn());

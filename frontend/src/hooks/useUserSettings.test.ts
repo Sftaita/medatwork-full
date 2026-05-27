@@ -9,6 +9,9 @@ import { useSidebarStore } from "../store/sidebarStore";
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 vi.mock("../hooks/useAxiosPrivate", () => ({ default: () => ({}) }));
+vi.mock("../hooks/useAuth", () => ({
+  default: () => ({ authentication: { AccessToken: "mock-token" } }),
+}));
 
 const mockGetSettings   = vi.hoisted(() => vi.fn());
 const mockPatchSettings = vi.hoisted(() => vi.fn());

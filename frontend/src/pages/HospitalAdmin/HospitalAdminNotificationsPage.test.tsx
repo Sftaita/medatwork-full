@@ -29,6 +29,37 @@ import HospitalAdminNotificationsPage from "./HospitalAdminNotificationsPage";
 import communicationsApi from "../../services/communicationsApi";
 import type { CommNotification } from "../../types/entities";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: any) => {
+      const map: Record<string, string> = {
+        "haNotif.title":          "Notifications",
+        "haNotif.subtitle":       "Messages reçus depuis la plateforme",
+        "haNotif.filterAll":      `Toutes (${opts?.count ?? ""})`,
+        "haNotif.filterUnread":   `Non lues (${opts?.count ?? ""})`,
+        "haNotif.markAllRead":    "Tout marquer comme lu",
+        "haNotif.noNotifs":       "Aucune notification.",
+        "haNotif.noNotifsUnread": "Aucune notification non lue.",
+        "haNotif.colTitle":       "Titre",
+        "haNotif.colMessage":     "Message",
+        "haNotif.colDate":        "Date",
+        "haNotif.colStatus":      "Statut",
+        "haNotif.chipRead":       "Lu",
+        "haNotif.chipUnread":     "Non lu",
+        "haNotif.tooltipLink":    "Ouvrir le lien",
+        "haNotif.openLink":       "Ouvrir le lien",
+        "haNotif.markUnread":     "Marquer non lu",
+        "haNotif.close":          "Fermer",
+        "haNotif.toast.errorMarkRead":   "Impossible de marquer la notification comme lue.",
+        "haNotif.toast.errorMarkUnread": "Impossible de marquer la notification comme non lue.",
+        "haNotif.toast.successMarkAll":  "Toutes les notifications ont été marquées comme lues.",
+        "haNotif.toast.errorMarkAll":    "Une erreur est survenue.",
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 vi.mock("../../services/communicationsApi", () => ({

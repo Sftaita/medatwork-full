@@ -39,20 +39,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-// Stub date pickers — they need a complex MUI/dayjs setup not relevant here
-vi.mock("../../../../components/medium/CustomDateTimeHandler", () => ({
-  default: ({ label, onChange, value, helperText, error }: any) => (
-    <div>
-      <input
-        aria-label={label}
-        data-testid={`dt-${label}`}
-        defaultValue={value?.toString?.() ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {error && helperText && <span role="alert">{helperText}</span>}
-    </div>
-  ),
-}));
+// Note: Timer now uses native date/time inputs (no MUI DateTimePicker mock needed)
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 const YEARS = [
@@ -123,7 +110,7 @@ describe("Timer — validation", () => {
     renderTimer({ years: [] });
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
-      expect(screen.getByText(/n'avez pas renseigné l'année/i)).toBeInTheDocument()
+      expect(screen.getByText(/sélectionner une année/i)).toBeInTheDocument()
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -139,15 +126,9 @@ describe("Timer — validation", () => {
   it("bloque la soumission si dateOfEnd est avant dateOfStart", async () => {
     renderTimer();
 
-    // Simuler heure début = 18:00, heure fin = 08:00 (fin < début)
-    const startInput = screen.getByTestId("dt-Début");
-    const endInput   = screen.getByTestId("dt-Fin");
-
-    // On force le composant à appeler onChange avec une valeur dayjs invalide
-    // En passant une chaîne, le composant stubé appelle onChange(value)
-    // Le Timer stocke cette valeur via handleDateChange1/2
-    fireEvent.change(startInput, { target: { value: "2026-01-01T18:00:00.000Z" } });
-    fireEvent.change(endInput,   { target: { value: "2026-01-01T08:00:00.000Z" } });
+    // Mettre heure de début à 20:00 (plus tard que la fin par défaut 18:00)
+    const startTimeInput = screen.getByLabelText("Début — heure");
+    fireEvent.change(startTimeInput, { target: { value: "20:00" } });
 
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
@@ -158,11 +139,9 @@ describe("Timer — validation", () => {
   it("affiche un message d'erreur clair quand dateOfEnd < dateOfStart", async () => {
     renderTimer();
 
-    const startInput = screen.getByTestId("dt-Début");
-    const endInput   = screen.getByTestId("dt-Fin");
-
-    fireEvent.change(startInput, { target: { value: "2026-01-01T18:00:00.000Z" } });
-    fireEvent.change(endInput,   { target: { value: "2026-01-01T08:00:00.000Z" } });
+    // Mettre heure de début à 20:00 (plus tard que la fin par défaut 18:00)
+    const startTimeInput = screen.getByLabelText("Début — heure");
+    fireEvent.change(startTimeInput, { target: { value: "20:00" } });
 
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
@@ -205,7 +184,7 @@ describe("Timer — soumission réussie", () => {
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledOnce());
-    expect(toast.success).toHaveBeenCalledWith("Enregistrement validé!", expect.anything());
+    expect(toast.success).toHaveBeenCalledWith("Enregistrement validé !", expect.anything());
   });
 });
 

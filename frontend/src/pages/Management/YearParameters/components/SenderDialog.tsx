@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
+import { useTranslation } from "react-i18next";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 
 // Material UI
@@ -28,38 +29,14 @@ const Transition = forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const validationSchema = yup.object({
-  newValue: yup
-    .string()
-    .trim()
-    .max(255, "La valeur renseignée est trop longue")
-    .required("N'oubliez pas de renseigner le champ"),
-});
-
-const titleTable = {
-  dateOfStart: "Date de début de stage",
-  dateOfEnd: "Date de fin de stage",
-  period: "Période de stage",
-  speciality: "Spécialité",
-  location: "Lieu de stage",
-  title: "Titre de l'année",
-  master: "Maître de stage",
-};
-
-const textTable = {
-  dateOfStart:
-    "La période de stage doit couvrir l'ensemble de l'année académique des MACCS. Elle peut s'étendre sur une durée maximum de un an et 3 mois.",
-  dateOfEnd:
-    "La période de stage doit couvrir l'ensemble de l'année académique des MACCS. Elle peut s'étendre sur une durée maximum de un an et 3 mois.",
-  period: "",
-  speciality: "Elle correspond à la spécialité qui sera validée par le MACCS. ",
-  location:
-    "Le lieu de stage doit correspondre à celui renseigné dans le carnet de stage du MACCS.",
-  title:
-    "Nous vous conseillons un titre court et explicite. Par exemple: Ortho Saint-Luc 2021-2022.",
-  master:
-    "Afin de désigner un collègue maître de stage, vous devez disposez des droits administrateurs pour cette année. Les propositions de la liste ne reprennent que les collaborateurs enregistrés à l'année.  Le maître de stage désigné bénéficiera automatiquement des droits administrateurs.",
-};
+const buildValidationSchema = (t) =>
+  yup.object({
+    newValue: yup
+      .string()
+      .trim()
+      .max(255, t("yearParams.validationTooLong"))
+      .required(t("yearParams.validationRequired")),
+  });
 
 const SenderDialog = ({
   handleClose,
@@ -69,7 +46,29 @@ const SenderDialog = ({
   fetchYearInformation,
   yearInfomrations,
 }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
+
+  const titleTable = {
+    dateOfStart: t("yearParams.dateStart"),
+    dateOfEnd:   t("yearParams.dateEnd"),
+    period:      t("yearParams.period"),
+    speciality:  t("yearParams.speciality"),
+    location:    t("yearParams.location"),
+    title:       t("yearParams.titleFull"),
+    master:      t("yearParams.master"),
+  };
+
+  const textTable = {
+    dateOfStart: t("yearParams.dialogDateStart"),
+    dateOfEnd:   t("yearParams.dialogDateEnd"),
+    period:      "",
+    speciality:  t("yearParams.dialogSpeciality"),
+    location:    t("yearParams.dialogLocation"),
+    title:       t("yearParams.dialogTitleYear"),
+    master:      t("yearParams.dialogMaster"),
+  };
+
   const [newValue, setNewValue] = useState({ newValue: "" });
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState();
@@ -172,7 +171,7 @@ const SenderDialog = ({
   const formik = useFormik({
     initialValues: newValue,
     enableReinitialize: true,
-    validationSchema: validationSchema,
+    validationSchema: buildValidationSchema(t),
     onSubmit,
   });
 
@@ -275,8 +274,8 @@ const SenderDialog = ({
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={close}>Annuler</Button>
-            <Button type={"submit"}>Enregistrer</Button>
+            <Button onClick={close}>{t("yearParams.cancel")}</Button>
+            <Button type={"submit"}>{t("yearParams.save")}</Button>
           </DialogActions>
         </form>
       </Dialog>

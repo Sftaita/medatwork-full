@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import useAxiosPrivate from "../../../../../hooks/useAxiosPrivate";
@@ -24,12 +25,13 @@ const Transition = forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const validationSchema = yup.object({
-  workerHRID: yup.string().trim().max(50, "La valeur renseignée est trop longue"),
-  sectionHRID: yup.string().trim().max(50, "La valeur renseignée est trop longue"),
+const buildValidationSchema = (t) => yup.object({
+  workerHRID: yup.string().trim().max(50, t("yearDetail.staffPlanner.tooLong")),
+  sectionHRID: yup.string().trim().max(50, t("yearDetail.staffPlanner.tooLong")),
 });
 
 const SenderDialog = ({ handleClose, relation, open, fetchStaffPlannerList }) => {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
   const [newValue, setNewValue] = useState({
     workerHRID: "",
@@ -75,7 +77,7 @@ const SenderDialog = ({ handleClose, relation, open, fetchStaffPlannerList }) =>
   const formik = useFormik({
     initialValues: newValue,
     enableReinitialize: true,
-    validationSchema: validationSchema,
+    validationSchema: buildValidationSchema(t),
     onSubmit,
   });
 
@@ -90,11 +92,10 @@ const SenderDialog = ({ handleClose, relation, open, fetchStaffPlannerList }) =>
         fullWidth={"lg"}
       >
         <form onSubmit={formik.handleSubmit}>
-          <DialogTitle>Identifiants StaffPlanner</DialogTitle>
+          <DialogTitle>{t("yearDetail.staffPlanner.dialogTitle")}</DialogTitle>
           <DialogContent>
             <DialogContentText marginBottom={2} align={"justify"}>
-              Ces informations sont liées à votre compte StaffPlanner. Consultez votre service
-              informatique pour plus d'informations.
+              {t("yearDetail.staffPlanner.dialogDesc")}
             </DialogContentText>
             {!loading && (
               <>
@@ -103,7 +104,7 @@ const SenderDialog = ({ handleClose, relation, open, fetchStaffPlannerList }) =>
                   margin="dense"
                   id="workerHRID"
                   name="workerHRID"
-                  label="Matricule"
+                  label={t("yearDetail.staffPlanner.worker")}
                   value={formik.values.workerHRID}
                   onChange={formik.handleChange}
                   type="text"
@@ -117,7 +118,7 @@ const SenderDialog = ({ handleClose, relation, open, fetchStaffPlannerList }) =>
                   margin="dense"
                   id="sectionHRID"
                   name="sectionHRID"
-                  label="Service"
+                  label={t("yearDetail.staffPlanner.section")}
                   value={formik.values.sectionHRID}
                   onChange={formik.handleChange}
                   type="text"
@@ -142,8 +143,8 @@ const SenderDialog = ({ handleClose, relation, open, fetchStaffPlannerList }) =>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={close}>Annuler</Button>
-            <Button type={"submit"}>Enregistrer</Button>
+            <Button onClick={close}>{t("yearDetail.staffPlanner.cancel")}</Button>
+            <Button type={"submit"}>{t("yearDetail.staffPlanner.save")}</Button>
           </DialogActions>
         </form>
       </Dialog>

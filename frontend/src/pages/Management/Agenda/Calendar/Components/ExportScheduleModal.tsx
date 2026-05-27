@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Stack, Divider, CircularProgress, Typography, Box,
@@ -29,6 +30,7 @@ type SendTarget = 'maccs' | 'manager' | 'hr';
 export default function ExportScheduleModal({
   open, onClose, maccs, enabledMaccs, events, services, yearId,
 }: Props) {
+  const { t } = useTranslation();
   const axiosPrivate = useAxiosPrivate();
 
   const [fromDate, setFromDate] = useState<Dayjs | null>(dayjs().startOf('month'));
@@ -49,7 +51,7 @@ export default function ExportScheduleModal({
 
   const handleSend = async (target: SendTarget) => {
     if (!yearId) {
-      toast.error('Aucune année académique sélectionnée.');
+      toast.error(t("calendar.export.noYear"));
       return;
     }
     setSending(target);
@@ -67,14 +69,14 @@ export default function ExportScheduleModal({
         pdfBase64,
       });
 
-      const labels: Record<SendTarget, string> = {
-        maccs:   'MACCs',
-        manager: 'manager de l\'année',
-        hr:      'RH de l\'hôpital',
+      const recipientLabels: Record<SendTarget, string> = {
+        maccs:   t("calendar.export.recipientMaccs"),
+        manager: t("calendar.export.recipientManager"),
+        hr:      t("calendar.export.recipientHr"),
       };
-      toast.success(`Planning envoyé au ${labels[target]} par email.`);
+      toast.success(t("calendar.export.sentSuccess", { target: recipientLabels[target] }));
     } catch {
-      toast.error('Erreur lors de l\'envoi. Vérifiez les adresses email configurées.');
+      toast.error(t("calendar.export.sentError"));
     } finally {
       setSending(null);
     }
@@ -86,23 +88,23 @@ export default function ExportScheduleModal({
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="fr">
       <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Exporter le planning</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("calendar.export.title")}</DialogTitle>
 
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {activeMaccsCount} MACC{activeMaccsCount > 1 ? 's' : ''} sélectionné{activeMaccsCount > 1 ? 's' : ''}
+            {t("calendar.export.selected", { count: activeMaccsCount, suffix: activeMaccsCount > 1 ? "s" : "" })}
           </Typography>
 
           <Stack spacing={2}>
             <DatePicker
-              label="Du"
+              label={t("calendar.export.from")}
               value={fromDate}
               onChange={setFromDate}
               maxDate={toDate ?? undefined}
               slotProps={{ textField: { size: 'small', fullWidth: true } }}
             />
             <DatePicker
-              label="Au"
+              label={t("calendar.export.to")}
               value={toDate}
               onChange={setToDate}
               minDate={fromDate ?? undefined}
@@ -122,7 +124,7 @@ export default function ExportScheduleModal({
               onClick={handleDownload}
               startIcon={<span>↓</span>}
             >
-              Télécharger PDF
+              {t("calendar.export.downloadPdf")}
             </Button>
             <Button
               variant="outlined"
@@ -131,20 +133,20 @@ export default function ExportScheduleModal({
               onClick={handlePrint}
               startIcon={<span>⎙</span>}
             >
-              Imprimer
+              {t("calendar.export.print")}
             </Button>
           </Stack>
 
           <Divider sx={{ width: '100%', my: 0.5 }}>
-            <Typography variant="caption" color="text.disabled">Envoyer par email</Typography>
+            <Typography variant="caption" color="text.disabled">{t("calendar.export.sendByEmail")}</Typography>
           </Divider>
 
           {/* Envoi emails */}
           {(['maccs', 'manager', 'hr'] as SendTarget[]).map((target) => {
             const labels: Record<SendTarget, string> = {
-              maccs:   'Aux MACCs sélectionnés',
-              manager: 'Au manager de l\'année',
-              hr:      'Au RH de l\'hôpital',
+              maccs:   t("calendar.export.sendToMaccs"),
+              manager: t("calendar.export.sendToManager"),
+              hr:      t("calendar.export.sendToHr"),
             };
             const icons: Record<SendTarget, string> = {
               maccs: '👥', manager: '👤', hr: '🏥',
@@ -166,7 +168,7 @@ export default function ExportScheduleModal({
           })}
 
           <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
-            <Button onClick={onClose} color="inherit">Fermer</Button>
+            <Button onClick={onClose} color="inherit">{t("calendar.export.close")}</Button>
           </Box>
         </DialogActions>
       </Dialog>

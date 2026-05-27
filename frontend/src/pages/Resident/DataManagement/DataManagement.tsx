@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // Material UI
 import Typography from "@mui/material/Typography";
@@ -15,6 +16,7 @@ import Garde from "./components/garde";
 import Absence from "./components/absence";
 
 const DataManagement = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMd = useMediaQuery(theme.breakpoints.up("md"), {
     defaultMatches: true,
@@ -37,7 +39,7 @@ const DataManagement = () => {
           color={"secondary"}
           align={"center"}
         >
-          Activité
+          {t("data.title")}
         </Typography>
         <Typography
           variant="h4"
@@ -47,7 +49,7 @@ const DataManagement = () => {
             fontWeight: 700,
           }}
         >
-          Mes données enregistrées
+          {t("data.subtitle")}
         </Typography>
 
         <Box display="flex" flexDirection={"row"} justifyContent="center">
@@ -69,9 +71,9 @@ const DataManagement = () => {
                 },
               }}
             >
-              <Tab label="Horaires" />
-              <Tab label="Gardes" />
-              <Tab label="Absences" />
+              <Tab label={t("data.tabs.schedules")} />
+              <Tab label={t("data.tabs.guards")} />
+              <Tab label={t("data.tabs.absences")} />
             </Tabs>
           </Box>
         </Box>

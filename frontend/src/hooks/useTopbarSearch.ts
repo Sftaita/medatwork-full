@@ -14,9 +14,7 @@ export function useTopbarSearch(placeholder: string): string {
   useEffect(() => {
     register(placeholder);
     return () => unregister();
-  // placeholder est statique — pas besoin de le mettre en dépendance
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [placeholder]);
 
   return value;
 }
