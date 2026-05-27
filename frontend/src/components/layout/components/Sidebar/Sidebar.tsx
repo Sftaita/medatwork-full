@@ -17,7 +17,7 @@ const Sidebar = ({ open, variant, onClose, collapsed = false }: SidebarProps) =>
   const theme = useTheme();
   const { selectedMenuItem, setSelectedMenuItem } = useAuth();
 
-  const width = variant === "temporary" ? 280 : (collapsed ? MINI_WIDTH : EXPANDED_WIDTH);
+  const width = variant === "temporary" ? "100vw" : (collapsed ? MINI_WIDTH : EXPANDED_WIDTH);
 
   return (
     <Drawer
