@@ -121,9 +121,9 @@ $SSH "cd $REMOTE_APP/backend && php bin/console cache:clear --env=prod"
 echo "  ✓ Cache OK"
 
 # ── 9. Vérification version en ligne ─────────────────────────────────────────
+# Source de vérité : l'API /api/version (plus fiable que grep sur le bundle minifié)
 echo "▸ [9/9] Vérification version en ligne..."
-LIVE_INDEX=$($SSH "grep -o 'assets/index[^\"]*\.js' $REMOTE_PUBLIC/index.html | head -1")
-LIVE_VERSION=$($SSH "grep -o 'version [0-9.]*' $REMOTE_PUBLIC/$LIVE_INDEX 2>/dev/null | head -1 | grep -o '[0-9.]*'")
+LIVE_VERSION=$(curl -s https://api-link.medatwork.be/api/version | grep -o '"version":"[^"]*"' | grep -o '[0-9][0-9.]*')
 
 if [ "$LIVE_VERSION" = "$VERSION" ]; then
   echo "  ✓ Version $LIVE_VERSION confirmée en ligne"
