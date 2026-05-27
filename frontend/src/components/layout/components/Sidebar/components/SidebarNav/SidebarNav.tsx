@@ -250,6 +250,7 @@ const SidebarNav = ({ onClose, selected, handleSelected, collapsed = false }: Si
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const logout   = useLogout();
+  const { t } = useTranslation();
 
   const handleLogout = async () => {
     onClose();

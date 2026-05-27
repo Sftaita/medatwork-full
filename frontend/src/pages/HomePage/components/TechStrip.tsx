@@ -111,7 +111,7 @@ const TechStrip = () => {
               },
             }}
           >
-            <Typography sx={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.012em", display: "flex", alignItems: "center", gap: "10px", color: "text.primary" }}>
+            <Typography component="div" sx={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.012em", display: "flex", alignItems: "center", gap: "10px", color: "text.primary" }}>
               <Box
                 sx={{
                   width: 28, height: 28,
