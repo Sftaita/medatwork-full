@@ -169,13 +169,13 @@ export function TDateTimeField({
             <span style={{ fontSize: 9.5, fontWeight: 600, color: "#a89e92", letterSpacing: ".08em", textTransform: "uppercase", paddingLeft: 2 }}>
               Date
             </span>
-            <input type="date" value={dateStr} onChange={(e) => onDateChange(e.target.value)} aria-label={`${title} — date`} style={inputBase} />
+            <input type="date" value={dateStr} onChange={(e) => onDateChange(e.target.value)} onClick={(e) => (e.currentTarget as any).showPicker?.()} aria-label={`${title} — date`} style={inputBase} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
             <span style={{ fontSize: 9.5, fontWeight: 600, color: "#a89e92", letterSpacing: ".08em", textTransform: "uppercase", paddingLeft: 2 }}>
               Heure
             </span>
-            <input type="time" value={timeStr} onChange={(e) => onTimeChange(e.target.value)} aria-label={`${title} — heure`} style={inputBase} />
+            <input type="time" value={timeStr} onChange={(e) => onTimeChange(e.target.value)} onClick={(e) => (e.currentTarget as any).showPicker?.()} aria-label={`${title} — heure`} style={inputBase} />
           </label>
         </div>
       </div>
@@ -234,6 +234,7 @@ export function TDateField({
             value={dateStr}
             aria-label={ariaLabel}
             onChange={(e) => onChange(e.target.value)}
+            onClick={(e) => (e.currentTarget as any).showPicker?.()}
             style={{ ...inputBase, background: "transparent", border: "none", padding: "6px 0" }}
           />
         </label>
