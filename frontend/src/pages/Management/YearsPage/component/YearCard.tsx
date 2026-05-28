@@ -17,6 +17,7 @@ import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -248,11 +249,12 @@ function ExcelDownloadModal({ open, onClose, residents, onDownload }: ExcelDownl
 
 interface MoreMenuProps {
   year: any;
+  onParams: () => void;
   onEdit?: () => void;
   onDelete: () => void;
 }
 
-function MoreMenu({ year, onEdit, onDelete }: MoreMenuProps) {
+function MoreMenu({ year, onParams, onEdit, onDelete }: MoreMenuProps) {
   const { t } = useTranslation();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
@@ -287,6 +289,11 @@ function MoreMenu({ year, onEdit, onDelete }: MoreMenuProps) {
           },
         }}
       >
+        <MenuItem onClick={() => { onParams(); setAnchor(null); }} sx={{ fontSize: 13, gap: 1 }}>
+          <ListItemIcon sx={{ minWidth: 28 }}><SettingsOutlinedIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primaryTypographyProps={{ fontSize: 13 }}>{t("years.menuParams")}</ListItemText>
+        </MenuItem>
+
         {onEdit && (
           <MenuItem onClick={() => { onEdit(); setAnchor(null); }} sx={{ fontSize: 13, gap: 1 }}>
             <ListItemIcon sx={{ minWidth: 28 }}><EditIcon fontSize="small" /></ListItemIcon>
@@ -294,7 +301,7 @@ function MoreMenu({ year, onEdit, onDelete }: MoreMenuProps) {
           </MenuItem>
         )}
 
-        {onEdit && <Divider sx={{ my: 0.5 }} />}
+        <Divider sx={{ my: 0.5 }} />
 
         <MenuItem
           onClick={() => { onDelete(); setAnchor(null); }}
@@ -327,9 +334,10 @@ function MetaLine({ label, children }: { label: string; children: React.ReactNod
 
 // ── Large card (current years) ────────────────────────────────────────────────
 
-function YearCardLarge({ year, onManage, onEdit, onDelete, onExcel }: {
+function YearCardLarge({ year, onManage, onParams, onEdit, onDelete, onExcel }: {
   year: any;
   onManage: () => void;
+  onParams: () => void;
   onEdit?: () => void;
   onDelete: () => void;
   onExcel: (id: number, name: string) => Promise<void>;
@@ -471,7 +479,7 @@ function YearCardLarge({ year, onManage, onEdit, onDelete, onExcel }: {
             >
               {t("years.manage")}
             </Button>
-            <MoreMenu year={year} onEdit={onEdit} onDelete={onDelete} />
+            <MoreMenu year={year} onParams={onParams} onEdit={onEdit} onDelete={onDelete} />
           </Box>
         </Box>
       </Box>
@@ -490,10 +498,11 @@ function YearCardLarge({ year, onManage, onEdit, onDelete, onExcel }: {
 
 const MAX_AVATARS = 5;
 
-function YearCardCompact({ year, status, onManage, onEdit, onDelete }: {
+function YearCardCompact({ year, status, onManage, onParams, onEdit, onDelete }: {
   year: any;
   status: YearStatus;
   onManage: () => void;
+  onParams: () => void;
   onEdit?: () => void;
   onDelete: () => void;
 }) {
@@ -590,7 +599,7 @@ function YearCardCompact({ year, status, onManage, onEdit, onDelete }: {
         >
           {t("years.manage")}
         </Button>
-        <MoreMenu year={year} onEdit={onEdit} onDelete={onDelete} />
+        <MoreMenu year={year} onParams={onParams} onEdit={onEdit} onDelete={onDelete} />
       </Box>
     </Box>
   );
@@ -611,7 +620,9 @@ const YearCard = ({ year, status, handleLoading, setYears, years }: YearCardProp
   const axiosPrivate = useAxiosPrivate();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const handleManage = () =>
+  const handleManage = () => navigate("/manager/realtime");
+
+  const handleParams = () =>
     navigate("/manager/year-detail", {
       state: { id: year.id, title: year.title, adminRights: year.admin },
     });
@@ -647,6 +658,7 @@ const YearCard = ({ year, status, handleLoading, setYears, years }: YearCardProp
   const sharedProps = {
     year,
     onManage: handleManage,
+    onParams: handleParams,
     onEdit: handleEdit,
     onDelete: () => setDeleteOpen(true),
   };
