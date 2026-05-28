@@ -218,10 +218,10 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
         "&:hover": { boxShadow: 4, borderColor: "primary.main" },
       }}
     >
-      {/* Clickable area — navigates to year-detail. Plain Box instead of CardActionArea
+      {/* Clickable area — navigates to realtime. Plain Box instead of CardActionArea
           to avoid nesting <button> inside <button> (IconButton is inside the content). */}
       <Box
-        onClick={() => goToParams()}
+        onClick={() => navigate("/manager/realtime")}
         sx={{
           flex: 1,
           display: "flex",
@@ -1111,7 +1111,7 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
     <TableRow
       hover
       sx={{ cursor: "pointer" }}
-      onClick={goToParams}
+      onClick={() => navigate("/manager/realtime")}
     >
       <TableCell>
         <Typography variant="body2" fontWeight={600}>{year.title}</Typography>
