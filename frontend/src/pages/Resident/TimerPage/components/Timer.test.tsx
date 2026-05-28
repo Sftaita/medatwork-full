@@ -39,7 +39,41 @@ vi.mock("react-router-dom", async (importOriginal) => {
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-// Note: Timer now uses native date/time inputs (no MUI DateTimePicker mock needed)
+// Replace TDateTimeField with simple inputs so fireEvent.change works in tests.
+vi.mock("./timerUi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./timerUi")>();
+  return {
+    ...actual,
+    TDateTimeField: ({
+      title,
+      onDateChange,
+      onTimeChange,
+      error,
+    }: {
+      title: string;
+      value: unknown;
+      onDateChange: (s: string) => void;
+      onTimeChange: (s: string) => void;
+      error?: string;
+    }) => (
+      <div>
+        <input
+          aria-label={`${title} — date`}
+          type="date"
+          defaultValue=""
+          onChange={(e) => onDateChange(e.target.value)}
+        />
+        <input
+          aria-label={`${title} — heure`}
+          type="time"
+          defaultValue=""
+          onChange={(e) => onTimeChange(e.target.value)}
+        />
+        {error && <div>{error}</div>}
+      </div>
+    ),
+  };
+});
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 const YEARS = [

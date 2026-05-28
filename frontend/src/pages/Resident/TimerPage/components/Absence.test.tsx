@@ -24,6 +24,35 @@ vi.mock("../../../../hooks/useAxiosPrivate", () => ({ default: () => stableAxios
 vi.mock("@/services/apiError", () => ({ handleApiError: mockHandleApiError }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Replace TDateField with a simple input so fireEvent.change works in tests.
+vi.mock("./timerUi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./timerUi")>();
+  return {
+    ...actual,
+    TDateField: ({
+      value,
+      onChange,
+      error,
+      ariaLabel,
+    }: {
+      value: unknown;
+      onChange: (s: string) => void;
+      error?: string;
+      ariaLabel?: string;
+    }) => (
+      <div>
+        <input
+          aria-label={ariaLabel}
+          type="date"
+          value={typeof value === "string" ? value : ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {error && <div>{error}</div>}
+      </div>
+    ),
+  };
+});
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const YEARS = [{ id: 1, title: "Stage 2025-2026" }];
 

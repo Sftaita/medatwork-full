@@ -4,7 +4,7 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 
 ---
 
-## [3.8.0] — 2026-05-22 → 2026-05-27
+## [3.8.0] — 2026-05-22 → 2026-05-28
 
 ### Ajouts
 - **Landing page — refonte complète**
@@ -29,6 +29,9 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 - **`WeekScheduleTable`** : prop `title` optionnelle
 - **Bar chart statistiques** : clés neutralisées pour éviter conflits i18n
 - **Suite de tests AdminContactPage** : 14 cas ajoutés
+- **Timer / Absence — pickers MUI** : remplacement des `input[type=date/time]` natifs par `DatePicker` + `TimePicker` de `@mui/x-date-pickers` (locale FR, format DD/MM/YYYY, ouverture au clic sur toute la zone) — la valeur formatée est correctement affichée via la prop `value` du slot textField (régression corrigée : `value` top-level, pas via `inputProps`)
+- **Absence — stockage date** : les dates passées à `TDateField` sont maintenant des chaînes YYYY-MM-DD (non plus des objets dayjs) pour éviter un double-wrapping `dayjs(dayjsObj)` qui invalidait la valeur affichée
+- **Tests Timer/Absence** : mocks des composants MUI remplacés par des inputs simples (`fireEvent.change` compatible) ; ajout de `timerUi.test.tsx` (tests `fmtHM`, `TToggle`, `TSelect`, `TDateTimeField`, `TDateField` — dont régression affichage valeur)
 
 ### Infrastructure
 - Bump version `3.7.0 → 3.8.0` (VersionController, package.json, Footer)

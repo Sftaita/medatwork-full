@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import absencesApi from "../../../../services/absencesApi";
 import { toast } from "react-toastify";
-import dayjs from "dayjs";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import { useTheme } from "@mui/material/styles";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -38,8 +37,8 @@ const Absence = ({
 
   const [absence, setAbsence] = useState({
     year:        "",
-    dateOfStart: null as dayjs.Dayjs | null,
-    dateOfEnd:   null as dayjs.Dayjs | null,
+    dateOfStart: "",
+    dateOfEnd:   "",
     type:        "",
   });
 
@@ -62,10 +61,7 @@ const Absence = ({
     if (multidate) {
       if (!absence.dateOfEnd) {
         errs.dateOfEnd = t("timer.absence.errEnd");
-      } else if (
-        dayjs(absence.dateOfEnd).isBefore(dayjs(absence.dateOfStart)) ||
-        dayjs(absence.dateOfEnd).isSame(dayjs(absence.dateOfStart))
-      ) {
+      } else if (absence.dateOfEnd <= absence.dateOfStart) {
         errs.dateOfEnd = t("timer.absence.errEndBefore");
       }
     }
@@ -75,7 +71,7 @@ const Absence = ({
   };
 
   const resetForm = () => {
-    setAbsence((prev) => ({ ...prev, dateOfStart: null, dateOfEnd: null, type: "" }));
+    setAbsence((prev) => ({ ...prev, dateOfStart: "", dateOfEnd: "", type: "" }));
     setMultidate(false);
     setErrors(EMPTY_ERRORS);
   };
@@ -89,8 +85,8 @@ const Absence = ({
       await axiosPrivate[method](url, {
         year:        Number(absence.year) || absence.year,
         type:        absence.type,
-        dateOfStart: dayjs(absence.dateOfStart).format("YYYY-MM-DD"),
-        dateOfEnd:   absence.dateOfEnd ? dayjs(absence.dateOfEnd).format("YYYY-MM-DD") : null,
+        dateOfStart: absence.dateOfStart,
+        dateOfEnd:   absence.dateOfEnd || null,
       });
       toast.success(t("timer.saved"), { position: "bottom-center", autoClose: 3000, hideProgressBar: true, closeOnClick: true });
       resetForm();
@@ -172,7 +168,7 @@ const Absence = ({
             value={absence.dateOfStart}
             ariaLabel={t("timer.absence.start")}
             onChange={(dateStr) => {
-              setAbsence((prev) => ({ ...prev, dateOfStart: dateStr ? dayjs(dateStr) : null }));
+              setAbsence((prev) => ({ ...prev, dateOfStart: dateStr || "" }));
               setErrors((prev) => ({ ...prev, dateOfStart: "" }));
             }}
           />
@@ -184,7 +180,7 @@ const Absence = ({
               value={absence.dateOfEnd}
               ariaLabel={t("timer.absence.end")}
               onChange={(dateStr) => {
-                setAbsence((prev) => ({ ...prev, dateOfEnd: dateStr ? dayjs(dateStr) : null }));
+                setAbsence((prev) => ({ ...prev, dateOfEnd: dateStr || "" }));
                 setErrors((prev) => ({ ...prev, dateOfEnd: "" }));
               }}
             />

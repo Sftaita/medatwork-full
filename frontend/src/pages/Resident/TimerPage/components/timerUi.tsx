@@ -1,7 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTheme } from "@mui/material/styles";
-import dayjs from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/fr";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { frFR } from "@mui/x-date-pickers/locales";
+
+const frLocale = frFR.components.MuiLocalizationProvider.defaultProps.localeText;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -20,6 +27,43 @@ export const inputBase: React.CSSProperties = {
   minHeight: 44,
   cursor: "pointer",
 };
+
+// ─── Picker slot components (module-level for stable reference) ───────────────
+
+const spanStyle: React.CSSProperties = {
+  fontSize: 9.5, fontWeight: 600, color: "#a89e92",
+  letterSpacing: ".08em", textTransform: "uppercase", paddingLeft: 2,
+};
+
+function PickerDateInput({ inputRef, inputProps, value, onClick }: { inputRef?: any; inputProps?: any; value?: string; onClick?: () => void }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+      <span style={spanStyle}>Date</span>
+      <input ref={inputRef} {...inputProps} value={value ?? ""} readOnly onClick={onClick} style={inputBase} />
+    </label>
+  );
+}
+
+function PickerTimeInput({ inputRef, inputProps, value, onClick }: { inputRef?: any; inputProps?: any; value?: string; onClick?: () => void }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+      <span style={spanStyle}>Heure</span>
+      <input ref={inputRef} {...inputProps} value={value ?? ""} readOnly onClick={onClick} style={inputBase} />
+    </label>
+  );
+}
+
+function PickerDateInputInline({ inputRef, inputProps, value, onClick }: { inputRef?: any; inputProps?: any; value?: string; onClick?: () => void }) {
+  return (
+    <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+      <span style={spanStyle}>Date</span>
+      <input
+        ref={inputRef} {...inputProps} value={value ?? ""} readOnly onClick={onClick}
+        style={{ ...inputBase, background: "transparent", border: "none", padding: "6px 0" }}
+      />
+    </label>
+  );
+}
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 
@@ -123,64 +167,73 @@ export function TDateTimeField({
   const theme = useTheme();
   const djs = value ? dayjs(value) : null;
   const isValid = djs?.isValid() ?? false;
-  const dateStr = isValid ? djs!.format("YYYY-MM-DD") : "";
-  const timeStr = isValid ? djs!.format("HH:mm") : "";
-  const dayNum  = isValid ? djs!.date() : "–";
+  const dayNum    = isValid ? djs!.date() : "–";
   const monthName = isValid ? djs!.locale("fr").format("MMM") : "—";
 
+  const [dateOpen, setDateOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
+
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: `1px solid ${error ? "#ba1a1a" : "#ece7df"}`,
-        borderRadius: 10, padding: 12,
-      }}
-    >
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="fr" localeText={frLocale}>
       <div
         style={{
-          fontSize: 10.5, fontWeight: 700, color: "#8a7d72",
-          letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10,
+          background: "#fff",
+          border: `1px solid ${error ? "#ba1a1a" : "#ece7df"}`,
+          borderRadius: 10, padding: 12,
         }}
       >
-        {title}
-      </div>
-      <div style={{ display: "flex", alignItems: "stretch", gap: 10 }}>
-        {/* Calendar tile */}
         <div
           style={{
-            width: 58, borderRadius: 9,
-            background: "#faf6ed", border: "1px solid #e8dfca",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            flex: "0 0 auto", padding: "8px 0",
+            fontSize: 10.5, fontWeight: 700, color: "#8a7d72",
+            letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10,
           }}
         >
-          <div style={{ fontSize: 9.5, fontWeight: 700, color: "#a86a18", letterSpacing: ".04em", textTransform: "uppercase" }}>
-            {monthName}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: theme.palette.primary.main, lineHeight: 1, marginTop: 2 }}>
-            {dayNum}
-          </div>
+          {title}
         </div>
+        <div style={{ display: "flex", alignItems: "stretch", gap: 10 }}>
+          {/* Calendar tile */}
+          <div
+            style={{
+              width: 58, borderRadius: 9,
+              background: "#faf6ed", border: "1px solid #e8dfca",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              flex: "0 0 auto", padding: "8px 0",
+            }}
+          >
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: "#a86a18", letterSpacing: ".04em", textTransform: "uppercase" }}>
+              {monthName}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: theme.palette.primary.main, lineHeight: 1, marginTop: 2 }}>
+              {dayNum}
+            </div>
+          </div>
 
-        {/* Date + Time inputs */}
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, minWidth: 0 }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-            <span style={{ fontSize: 9.5, fontWeight: 600, color: "#a89e92", letterSpacing: ".08em", textTransform: "uppercase", paddingLeft: 2 }}>
-              Date
-            </span>
-            <input type="date" value={dateStr} onChange={(e) => onDateChange(e.target.value)} onClick={(e) => (e.currentTarget as any).showPicker?.()} aria-label={`${title} — date`} style={inputBase} />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-            <span style={{ fontSize: 9.5, fontWeight: 600, color: "#a89e92", letterSpacing: ".08em", textTransform: "uppercase", paddingLeft: 2 }}>
-              Heure
-            </span>
-            <input type="time" value={timeStr} onChange={(e) => onTimeChange(e.target.value)} onClick={(e) => (e.currentTarget as any).showPicker?.()} aria-label={`${title} — heure`} style={inputBase} />
-          </label>
+          {/* Date + Time pickers */}
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, minWidth: 0 }}>
+            <DatePicker
+              open={dateOpen}
+              onClose={() => setDateOpen(false)}
+              value={isValid ? djs : null}
+              onChange={(v: Dayjs | null) => { if (v?.isValid()) onDateChange(v.format("YYYY-MM-DD")); }}
+              format="DD/MM/YYYY"
+              slots={{ textField: PickerDateInput }}
+              slotProps={{ textField: { onClick: () => setDateOpen(true) } as any }}
+            />
+            <TimePicker
+              open={timeOpen}
+              onClose={() => setTimeOpen(false)}
+              value={isValid ? djs : null}
+              onChange={(v: Dayjs | null) => { if (v?.isValid()) onTimeChange(v.format("HH:mm")); }}
+              ampm={false}
+              slots={{ textField: PickerTimeInput }}
+              slotProps={{ textField: { onClick: () => setTimeOpen(true) } as any }}
+            />
+          </div>
         </div>
+        {error && <div style={{ fontSize: 11.5, color: "#ba1a1a", marginTop: 6 }}>{error}</div>}
       </div>
-      {error && <div style={{ fontSize: 11.5, color: "#ba1a1a", marginTop: 6 }}>{error}</div>}
-    </div>
+    </LocalizationProvider>
   );
 }
 
@@ -195,52 +248,51 @@ export function TDateField({
   const theme = useTheme();
   const djs = value ? dayjs(value) : null;
   const isValid = djs?.isValid() ?? false;
-  const dateStr   = isValid ? djs!.format("YYYY-MM-DD") : "";
   const dayNum    = isValid ? djs!.date() : "–";
   const monthName = isValid ? djs!.locale("fr").format("MMM") : "—";
 
+  const [open, setOpen] = useState(false);
+
   return (
-    <>
-      <div
-        style={{
-          background: "#fff",
-          border: `1px solid ${error ? "#ba1a1a" : "#ece7df"}`,
-          borderRadius: 10, padding: 12,
-          display: "flex", alignItems: "center", gap: 10,
-        }}
-      >
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="fr" localeText={frLocale}>
+      <>
         <div
           style={{
-            width: 52, borderRadius: 9,
-            background: "#faf6ed", border: "1px solid #e8dfca",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            flex: "0 0 auto", padding: "6px 0",
+            background: "#fff",
+            border: `1px solid ${error ? "#ba1a1a" : "#ece7df"}`,
+            borderRadius: 10, padding: 12,
+            display: "flex", alignItems: "center", gap: 10,
           }}
         >
-          <div style={{ fontSize: 9.5, fontWeight: 700, color: "#a86a18", letterSpacing: ".04em", textTransform: "uppercase" }}>
-            {monthName}
+          <div
+            style={{
+              width: 52, borderRadius: 9,
+              background: "#faf6ed", border: "1px solid #e8dfca",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              flex: "0 0 auto", padding: "6px 0",
+            }}
+          >
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: "#a86a18", letterSpacing: ".04em", textTransform: "uppercase" }}>
+              {monthName}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: theme.palette.primary.main, lineHeight: 1, marginTop: 2 }}>
+              {dayNum}
+            </div>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: theme.palette.primary.main, lineHeight: 1, marginTop: 2 }}>
-            {dayNum}
-          </div>
-        </div>
-        <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ fontSize: 9.5, fontWeight: 600, color: "#a89e92", letterSpacing: ".08em", textTransform: "uppercase", paddingLeft: 2 }}>
-            Date
-          </span>
-          <input
-            type="date"
-            value={dateStr}
-            aria-label={ariaLabel}
-            onChange={(e) => onChange(e.target.value)}
-            onClick={(e) => (e.currentTarget as any).showPicker?.()}
-            style={{ ...inputBase, background: "transparent", border: "none", padding: "6px 0" }}
+          <DatePicker
+            open={open}
+            onClose={() => setOpen(false)}
+            value={isValid ? djs : null}
+            onChange={(v: Dayjs | null) => { if (v?.isValid()) onChange(v.format("YYYY-MM-DD")); }}
+            format="DD/MM/YYYY"
+            slots={{ textField: PickerDateInputInline }}
+            slotProps={{ textField: { onClick: () => setOpen(true), "aria-label": ariaLabel } as any }}
           />
-        </label>
-      </div>
-      {error && <div style={{ fontSize: 11.5, color: "#ba1a1a", marginTop: 4 }}>{error}</div>}
-    </>
+        </div>
+        {error && <div style={{ fontSize: 11.5, color: "#ba1a1a", marginTop: 4 }}>{error}</div>}
+      </>
+    </LocalizationProvider>
   );
 }
 
