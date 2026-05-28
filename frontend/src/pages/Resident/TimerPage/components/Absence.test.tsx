@@ -118,6 +118,8 @@ describe("Absence — validation", () => {
 
   it("affiche une erreur si la date de début est absente", async () => {
     renderAbsence();
+    // Clear the default date so validation triggers
+    fireEvent.change(screen.getByLabelText(/début de l'absence/i), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: /enregistrer/i }));
     await waitFor(() =>
       expect(screen.getByText(/renseigner la date de début/i)).toBeInTheDocument()

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import absencesApi from "../../../../services/absencesApi";
 import { toast } from "react-toastify";
+import dayjs from "dayjs";
 import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
 import { useTheme } from "@mui/material/styles";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -37,7 +38,7 @@ const Absence = ({
 
   const [absence, setAbsence] = useState({
     year:        "",
-    dateOfStart: "",
+    dateOfStart: dayjs().format("YYYY-MM-DD"),
     dateOfEnd:   "",
     type:        "",
   });
@@ -71,7 +72,7 @@ const Absence = ({
   };
 
   const resetForm = () => {
-    setAbsence((prev) => ({ ...prev, dateOfStart: "", dateOfEnd: "", type: "" }));
+    setAbsence((prev) => ({ ...prev, dateOfStart: dayjs().format("YYYY-MM-DD"), dateOfEnd: "", type: "" }));
     setMultidate(false);
     setErrors(EMPTY_ERRORS);
   };
