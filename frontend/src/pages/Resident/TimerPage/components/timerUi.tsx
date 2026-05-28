@@ -212,6 +212,7 @@ export function TDateTimeField({
           {/* Date + Time pickers */}
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, minWidth: 0 }}>
             <DatePicker
+              disableOpenPicker
               open={dateOpen}
               onClose={() => setDateOpen(false)}
               value={isValid ? djs : null}
@@ -221,6 +222,7 @@ export function TDateTimeField({
               slotProps={{ textField: { onClick: () => setDateOpen(true) } as any }}
             />
             <TimePicker
+              disableOpenPicker
               open={timeOpen}
               onClose={() => setTimeOpen(false)}
               value={isValid ? djs : null}
@@ -281,6 +283,7 @@ export function TDateField({
             </div>
           </div>
           <DatePicker
+            disableOpenPicker
             open={open}
             onClose={() => setOpen(false)}
             value={isValid ? djs : null}

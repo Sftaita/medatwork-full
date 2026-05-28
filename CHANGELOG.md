@@ -31,6 +31,7 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 - **Suite de tests AdminContactPage** : 14 cas ajoutés
 - **Timer / Absence — pickers MUI** : remplacement des `input[type=date/time]` natifs par `DatePicker` + `TimePicker` de `@mui/x-date-pickers` (locale FR, format DD/MM/YYYY, ouverture au clic sur toute la zone) — la valeur formatée est correctement affichée via la prop `value` du slot textField (régression corrigée : `value` top-level, pas via `inputProps`)
 - **Absence — stockage date** : les dates passées à `TDateField` sont maintenant des chaînes YYYY-MM-DD (non plus des objets dayjs) pour éviter un double-wrapping `dayjs(dayjsObj)` qui invalidait la valeur affichée
+- **Timer — crash clic icône calendrier (Sentry)** : ajout de `disableOpenPicker` sur les `DatePicker` / `TimePicker` de `timerUi.tsx` — l'icône SVG interne MUI ne conflicte plus avec l'état `open` contrôlé (régression : `ReferenceError: t is not defined` sur `/maccs/timer`)
 - **Tests Timer/Absence** : mocks des composants MUI remplacés par des inputs simples (`fireEvent.change` compatible) ; ajout de `timerUi.test.tsx` (tests `fmtHM`, `TToggle`, `TSelect`, `TDateTimeField`, `TDateField` — dont régression affichage valeur)
 
 ### Infrastructure
