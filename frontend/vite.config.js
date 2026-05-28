@@ -161,8 +161,7 @@ export default defineConfig({
           { src: "/screenshot-wide.png", sizes: "1280x720", type: "image/png", form_factor: "wide", label: "Tableau de bord temps réel" },
         ],
         shortcuts: [
-          { name: "Temps réel", url: "/realTime", description: "Voir les statistiques en temps réel" },
-          { name: "Validations", url: "/year_detail", description: "Historique de validation des périodes" },
+          { name: "Temps réel", url: "/manager/realtime", description: "Voir les statistiques en temps réel" },
         ],
       },
       workbox: {

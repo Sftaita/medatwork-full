@@ -198,14 +198,6 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
   const residentMatch = q.length > 0 && residentNames.some((n) => n.toLowerCase().includes(q));
   const managerMatch = q.length > 0 && managerNames.some((n) => n.toLowerCase().includes(q));
 
-  const goToRealtime = () => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("realtime_selection") ?? "{}");
-      localStorage.setItem("realtime_selection", JSON.stringify({ ...saved, currentYear: year.id }));
-    } catch { /* localStorage unavailable */ }
-    navigate("/manager/realtime");
-  };
-
   const goToParams = (defaultTab?: string) =>
     navigate("/manager/year-detail", {
       state: { id: year.id, title: year.title, adminRights: true, defaultTab },
@@ -1111,14 +1103,6 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
   const residentCount = year.residents?.length ?? year.residentCount ?? 0;
   const managerCount  = year.managers?.length  ?? year.managerCount  ?? 0;
   const editable      = year.status !== "archived";
-
-  const goToRealtime = () => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("realtime_selection") ?? "{}");
-      localStorage.setItem("realtime_selection", JSON.stringify({ ...saved, currentYear: year.id }));
-    } catch { /* localStorage unavailable */ }
-    navigate("/manager/realtime");
-  };
 
   const goToParams = () =>
     navigate("/manager/year-detail", { state: { id: year.id, title: year.title, adminRights: true } });

@@ -7,7 +7,7 @@
  * - Renders period tab label
  * - Renders location + speciality (combined in one text node)
  * - Shows "Aucune année de formation" alert when list is empty
- * - Clicking a year card navigates to /manager/year-detail via state
+ * - Clicking a year card navigates to /manager/year-detail via React Router state
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -68,8 +68,7 @@ function renderPage() {
       <MemoryRouter initialEntries={["/hospital-admin/dashboard"]}>
         <Routes>
           <Route path="/hospital-admin/dashboard" element={<HospitalAdminDashboardPage />} />
-          {/* La YearCard navigue vers /manager/realtime (clic sur la zone principale) */}
-          <Route path="/manager/realtime" element={<div>Realtime page</div>} />
+          <Route path="/manager/year-detail" element={<div>Year detail page</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -139,11 +138,11 @@ describe("HospitalAdminDashboardPage", () => {
     );
   });
 
-  it("navigates to /manager/realtime on year card click", async () => {
+  it("navigates to /manager/year-detail on year card click", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Stage cardiologie S1"));
-    await waitFor(() => expect(screen.getByText("Realtime page")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Year detail page")).toBeInTheDocument());
   });
 
   it("shows 'Aucune année trouvée' when search has no match", async () => {
