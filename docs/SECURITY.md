@@ -231,6 +231,60 @@ Le polling de notifications toutes les 30s affichait un toast "Oups ! Une erreur
 
 ---
 
+## Droits d'accès aux Années académiques
+
+**Mis à jour :** 2026-05-31 — Modèle refondu
+
+### Mécanisme central : `YearAccessVoter`
+
+Tous les accès aux données d'une année passent par `YearAccessVoter` (6 attributs : `year_admin`, `year_data_access`, `year_data_validation`, `year_data_download`, `year_manage_agenda`, `year_agenda_access`).
+
+### Hiérarchie des accès
+
+| Acteur | Condition d'accès | Niveau |
+|--------|------------------|--------|
+| `HospitalAdmin` | `year.hospital_id === admin.hospital_id` | Accès complet à toutes les années de l'hôpital |
+| Manager avec `adminHospital` | `year.hospital_id === manager.adminHospital.id` | Accès complet |
+| Manager normal | Ligne `ManagerYears` avec droits | Selon les flags de la ligne |
+| `trainingSupervisor` | **Aucun droit applicatif** | Notion légale uniquement |
+
+### Droits granulaires (ManagerYears)
+
+```
+ManagerYears.admin          → créer/modifier/supprimer partenaires, modifier l'année
+ManagerYears.dataAccess     → consulter les données MACCS
+ManagerYears.dataValidation → valider les périodes mensuelles
+ManagerYears.dataDownload   → exporter Excel
+ManagerYears.hasAgendaAccess  → voir l'agenda
+ManagerYears.canManageAgenda  → modifier l'agenda
+```
+
+### Qui peut faire quoi ?
+
+| Action | Manager admin | Manager normal | HospitalAdmin | trainingSupervisor |
+|--------|:---:|:---:|:---:|:---:|
+| Créer une année | ✅ (canCreateYear) | ❌ | ✅ | ❌ |
+| Modifier une année | ✅ (admin=true) | ❌ | ✅ | ❌ |
+| Ajouter un partenaire | ✅ (admin=true) | ❌ | ✅ | ❌ |
+| Consulter données MACCS | ✅ (dataAccess) | ✅ (dataAccess) | ✅ | ❌ |
+| Valider les périodes | ✅ (dataValidation) | ✅ (dataValidation) | ✅ | ❌ |
+| Voir l'agenda | ✅ | ✅ (hasAgendaAccess) | ✅ | ❌ |
+| Modifier l'agenda | ✅ | ✅ (canManageAgenda) | ✅ | ❌ |
+
+### Point critique — trainingSupervisor ≠ droits
+
+```
+trainingSupervisor = maître de stage légal belge
+                   = information métier/administrative
+                   = AUCUN droit applicatif automatique
+
+Pour que le maître de stage ait des droits : il faut aussi une ligne ManagerYears.
+```
+
+Quand `UpdateYear` (`target='trainingSupervisor'`) est appelé, le service accorde automatiquement `admin=true` à la ManagerYears du manager désigné. Ce n'est PAS un effet de `trainingSupervisor` lui-même — c'est une règle métier explicite du service.
+
+---
+
 ## Checklist Sécurité — Avant Chaque Déploiement
 
 ```

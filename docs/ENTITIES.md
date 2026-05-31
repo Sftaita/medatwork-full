@@ -269,15 +269,30 @@ Représente une année académique (stage dans un hôpital).
 |-------|------|-------------|
 | `id` | int | Clé primaire |
 | `title` | string | Titre libre |
-| `period` | string | Ex: "2022-2023" |
+| `period` | string | Ex: "2025-2026" |
 | `dateOfStart` | date | Début du stage |
 | `dateOfEnd` | date | Fin du stage |
-| `location` | string | Lieu du stage |
 | `speciality` | string\|null | Spécialité médicale |
-| `hospital` | FK\|null | `Hospital` (nullable — rétrocompat migration) |
+| `comment` | text\|null | Commentaire libre |
+| `status` | enum | `draft` \| `active` \| `closed` \| `archived` |
+| `token` | string(10) | Code d'accès unique (join MACCS) |
+| `hospital` | FK | `Hospital` — **NOT NULL** depuis 2026-05-31 |
+| `training_supervisor_id` | FK\|null | `Manager` — maître de stage responsable légal |
+| `createdAt` | datetime | Date de création |
+
+**Champs supprimés (ne plus référencer) :**
+
+| Champ | Supprimé le | Remplacé par |
+|-------|-------------|--------------|
+| `location` | 2026-05-31 | `hospital.name` via la relation |
+| `master` | 2026-05-31 | `training_supervisor_id` (vraie FK → Manager) |
+
+> `location` était une copie textuelle du nom d'hôpital, source de désynchronisation.
+> `master` était un entier (ID manager) sans contrainte FK, remplacé par une relation Doctrine typée.
 
 **Relations :**
-- `hospital` (ManyToOne → `Hospital`, nullable)
+- `hospital` (ManyToOne → `Hospital`, **NOT NULL**)
+- `trainingSupervisor` (ManyToOne → `Manager`, nullable, ON DELETE SET NULL)
 - `managers` (OneToMany → `ManagerYears`)
 - `residents` (OneToMany → `YearsResident`)
 - `timesheets` (OneToMany)

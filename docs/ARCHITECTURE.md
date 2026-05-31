@@ -707,7 +707,8 @@ Hospital (liste maître — nom unique, ville, pays, actif)
 Manager ──ManyToMany──► Hospital
     └── status: pending_hospital → active  (bloqué en attente d'approbation)
 
-Years ──ManyToOne──► Hospital (nullable — rétrocompat)
+Years ──ManyToOne──► Hospital (NOT NULL — obligatoire depuis 2026-05-31)
+Years ──ManyToOne──► Manager (trainingSupervisor, nullable)
 ```
 
 **Endpoints :**
@@ -757,7 +758,7 @@ Le hospital-admin peut accorder ou révoquer à chaque manager lié à son hôpi
 
 **Création d'année avec hôpital (`YearPage`) :**
 
-Le champ `location` libre est remplacé par un `<Select>` alimenté par `GET /api/hospitals`. L'identifiant de l'hôpital (`hospitalId`) est envoyé au backend. `CreateYearInputDTO` l'accepte comme entier nullable. `CreateYear` service attache l'hôpital à l'année via `$year->setHospital($hospital)` et utilise `$hospital->getName()` comme location.
+Le formulaire de création envoie `hospitalId` (entier **obligatoire**) au backend. `CreateYearInputDTO` le valide comme entier positif obligatoire (rejette si absent). `YearCreationService` est le service unifié utilisé par les deux flux (Manager et HospitalAdmin). Il attache l'hôpital à l'année et génère les `YearsWeekIntervals`. Le champ `location` a été supprimé — la source de vérité est désormais `hospital.name`.
 
 **Règle de sécurité — restriction des hôpitaux (2026-05-26) :**
 
