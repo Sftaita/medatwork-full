@@ -33,7 +33,7 @@ const MOCK_YEARS = [
     id: 10,
     title: "Stage cardiologie S1",
     period: "2025-2026",
-    location: "Service cardiologie",
+    hospitalName: "Service cardiologie",
     speciality: "Cardiologie",
     dateOfStart: "2025-09-01",
     dateOfEnd: "2026-02-28",
@@ -46,7 +46,7 @@ const MOCK_YEARS = [
     id: 11,
     title: "Stage urgences S2",
     period: "2025-2026",
-    location: "Urgences",
+    hospitalName: "Urgences",
     speciality: null,
     dateOfStart: "2026-03-01",
     dateOfEnd: "2026-08-31",
@@ -68,6 +68,7 @@ function renderPage() {
       <MemoryRouter initialEntries={["/hospital-admin/dashboard"]}>
         <Routes>
           <Route path="/hospital-admin/dashboard" element={<HospitalAdminDashboardPage />} />
+          <Route path="/manager/realtime" element={<div>Realtime page</div>} />
           <Route path="/manager/year-detail" element={<div>Year detail page</div>} />
         </Routes>
       </MemoryRouter>
@@ -138,11 +139,13 @@ describe("HospitalAdminDashboardPage", () => {
     );
   });
 
-  it("navigates to /manager/year-detail on year card click", async () => {
+  it("navigates to /manager/realtime on year card click", async () => {
+    // Le clic sur la zone principale de la carte navigue vers /manager/realtime.
+    // La navigation vers /manager/year-detail est via le bouton "Paramètres".
     renderPage();
     await waitFor(() => expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Stage cardiologie S1"));
-    await waitFor(() => expect(screen.getByText("Year detail page")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Realtime page")).toBeInTheDocument());
   });
 
   it("shows 'Aucune année trouvée' when search has no match", async () => {

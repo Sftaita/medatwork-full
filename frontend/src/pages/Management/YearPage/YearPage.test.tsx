@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import YearPage, { buildValidationSchema } from "./YearPage";
 import type { Hospital } from "./YearPage";
 
@@ -72,8 +73,16 @@ vi.mock("../../../components/medium/DateHandler", () => ({
 const CHU_LIEGE: Hospital = { id: 1, name: "CHU Liège", city: "Liège" };
 const CHR_NAMUR: Hospital = { id: 2, name: "CHR Namur", city: "Namur" };
 
+function makeQc() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
 function renderPage() {
-  return render(<YearPage />);
+  return render(
+    <QueryClientProvider client={makeQc()}>
+      <YearPage />
+    </QueryClientProvider>
+  );
 }
 
 beforeEach(() => {

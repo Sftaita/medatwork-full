@@ -30,7 +30,7 @@ export interface HospitalYear {
   id: number;
   title: string;
   period: string;
-  location: string;
+  hospitalName: string | null;
   speciality: string | null;
   dateOfStart: string;
   dateOfEnd: string;
@@ -128,12 +128,14 @@ export interface Year {
   title: string | null;
   comment: string | null;
   period: string;
-  location: string;
+  hospitalName: string | null;
   speciality: string | null;
   dateOfStart: string;
   dateOfEnd: string;
   createdAt: string;
-  master: number | null;
+  trainingSupervisorId: number | null;
+  trainingSupervisorFirstname: string | null;
+  trainingSupervisorLastname: string | null;
 }
 
 export interface YearResident {

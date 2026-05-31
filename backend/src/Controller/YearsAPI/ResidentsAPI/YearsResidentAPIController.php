@@ -7,7 +7,6 @@ namespace App\Controller\YearsAPI\ResidentsAPI;
 use App\DTO\YearTokenInputDTO;
 use App\Entity\Resident;
 use App\Entity\YearsResident;
-use App\Repository\ManagerRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsResidentRepository;
 use DateTime;
@@ -25,40 +24,30 @@ use Symfony\Component\Routing\Attribute\Route;
 class YearsResidentAPIController extends AbstractController
 {
     #[Route('/api/years/getResidentYears', name: 'getResidentYears', methods: ['GET'])]
-    public function getMyYears(YearsResidentRepository $yearsResidentRepository, Security $security, ManagerRepository $managerRepository): JsonResponse
+    public function getMyYears(YearsResidentRepository $yearsResidentRepository, Security $security): JsonResponse
     {
-
         /** @var Resident $user */
         $user = $security->getUser();
 
-        $info = [];
-
+        $info       = [];
         $yearsLists = $yearsResidentRepository->findYearList($user);
 
         foreach ($yearsLists as $year) {
-
-            $master = $managerRepository->findOneBy(['id' => $year['master']]);
-
-            $transit = [
-                'id' => $year['id'],
-                'title' => $year['title'],
+            // $year['master'] = ts.id from DQL join on training_supervisor — already resolved from relation
+            $info[] = [
+                'id'              => $year['id'],
+                'title'           => $year['title'],
                 'residentAllowed' => $year['allowed'],
-                'dateOfStart' => $year['dateOfStart'],
-                'dateOfEnd' => $year['dateOfEnd'],
-                'location' => $year['location'],
-                'period' => $year['period'],
-                'token' => $year['token'],
+                'dateOfStart'     => $year['dateOfStart'],
+                'dateOfEnd'       => $year['dateOfEnd'],
+                'hospitalName'    => $year['hospitalName'] ?? null,
+                'period'          => $year['period'],
+                'token'           => $year['token'],
+                'supervisorId'    => $year['trainingSupervisorId'],
             ];
-
-            if (! empty($master)) {
-                $transit['firstname'] = $master->getFirstname();
-                $transit['lastname']  = $master->getLastname();
-            }
-
-            $info[] = $transit;
         }
 
-        return($this->json($info, 200));
+        return $this->json($info, 200);
     }
 
     /**
@@ -112,7 +101,7 @@ class YearsResidentAPIController extends AbstractController
     * Find a year by token
     */
     #[Route('/api/residents/findByYearByToken', name: 'findYearByToken', methods: ['POST'])]
-    public function findYear(YearsRepository $yearsRepository, Request $request, ManagerRepository $managerRepository): JsonResponse
+    public function findYear(YearsRepository $yearsRepository, Request $request): JsonResponse
     {
 
         try {
@@ -129,35 +118,20 @@ class YearsResidentAPIController extends AbstractController
             ], 400);
         }
 
-        $master = $managerRepository->findOneBy(['id' => $year->getMaster()]);
+        $supervisor = $year->getTrainingSupervisor();
 
-        if (! empty($master)) {
-            $info = [
-            'id' => $year->getId(),
-            'title' => $year->getTitle(),
+        $info = [
+            'id'          => $year->getId(),
+            'title'       => $year->getTitle(),
             'dateOfStart' => $year->getDateOfStart(),
-            'dateOfEnd' => $year->getDateOfEnd(),
-            'period' => $year->getPeriod(),
-            'location' => $year->getLocation(),
-            'token' => $year->getToken(),
-            'email' => $master->getEmail(),
-            'firstname' => $master->getFirstname(),
-            'lastname' => $master->getLastname(),
-            ];
-        } else {
-            $info = [
-                'id' => $year->getId(),
-                'title' => $year->getTitle(),
-                'dateOfStart' => $year->getDateOfStart(),
-                'dateOfEnd' => $year->getDateOfEnd(),
-                'period' => $year->getPeriod(),
-                'location' => $year->getLocation(),
-                'token' => $year->getToken(),
-                'email' => null,
-                'firstname' => null,
-                'lastname' => null,
-                ];
-        }
+            'dateOfEnd'   => $year->getDateOfEnd(),
+            'period'      => $year->getPeriod(),
+            'hospitalName' => $year->getHospital()?->getName(),
+            'token'       => $year->getToken(),
+            'email'       => $supervisor?->getEmail(),
+            'firstname'   => $supervisor?->getFirstname(),
+            'lastname'    => $supervisor?->getLastname(),
+        ];
 
         return($this->json($info, 200));
 

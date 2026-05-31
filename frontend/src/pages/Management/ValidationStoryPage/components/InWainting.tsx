@@ -25,7 +25,7 @@ import { handleApiError } from "@/services/apiError";
 const columns = [
   { id: "title",  label: "Année",             minWidth: 250, align: "left" },
   { id: "period", label: "Périodes",           minWidth: 150, align: "left" },
-  { id: "master", label: "Maître de stage",    minWidth: 200, align: "left" },
+  { id: "trainingSupervisor", label: "Maître de stage",    minWidth: 200, align: "left" },
   { id: "year",   label: "En attente depuis",  minWidth: 150, align: "left" },
 ];
 
@@ -97,8 +97,8 @@ const InWaiting = () => {
                       <TableCell>{row.title}</TableCell>
                       <TableCell>{monthList[row.month] + " " + row.year}</TableCell>
                       <TableCell>
-                        {row?.masterLastname
-                          ? row.masterLastname + " " + row.masterFirstname
+                        {row?.trainingSupervisorLastname
+                          ? row.trainingSupervisorLastname + " " + row.trainingSupervisorFirstname
                           : "Non défini"}
                       </TableCell>
                       <TableCell>

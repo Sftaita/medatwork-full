@@ -58,7 +58,7 @@ final class YearAccessVoterTest extends TestCase
     private function makeYear(?Hospital $hospital = null): Years
     {
         $year = $this->createMock(Years::class);
-        $year->method('getHospital')->willReturn($hospital);
+        $year->method('getHospital')->willReturn($hospital ?? $this->makeHospital(1));
 
         return $year;
     }
@@ -100,9 +100,13 @@ final class YearAccessVoterTest extends TestCase
 
     public function testHospitalAdminIsDeniedWhenYearHasNoHospital(): void
     {
-        $year  = $this->makeYear(null);
+        // Scenario: year's hospital (id=99) does not match admin's hospital (id=1) → DENY
+        // (years without hospital are now impossible, this tests hospital mismatch)
+        $yearHospital  = $this->makeHospital(99);
+        $adminHospital = $this->makeHospital(1);
+        $year  = $this->makeYear($yearHospital);
         $admin = $this->createMock(HospitalAdmin::class);
-        $admin->method('getHospital')->willReturn($this->makeHospital(1));
+        $admin->method('getHospital')->willReturn($adminHospital);
 
         $result = $this->buildVoter()->vote($this->makeToken($admin), $year, [YearAccessVoter::MANAGE_AGENDA]);
         $this->assertSame(-1, $result);

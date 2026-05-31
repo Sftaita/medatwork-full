@@ -61,8 +61,8 @@ const CARLA: any = {
 
 const MOCK_ROWS = [ALICE, BOB, CARLA];
 const MOCK_YEARS = [
-  { id: 1, title: "Cardiologie 2025", period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", location: "CHU", residentCount: 0, managerCount: 0 },
-  { id: 2, title: "Neurologie 2025",  period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", location: "CHU", residentCount: 0, managerCount: 0 },
+  { id: 1, title: "Cardiologie 2025", period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", hospitalName: "CHU", residentCount: 0, managerCount: 0 },
+  { id: 2, title: "Neurologie 2025",  period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", hospitalName: "CHU", residentCount: 0, managerCount: 0 },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

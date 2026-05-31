@@ -14,7 +14,7 @@
  * - Compteur d'années et de MACCs dans le header
  * - Grande carte (En cours) : titre, période, maître, code, équipe MACCs
  * - StatusPill "En cours" sur la grande carte
- * - "Non défini" si masterLastname absent
+ * - "Non défini" si trainingSupervisorLastname absent
  * - Bouton "Gérer" → navigate /manager/year-detail avec le bon state
  * - Menu "Modifier les infos" → navigate /manager/year-parameters (admin)
  * - Menu "Modifier les infos" absent si admin = false
@@ -124,8 +124,8 @@ const CURRENT_YEAR = {
   period: "2025 – 2026",
   dateOfStart: "2020-01-01",   // passé
   dateOfEnd:   "2040-01-01",   // futur → statut "current"
-  masterLastname: "Delvaux",
-  masterFirstname: "Brigitte",
+  trainingSupervisorLastname: "Delvaux",
+  trainingSupervisorFirstname: "Brigitte",
   token: "ABC123DE",
   admin: true,
   dataDownload: false,
@@ -138,8 +138,8 @@ const ARCHIVED_YEAR = {
   period: "2023 – 2024",
   dateOfStart: "2023-01-01",
   dateOfEnd:   "2024-01-01",   // passé → statut "archived"
-  masterLastname: "Druez",
-  masterFirstname: "Vincent",
+  trainingSupervisorLastname: "Druez",
+  trainingSupervisorFirstname: "Vincent",
   token: "ARCH5678",
   admin: false,
   dataDownload: false,
@@ -152,8 +152,8 @@ const UPCOMING_YEAR = {
   period: "2040 – 2041",
   dateOfStart: "2040-01-01",   // futur → statut "upcoming"
   dateOfEnd:   "2041-01-01",
-  masterLastname: null,
-  masterFirstname: null,
+  trainingSupervisorLastname: null,
+  trainingSupervisorFirstname: null,
   token: "UPC99AA",
   admin: false,
   dataDownload: false,
@@ -203,10 +203,13 @@ beforeEach(() => {
 // ── Chargement ────────────────────────────────────────────────────────────────
 
 describe("ManagerYears — chargement", () => {
-  it("affiche un spinner pendant le chargement", () => {
+  it("n'affiche pas de carte d'année pendant le chargement (squelette visible)", () => {
+    // Le composant affiche des Skeleton cards pendant le chargement — pas de CircularProgress.
     mockYears([], true);
     renderPage();
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    // Aucune section de contenu réel ne doit être visible
+    expect(screen.queryByText("Année en cours")).not.toBeInTheDocument();
+    expect(screen.queryByText("Archives")).not.toBeInTheDocument();
   });
 
   it("n'affiche pas de carte d'année pendant le chargement", () => {
@@ -356,19 +359,19 @@ describe("YearCard — grande carte (En cours)", () => {
     expect(screen.getByText("En cours")).toBeInTheDocument();
   });
 
-  it("affiche 'Non défini' si masterLastname est absent", () => {
-    mockYears([{ ...CURRENT_YEAR, masterLastname: null, masterFirstname: null }]);
+  it("affiche 'Non défini' si trainingSupervisorLastname est absent", () => {
+    mockYears([{ ...CURRENT_YEAR, trainingSupervisorLastname: null, trainingSupervisorFirstname: null }]);
     renderPage();
     expect(screen.getByText("Non défini")).toBeInTheDocument();
   });
 
-  it("bouton 'Gérer' navigue vers /manager/year-detail avec le bon state", () => {
+  it("bouton 'Gérer' navigue vers /manager/realtime", () => {
+    // Le bouton "Gérer" appelle handleManage → navigate("/manager/realtime")
+    // La navigation vers /manager/year-detail est assurée par le bouton "Paramètres" du menu
     mockYears([CURRENT_YEAR]);
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /^Gérer$/i }));
-    expect(mockNavigate).toHaveBeenCalledWith("/manager/year-detail", {
-      state: { id: 1, title: "Orthopédie", adminRights: true },
-    });
+    expect(mockNavigate).toHaveBeenCalledWith("/manager/realtime");
   });
 
   it("menu : 'Modifier les infos' present si admin = true", async () => {
@@ -426,13 +429,11 @@ describe("YearCard — carte compacte (Archives)", () => {
     expect(screen.getByText("ARCH5678")).toBeInTheDocument();
   });
 
-  it("bouton 'Gérer' navigue vers /manager/year-detail", () => {
+  it("bouton 'Gérer' navigue vers /manager/realtime", () => {
     mockYears([ARCHIVED_YEAR]);
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /^Gérer$/i }));
-    expect(mockNavigate).toHaveBeenCalledWith("/manager/year-detail", {
-      state: { id: 2, title: "Chirurgie", adminRights: false },
-    });
+    expect(mockNavigate).toHaveBeenCalledWith("/manager/realtime");
   });
 
   it("affiche les initiales du MACC dans l'avatar", () => {

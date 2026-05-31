@@ -73,13 +73,14 @@ final class YearSummaryBuilderHospitalAdminTest extends TestCase
         );
     }
 
-    private function makeYear(int $id, string $title): Years
+    private function makeYear(int $id, string $title, ?Manager $supervisor = null, ?Hospital $hospital = null): Years
     {
+        $h = $hospital ?? $this->hospital;
         $year = $this->createMock(Years::class);
         $year->method('getId')->willReturn($id);
         $year->method('getTitle')->willReturn($title);
-        $year->method('getLocation')->willReturn('CHU');
-        $year->method('getMaster')->willReturn(null);
+        $year->method('getHospital')->willReturn($h);
+        $year->method('getTrainingSupervisor')->willReturn($supervisor);
         $year->method('getDateOfStart')->willReturn(new \DateTime('2025-01-01'));
         $year->method('getDateOfEnd')->willReturn(new \DateTime('2025-12-31'));
         $year->method('getCreatedAt')->willReturn(new \DateTime('2025-01-01'));
@@ -175,48 +176,43 @@ final class YearSummaryBuilderHospitalAdminTest extends TestCase
         $this->assertSame([], $result['assignements']);
     }
 
-    // ── Master info resolved when master ID exists ────────────────────────────
+    // ── trainingSupervisor noms résolus directement depuis la relation ─────────
 
-    public function testMasterNameIsResolvedWhenMasterIdIsSet(): void
+    public function testTrainingSupervisorNamesAreIncludedWhenSet(): void
     {
-        $year = $this->createMock(Years::class);
-        $year->method('getId')->willReturn(1);
-        $year->method('getTitle')->willReturn('Stage');
-        $year->method('getLocation')->willReturn('CHU');
-        $year->method('getMaster')->willReturn(42);
-        $year->method('getDateOfStart')->willReturn(new \DateTime('2025-01-01'));
-        $year->method('getDateOfEnd')->willReturn(new \DateTime('2025-12-31'));
-        $year->method('getCreatedAt')->willReturn(new \DateTime('2025-01-01'));
+        // buildForHospitalAdmin() utilise getTrainingSupervisor() directement —
+        // plus de getMaster() + lookup DB.
+        $supervisor = $this->createMock(Manager::class);
+        $supervisor->method('getFirstname')->willReturn('Jean');
+        $supervisor->method('getLastname')->willReturn('Dupont');
 
-        $manager = $this->createMock(Manager::class);
-        $manager->method('getFirstname')->willReturn('Jean');
-        $manager->method('getLastname')->willReturn('Dupont');
+        $year = $this->makeYear(1, 'Stage', $supervisor);
 
-        // Build a fresh managerRepo mock so the setUp stub does not shadow this return
-        $managerRepo = $this->createMock(ManagerRepository::class);
-        $managerRepo
-            ->expects($this->once())
-            ->method('findOneBy')
-            ->with(['id' => 42])
-            ->willReturn($manager);
+        $this->yearsRepo->method('findActiveYearsByHospital')->willReturn([$year]);
 
-        $yearsRepo = $this->createMock(YearsRepository::class);
-        $yearsRepo->method('findActiveYearsByHospital')->willReturn([$year]);
+        // ManagerRepository NE DOIT PAS être appelé — la relation est déjà chargée
+        $this->managerRepo->expects($this->never())->method('findOneBy');
 
-        $service = new YearSummaryBuilder(
-            $this->managerYearsRepo,
-            $managerRepo,
-            $this->yearsResidentRepo,
-            $this->weekIntervalsRepo,
-            $this->weekTemplatesRepo,
-            $yearsRepo,
-        );
-
-        $result   = $service->buildForHospitalAdmin($this->admin);
+        $result   = $this->buildService()->buildForHospitalAdmin($this->admin);
         $yearInfo = $result['yearsSummary'][0]['yearInfo'];
 
-        $this->assertSame('Jean', $yearInfo['masterFirstname']);
-        $this->assertSame('Dupont', $yearInfo['masterLastname']);
+        $this->assertSame('Jean',   $yearInfo['trainingSupervisorFirstname'],
+            'masterFirstname doit venir de trainingSupervisor->getFirstname() sans DB lookup');
+        $this->assertSame('Dupont', $yearInfo['trainingSupervisorLastname'],
+            'masterLastname doit venir de trainingSupervisor->getLastname() sans DB lookup');
+    }
+
+    public function testTrainingSupervisorNamesAreNullWhenNotSet(): void
+    {
+        $year = $this->makeYear(2, 'Radiologie sans superviseur', null);
+        $this->yearsRepo->method('findActiveYearsByHospital')->willReturn([$year]);
+
+        $result   = $this->buildService()->buildForHospitalAdmin($this->admin);
+        $yearInfo = $result['yearsSummary'][0]['yearInfo'];
+
+        $this->assertNull($yearInfo['trainingSupervisorFirstname'],
+            'masterFirstname doit être null si trainingSupervisor est absent');
+        $this->assertNull($yearInfo['trainingSupervisorLastname']);
     }
 
     // ── Week intervals are included ───────────────────────────────────────────

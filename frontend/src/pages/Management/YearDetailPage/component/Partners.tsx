@@ -41,9 +41,13 @@ const Partners = ({ id, adminRights }) => {
   const [selectedManager, setSelectedManager] = useState(null);
 
   const fetchManagers = useCallback(async () => {
-    const { method, url } = managersApi.fetchHospitalManagers(id);
-    const request = await axiosPrivate[method](url);
-    setList(request?.data);
+    try {
+      const { method, url } = managersApi.fetchHospitalManagers(id);
+      const request = await axiosPrivate[method](url);
+      setList(request?.data ?? []);
+    } catch {
+      setList([]);
+    }
   }, [axiosPrivate, id]);
 
   const fetchYearManagers = useCallback(async () => {
@@ -79,10 +83,9 @@ const Partners = ({ id, adminRights }) => {
   // Manager selection
   const handleListItemClick = async (_id) => {
     setPending(true);
-    //const originalList = [...list];
     const relation = {
-      year: 1,
-      guest: 22,
+      year: id,
+      guest: _id,
       dataValidation: false,
     };
     try {
@@ -297,7 +300,7 @@ const Partners = ({ id, adminRights }) => {
         </Grid>
       )}
       <SearchDialog
-        list={list}
+        list={list?.filter(m => !managerList.some(linked => linked.id === m.id))}
         setList={setList}
         updateManagerList={updateManagerList}
         open={open}

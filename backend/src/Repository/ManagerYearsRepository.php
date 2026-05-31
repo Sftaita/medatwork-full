@@ -30,8 +30,10 @@ class ManagerYearsRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('m')
             ->andWhere('m.manager = :val')
             ->leftJoin('m.years', 'y')
+            ->leftJoin('y.trainingSupervisor', 'ts')
+            ->leftJoin('y.hospital', 'hosp')
             ->setParameter('val', $manager)
-            ->select('y.id, y.title, y.token, y.createdAt, y.dateOfStart, y.dateOfEnd, y.location, y.master as masterId, m.owner, m.dataAccess, m.dataValidation, m.dataDownload, m.admin')
+            ->select('y.id, y.title, y.token, y.createdAt, y.dateOfStart, y.dateOfEnd, hosp.name as hospitalName, ts.id as trainingSupervisorId, ts.firstname as trainingSupervisorFirstname, ts.lastname as trainingSupervisorLastname, m.dataAccess, m.dataValidation, m.dataDownload, m.admin')
             ->orderBy('y.id', 'DESC')
             ->getQuery()
             ->getResult();
@@ -51,9 +53,11 @@ class ManagerYearsRepository extends ServiceEntityRepository
             ->andWhere('m.manager = :manager')
             ->andWhere('y.dateOfEnd >= :today')
             ->leftJoin('m.years', 'y')
+            ->leftJoin('y.trainingSupervisor', 'ts')
+            ->leftJoin('y.hospital', 'hosp')
             ->setParameter('manager', $manager)
             ->setParameter('today', $today)
-            ->select('y.id, y.title, y.token, y.createdAt, y.dateOfStart, y.dateOfEnd, y.location, y.master as masterId, m.owner, m.dataAccess, m.dataValidation, m.dataDownload, m.admin, m.canManageAgenda, m.hasAgendaAccess')
+            ->select('y.id, y.title, y.token, y.createdAt, y.dateOfStart, y.dateOfEnd, hosp.name as hospitalName, ts.id as trainingSupervisorId, ts.firstname as trainingSupervisorFirstname, ts.lastname as trainingSupervisorLastname, m.dataAccess, m.dataValidation, m.dataDownload, m.admin, m.canManageAgenda, m.hasAgendaAccess')
             ->orderBy('y.id', 'DESC')
             ->getQuery()
             ->getResult();
@@ -70,7 +74,7 @@ class ManagerYearsRepository extends ServiceEntityRepository
             ->andWhere('m.years = :val')
             ->leftJoin('m.manager', 'manager')
             ->setParameter('val', $year)
-            ->select('m.id, m.owner, m.dataAccess, m.dataValidation, m.admin, m.dataDownload, m.canManageAgenda, m.hasAgendaAccess, manager.firstname, manager.lastname, manager.job, manager.id as managerId')
+            ->select('m.id, m.dataAccess, m.dataValidation, m.admin, m.dataDownload, m.canManageAgenda, m.hasAgendaAccess, manager.firstname, manager.lastname, manager.job, manager.id as managerId')
             ->getQuery()
             ->getResult();
         ;

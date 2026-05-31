@@ -385,8 +385,8 @@ function YearCardLarge({ year, onManage, onParams, onEdit, onDelete, onExcel }: 
               {dayjs(year.dateOfStart).format("DD/MM/YYYY")} – {dayjs(year.dateOfEnd).format("DD/MM/YYYY")}
             </MetaLine>
             <MetaLine label={t("years.supervisor")}>
-              {year.masterLastname
-                ? `${year.masterLastname} ${year.masterFirstname ?? ""}`
+              {year.trainingSupervisorLastname
+                ? `${year.trainingSupervisorLastname} ${year.trainingSupervisorFirstname ?? ""}`
                 : t("years.supervisorNotDefined")}
             </MetaLine>
           </Box>
@@ -539,8 +539,8 @@ function YearCardCompact({ year, status, onManage, onParams, onEdit, onDelete }:
           </span>
           <span>
             <Box component="span" sx={{ color: C.ink3 }}>{t("years.supervisor")} </Box>
-            {year.masterLastname
-              ? `${year.masterLastname} ${year.masterFirstname ?? ""}`
+            {year.trainingSupervisorLastname
+              ? `${year.trainingSupervisorLastname} ${year.trainingSupervisorFirstname ?? ""}`
               : t("years.supervisorNotDefined")}
           </span>
         </Box>

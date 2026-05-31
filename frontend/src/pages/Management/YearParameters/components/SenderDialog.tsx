@@ -56,17 +56,17 @@ const SenderDialog = ({
     speciality:  t("yearParams.speciality"),
     location:    t("yearParams.location"),
     title:       t("yearParams.titleFull"),
-    master:      t("yearParams.master"),
+    trainingSupervisor: t("yearParams.master"),
   };
 
   const textTable = {
-    dateOfStart: t("yearParams.dialogDateStart"),
-    dateOfEnd:   t("yearParams.dialogDateEnd"),
-    period:      "",
-    speciality:  t("yearParams.dialogSpeciality"),
-    location:    t("yearParams.dialogLocation"),
-    title:       t("yearParams.dialogTitleYear"),
-    master:      t("yearParams.dialogMaster"),
+    dateOfStart:        t("yearParams.dialogDateStart"),
+    dateOfEnd:          t("yearParams.dialogDateEnd"),
+    period:             "",
+    speciality:         t("yearParams.dialogSpeciality"),
+    location:           t("yearParams.dialogLocation"),
+    title:              t("yearParams.dialogTitleYear"),
+    trainingSupervisor: t("yearParams.dialogMaster"),
   };
 
   const [newValue, setNewValue] = useState({ newValue: "" });
@@ -109,10 +109,10 @@ const SenderDialog = ({
       setNewValue({ newValue: yearInfomrations?.speciality });
     }
 
-    if (target === "master") {
-      setTitle(titleTable.master);
-      setText(textTable.master);
-      setNewValue({ newValue: yearInfomrations?.master });
+    if (target === "trainingSupervisor") {
+      setTitle(titleTable.trainingSupervisor);
+      setText(textTable.trainingSupervisor);
+      setNewValue({ newValue: yearInfomrations?.trainingSupervisorId });
     }
 
     if (target === "period") {
@@ -230,7 +230,7 @@ const SenderDialog = ({
       );
     }
 
-    if (target === "master") {
+    if (target === "trainingSupervisor") {
       return (
         <MasterSender
           error={formik.touched.newValue && Boolean(formik.errors.newValue)}

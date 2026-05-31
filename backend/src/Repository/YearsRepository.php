@@ -30,7 +30,8 @@ class YearsRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('y')
             ->andWhere('y.token = :val')
             ->setParameter('val', $token)
-            ->select('y.id, y.title, y.dateOfStart, y.location, y.dateOfEnd, y.token')
+            ->leftJoin('y.hospital', 'hosp')
+            ->select('y.id, y.title, y.dateOfStart, hosp.name as hospitalName, y.dateOfEnd, y.token')
             ->getQuery()
             ->getOneOrNullResult()
         ;
@@ -45,8 +46,10 @@ class YearsRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('y')
             ->andWhere('y.id = :val')
+            ->leftJoin('y.trainingSupervisor', 'ts')
+            ->leftJoin('y.hospital', 'hosp')
             ->setParameter('val', $id)
-            ->select('y.id, y.title,y.comment,y.period, y.master,y.speciality, y.dateOfStart, y.location, y.dateOfEnd, y.token')
+            ->select('y.id, y.title, y.comment, y.period, y.speciality, y.dateOfStart, hosp.name as hospitalName, y.dateOfEnd, y.token, ts.id as trainingSupervisorId, ts.firstname as trainingSupervisorFirstname, ts.lastname as trainingSupervisorLastname')
             ->getQuery()
             ->getOneOrNullResult()
         ;
@@ -63,7 +66,8 @@ class YearsRepository extends ServiceEntityRepository
             ->andWhere('y.manager = :val')
             ->leftJoin('y.period', 'period')
             ->setParameter('val', $user)
-            ->select('y.id, y.title, y.createdAt, y.dateOfStart, y.dateOfEnd, y.location, period.datesInterval')
+            ->leftJoin('y.hospital', 'hosp')
+            ->select('y.id, y.title, y.createdAt, y.dateOfStart, y.dateOfEnd, hosp.name as hospitalName, period.datesInterval')
             ->getQuery()
             ->getResult();
         ;

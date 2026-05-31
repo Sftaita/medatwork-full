@@ -100,7 +100,7 @@ const YearSelect = ({
       (y) =>
         y.title.toLowerCase().includes(q) ||
         (y.period ?? "").toLowerCase().includes(q) ||
-        (y.location ?? "").toLowerCase().includes(q),
+        (y.hospitalName ?? "").toLowerCase().includes(q),
     );
   }, [sorted, search]);
 
@@ -173,7 +173,7 @@ const YearSelect = ({
                 </Typography>
                 {y.period && (
                   <Typography variant="caption" color="text.secondary" display="block">
-                    {y.period}{y.location ? ` — ${y.location}` : ""}
+                    {y.period}{y.hospitalName ? ` — ${y.hospitalName}` : ""}
                     {isDisabled ? t("yearSelect.alreadyAssigned") : ""}
                   </Typography>
                 )}

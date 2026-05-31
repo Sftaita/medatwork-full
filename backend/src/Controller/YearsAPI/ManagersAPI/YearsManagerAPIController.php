@@ -16,8 +16,9 @@ use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsResidentRepository;
-use App\Services\YearsManagement\CreateYear;
 use App\Services\YearsManagement\UpdateYear;
+use App\Services\YearsManagement\YearCreationInput;
+use App\Services\YearsManagement\YearCreationService;
 use App\Services\YearsManagement\YearSummaryBuilder;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -72,7 +73,7 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/years/getManagersYears', name: 'getManagerYears', methods: ['GET'])]
-    public function getManagerYears(Security $security, ManagerYearsRepository $relation, ManagerRepository $managerRepository, YearsResidentRepository $yearResident): JsonResponse
+    public function getManagerYears(Security $security, ManagerYearsRepository $relation, YearsResidentRepository $yearResident): JsonResponse
     {
         /** @var Manager $manager */
         $manager = $security->getUser();
@@ -80,20 +81,15 @@ class YearsManagerAPIController extends AbstractController
         $results = [];
 
         foreach ($years as $year) {
-            $master          = $managerRepository->findOneBy(['id' => $year['masterId']]);
-            $residents       = $yearResident->findYearResidents($year['id']);
-            $results[] = array_merge($year, [
-                'masterFirstname' => $master?->getFirstname(),
-                'masterLastname'  => $master?->getLastname(),
-                'residents'       => $residents,
-            ]);
+            $residents  = $yearResident->findYearResidents($year['id']);
+            $results[]  = array_merge($year, ['residents' => $residents]);
         }
 
         return $this->json($results, 200);
     }
 
     #[Route('/api/managers/years/create', name: 'createNewYear', methods: ['POST'])]
-    public function createYear(Request $request, Security $security, CreateYear $createYear, HospitalRepository $hospitalRepository): JsonResponse
+    public function createYear(Request $request, Security $security, YearCreationService $yearCreationService, HospitalRepository $hospitalRepository): JsonResponse
     {
         /** @var Manager $manager */
         $manager = $security->getUser();
@@ -109,10 +105,49 @@ class YearsManagerAPIController extends AbstractController
         }
 
         $hospital = $dto->hospitalId !== null ? $hospitalRepository->find($dto->hospitalId) : null;
+        if ($hospital === null) {
+            return new JsonResponse(['message' => 'Hôpital introuvable.'], 400);
+        }
 
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
         try {
-            $createYear->createYear($manager, $dto->title, $dto->speciality, $dto->comment, $dto->location, $dto->dateOfStart, $dto->dateOfEnd, $dto->period, $dto->isMaster, $hospital);
-        } catch (\Exception $e) {
+            $input = new YearCreationInput(
+                title:       $dto->title,
+                speciality:  $dto->speciality,
+                period:      $dto->period,
+                dateOfStart: $dto->dateOfStart,
+                dateOfEnd:   $dto->dateOfEnd,
+                hospital:    $hospital,
+                comment:     $dto->comment ?: null,
+            );
+
+            $year = $yearCreationService->create($input);
+
+            if ($dto->isMaster) {
+                $year->setTrainingSupervisor($manager);
+            }
+
+            $relation = (new ManagerYears())
+                ->setManager($manager)
+                ->setYears($year)
+                ->setAdmin(true)
+                ->setDataAccess(true)
+                ->setDataValidation(true)
+                ->setDataDownload(true)
+                ->setCanManageAgenda(true)
+                ->setHasAgendaAccess(true);
+
+            $this->entityManager->persist($relation);
+            $this->entityManager->flush();
+
+            if ($relation->getId() === null) {
+                throw new \RuntimeException('La relation manager-année n\'a pas pu être créée.');
+            }
+
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
             return new JsonResponse(['message' => 'Une erreur est survenue lors de la création.'], 500);
         }
 
@@ -180,7 +215,6 @@ class YearsManagerAPIController extends AbstractController
 
         $managerYears = (new ManagerYears())
             ->setManager($guest)
-            ->setOwner(false)
             ->setYears($year)
             ->setAdmin($dto->admin)
             ->setDataAccess($dto->dataAccess)
@@ -215,7 +249,7 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/years/{yearId}/hospital-managers', name: 'getHospitalManagersForYear', methods: ['GET'])]
-    public function getHospitalManagersForYear(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository): JsonResponse
+    public function getHospitalManagersForYear(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository): JsonResponse
     {
         /** @var Manager $manager */
         $manager = $security->getUser();
@@ -236,7 +270,7 @@ class YearsManagerAPIController extends AbstractController
         }
 
         $managers = [];
-        foreach ($hospital->getManagers() as $m) {
+        foreach ($managerRepository->findAllForHospital($hospital) as $m) {
             $managers[] = [
                 'id'        => $m->getId(),
                 'firstname' => $m->getFirstname(),
@@ -251,7 +285,7 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/getYearById/{yearId}', name: 'getYearById', methods: ['GET'])]
-    public function findYearById(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository): JsonResponse
+    public function findYearById(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository): JsonResponse
     {
         /** @var Manager $manager */
         $manager  = $security->getUser();
@@ -268,15 +302,6 @@ class YearsManagerAPIController extends AbstractController
         $year = $yearsRepository->findOneById($yearId);
 
         $managers = $managerYearsRepository->fetchYearManagers($yearId);
-
-        if ($year['master']) {
-            $master                   = $managerRepository->findOneBy(['id' => $year['master']]);
-            $year['masterFirstname']  = $master?->getFirstname();
-            $year['masterLastname']   = $master?->getLastname();
-        } else {
-            $year['masterFirstname'] = null;
-            $year['masterLastname']  = null;
-        }
 
         $year['managers'] = $managers;
 

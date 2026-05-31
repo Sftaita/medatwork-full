@@ -19,9 +19,6 @@ class ManagerYears
     private ?Manager $manager = null;
 
     #[ORM\Column(type: 'boolean')]
-    private bool $owner;
-
-    #[ORM\Column(type: 'boolean')]
     private bool $dataAccess;
 
     #[ORM\Column(type: 'boolean')]
@@ -60,18 +57,6 @@ class ManagerYears
     public function setManager(?Manager $manager): self
     {
         $this->manager = $manager;
-
-        return $this;
-    }
-
-    public function getOwner(): ?bool
-    {
-        return $this->owner;
-    }
-
-    public function setOwner(bool $owner): self
-    {
-        $this->owner = $owner;
 
         return $this;
     }

@@ -99,7 +99,6 @@ class HospitalAdminPendingConsistencyTest extends WebTestCase
         // Current year — dateOfEnd in the future
         $currentYear = new Years();
         $currentYear->setTitle('Cons Current Year');
-        $currentYear->setLocation('Test');
         $currentYear->setPeriod('2025-2026');
         $currentYear->setDateOfStart(new \DateTime('-30 days'));
         $currentYear->setDateOfEnd(new \DateTime('+300 days'));
@@ -112,7 +111,6 @@ class HospitalAdminPendingConsistencyTest extends WebTestCase
         // Historical year — dateOfEnd in the past
         $historicalYear = new Years();
         $historicalYear->setTitle('Cons Historical Year');
-        $historicalYear->setLocation('Test');
         $historicalYear->setPeriod('2023-2024');
         $historicalYear->setDateOfStart(new \DateTime('-400 days'));
         $historicalYear->setDateOfEnd(new \DateTime('-35 days'));
@@ -200,7 +198,6 @@ class HospitalAdminPendingConsistencyTest extends WebTestCase
         $my = new ManagerYears();
         $my->setManager($manager);
         $my->setYears($year);
-        $my->setOwner(false);
         $my->setAdmin(false);
         $my->setDataAccess(true);
         $my->setDataValidation(false);
@@ -426,7 +423,6 @@ class HospitalAdminPendingConsistencyTest extends WebTestCase
         $my = new ManagerYears();
         $my->setManager($existingMgr);
         $my->setYears($currentYear);
-        $my->setOwner(false);
         $my->setAdmin(false);
         $my->setDataAccess(true);
         $my->setDataValidation(false);

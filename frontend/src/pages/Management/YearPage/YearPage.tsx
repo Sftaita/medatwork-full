@@ -4,10 +4,12 @@ import { useNavigate, useLocation } from "react-router";
 import * as yup from "yup";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 import { specialityLinks } from "../../../doc/lists";
 import yearsApi from "../../../services/yearsApi";
 import useAxiosPrivate from "../../../hooks/useAxiosPrivate";
 import useAuth from "../../../hooks/useAuth";
+import { MANAGER_YEARS_KEY } from "../../../hooks/data/useManagerYears";
 import { toast } from "react-toastify";
 import { toastSuccess } from "../../../doc/ToastParams";
 import dayjs from "dayjs";
@@ -488,6 +490,7 @@ const YearPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const axiosPrivate = useAxiosPrivate();
+  const queryClient = useQueryClient();
   const { authentication } = useAuth();
   const { state } = useLocation();
   const [loading, setLoading] = useState(false);
@@ -573,6 +576,7 @@ const YearPage = () => {
       const { method, url } = yearsApi.create();
       await axiosPrivate[method](url, data);
       toast.success(t("yearCreate.toast"), toastSuccess);
+      queryClient.invalidateQueries({ queryKey: MANAGER_YEARS_KEY });
       navigate("/manager/years");
     } catch (error) {
       handleApiError(error);

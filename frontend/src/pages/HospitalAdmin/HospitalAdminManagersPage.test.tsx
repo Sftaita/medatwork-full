@@ -85,9 +85,9 @@ const CARLA_YEAR1 = {
 const MOCK_ROWS = [ALICE_YEAR1, ALICE_YEAR2, BOB_YEAR1, CARLA_YEAR1];
 
 const MOCK_YEARS = [
-  { id: 1, title: "Cardiologie 2025", period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", location: "CHU", residentCount: 0, managerCount: 0 },
-  { id: 2, title: "Neurologie 2025",  period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", location: "CHU", residentCount: 0, managerCount: 0 },
-  { id: 3, title: "Pédiatrie 2025",   period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", location: "CHU", residentCount: 0, managerCount: 0 },
+  { id: 1, title: "Cardiologie 2025", period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", hospitalName: "CHU", residentCount: 0, managerCount: 0 },
+  { id: 2, title: "Neurologie 2025",  period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", hospitalName: "CHU", residentCount: 0, managerCount: 0 },
+  { id: 3, title: "Pédiatrie 2025",   period: "2025-2026", status: "active", dateOfStart: "2025-01-01", dateOfEnd: "2026-01-01", hospitalName: "CHU", residentCount: 0, managerCount: 0 },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

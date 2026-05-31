@@ -86,15 +86,15 @@ const GeneralInformation = ({ yearInfomrations, fetchYearInformation }) => {
             </IconButton>
           }
         >
-          <ListItemButton onClick={() => onClick("master")}>
+          <ListItemButton onClick={() => onClick("trainingSupervisor")}>
             <ListItemText
               primary={t("yearParams.master")}
               secondary={
-                yearInfomrations?.master !== null
+                yearInfomrations?.trainingSupervisorId != null
                   ? t("yearParams.dr") +
-                    yearInfomrations?.masterLastname +
+                    yearInfomrations?.trainingSupervisorLastname +
                     " " +
-                    yearInfomrations?.masterFirstname
+                    yearInfomrations?.trainingSupervisorFirstname
                   : t("yearParams.masterNotSet")
               }
             />

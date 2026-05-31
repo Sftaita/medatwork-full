@@ -171,7 +171,7 @@ const DetailDrawer = ({ year, onClose, onAssign }: {
               </Typography>
               <Box display="flex" alignItems="center" gap={0.75}>
                 <LocationOnIcon sx={{ fontSize: 15, color: C.ink3 }} />
-                <Typography fontSize={13}>{year.location || "—"}</Typography>
+                <Typography fontSize={13}>{year.hospitalName || "—"}</Typography>
               </Box>
             </Box>
 
@@ -303,7 +303,7 @@ const AdminYearsPage = () => {
       return (
         y.title.toLowerCase().includes(q) ||
         y.period.toLowerCase().includes(q) ||
-        (y.location ?? "").toLowerCase().includes(q) ||
+        (y.hospitalName ?? "").toLowerCase().includes(q) ||
         (y.speciality ?? "").toLowerCase().includes(q) ||
         translateSpeciality(y.speciality).toLowerCase().includes(q) ||
         (y.hospital?.name ?? "").toLowerCase().includes(q)

@@ -93,7 +93,6 @@ class HospitalAdminOrphanTest extends WebTestCase
         // Year
         $year = new Years();
         $year->setTitle('Orphan Year 2025');
-        $year->setLocation('Test Location');
         $year->setPeriod('2025');
         $year->setDateOfStart(new \DateTime('2025-01-01'));
         $year->setDateOfEnd(new \DateTime('2025-12-31'));
@@ -109,7 +108,6 @@ class HospitalAdminOrphanTest extends WebTestCase
         $myAdmin = new ManagerYears();
         $myAdmin->setManager($adminManager);
         $myAdmin->setYears($year);
-        $myAdmin->setOwner(true);
         $myAdmin->setAdmin(true);
         $myAdmin->setDataAccess(true);
         $myAdmin->setDataValidation(true);
@@ -126,8 +124,8 @@ class HospitalAdminOrphanTest extends WebTestCase
         $conn->executeStatement('PRAGMA foreign_keys = OFF');
         $conn->executeStatement(
             'INSERT INTO manager_years
-                 (manager_id, years_id, owner, admin, data_access, data_validation, data_download)
-             VALUES (99999, ?, 0, 0, 1, 0, 1)',
+                 (manager_id, years_id, admin, data_access, data_validation, data_download)
+             VALUES (99999, ?, 0, 1, 0, 1)',
             [$yearId],
         );
         $conn->executeStatement('PRAGMA foreign_keys = ON');

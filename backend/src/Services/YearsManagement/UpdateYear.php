@@ -6,6 +6,7 @@ namespace App\Services\YearsManagement;
 
 use App\Entity\Manager;
 use App\Entity\Years;
+use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsWeekIntervalsRepository;
@@ -22,6 +23,7 @@ class UpdateYear
         private readonly YearsRepository $yearsRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ManagerYearsRepository $managerYearsRepository,
+        private readonly ManagerRepository $managerRepository,
         private readonly WeekIntervals $weekIntervals,
         private readonly YearsWeekIntervalsRepository $yearsWeekIntervalsRepository,
         private readonly AuthorizationCheckerInterface $authorizationChecker,
@@ -73,22 +75,20 @@ class UpdateYear
             $year->setSpeciality($data['newValue']);
         }
 
-        if ($target === 'location') {
-            $year->setLocation($data['newValue']);
-        }
+        if ($target === 'trainingSupervisor') {
+            $supervisor = $this->managerRepository->findOneBy(['id' => $data['newValue']]);
+            $year->setTrainingSupervisor($supervisor);
 
-        if ($target === 'master') {
-            $year->setMaster($data['newValue']);
-
-            $relation = $this->managerYearsRepository->findOneBy(['years' => $yearId, 'manager' => $data['newValue']]);
-
-            if ($relation) {
-                $relation->setAdmin(true)
-                        ->setDataAccess(true)
-                        ->setDataDownload(true)
-                        ->setDataValidation(true);
-                $this->entityManager->persist($relation);
-                $this->entityManager->flush();
+            if ($supervisor !== null) {
+                $relation = $this->managerYearsRepository->findOneBy(['years' => $yearId, 'manager' => $supervisor]);
+                if ($relation) {
+                    $relation->setAdmin(true)
+                             ->setDataAccess(true)
+                             ->setDataDownload(true)
+                             ->setDataValidation(true);
+                    $this->entityManager->persist($relation);
+                    $this->entityManager->flush();
+                }
             }
         }
 

@@ -6,7 +6,6 @@ namespace App\Controller\ResidentsAPI\ManagersAPI;
 
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
-use App\Repository\YearsResidentRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,78 +15,51 @@ use Symfony\Component\Routing\Attribute\Route;
 class GetYearResidentController extends AbstractController
 {
     #[Route('/api/managers/GetYearResidents/{yearId}', name: 'getYearResidents', methods: ['GET'])]
-    public function GetList(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository, YearsResidentRepository $yearsResidentRepository): JsonResponse
+    public function getList(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository): JsonResponse
     {
         $year = $yearsRepository->findOneBy(['id' => $yearId]);
         if ($year === null) {
             throw new NotFoundHttpException('Année introuvable.');
         }
 
-        $manager = $security->getUser();
-
+        $manager  = $security->getUser();
         $relation = $managerYearsRepository->findOneBy(['manager' => $manager, 'years' => $year]);
 
-        if (empty($relation)) {
-            return new JsonResponse([
-                'message' => "Vous n'avez pas les accès pour cette année",
-            ], 400);
+        if ($relation === null) {
+            return new JsonResponse(['message' => "Vous n'avez pas accès à cette année."], 403);
         }
 
-        if ($relation->getDataAccess() === true || $relation->getAdmin() === true) {
+        if (!$relation->getDataAccess() && !$relation->getAdmin()) {
+            return new JsonResponse(['message' => "Vous n'avez pas les droits de consultation pour cette année."], 403);
+        }
 
-
-            $yearResidents = $year->getResidents()->getValues();
-            $data = [];
-
-            foreach ($yearResidents as $yearResident) {
-                $yearResidentId = $yearResident->getId();
-                $allowed = $yearResident->getAllowed();
-                $yr = $yearResident->getResident();
-                if ($yr === null) {
-                    continue;
-                }
-                $residentId = $yr->getId();
-                $firstname = $yr->getFirstname();
-                $lastname = $yr->getLastname();
-                $email = $yr->getEmail();
-                $optingOut = $yearResident->getOptingOut();
-                $legalLeaves = $yearResident->getLegalLeaves();
-                $scientificLeaves = $yearResident->getScientificLeaves();
-                $paternityLeaves = $yearResident->getPaternityLeave();
-                $maternityLeaves = $yearResident->getMaternityLeave();
-                $unpaidLeaves = $yearResident->getUnpaidLeave();
-
-                $dateOfStart = $yearResident->getDateOfStart();
-
-                if (! $dateOfStart) {
-                    $dateOfStart = $year->getDateOfStart();
-                }
-
-                $data[] = [
-                    'yearResidentId' => $yearResidentId,
-                    'allowed' => $allowed,
-                    'residentId' => $residentId,
-                    'firstname' => $firstname,
-                    'lastname' => $lastname,
-                    'email' => $email,
-                    'dateOfStart' => $dateOfStart,
-                    'optingOut' => $optingOut,
-                    'legalLeaves' => $legalLeaves,
-                    'paternityLeaves' => $paternityLeaves,
-                    'maternityLeaves' => $maternityLeaves,
-                    'unpaidLeave' => $unpaidLeaves,
-                    'scientificLeaves' => $scientificLeaves,
-                    'modificationOfThisData' => false,
-                ];
+        $data = [];
+        foreach ($year->getResidents()->getValues() as $yearResident) {
+            $resident = $yearResident->getResident();
+            if ($resident === null) {
+                continue;
             }
 
-            return($this->json(['residents' => $data], 200));
+            $dateOfStart = $yearResident->getDateOfStart() ?? $year->getDateOfStart();
 
-        } else {
-            return new JsonResponse([
-                'message' => "Vous n'avez pas les accès pour cette année",
-            ], 400);
+            $data[] = [
+                'yearResidentId'      => $yearResident->getId(),
+                'allowed'             => $yearResident->getAllowed(),
+                'residentId'          => $resident->getId(),
+                'firstname'           => $resident->getFirstname(),
+                'lastname'            => $resident->getLastname(),
+                'email'               => $resident->getEmail(),
+                'dateOfStart'         => $dateOfStart,
+                'optingOut'           => $yearResident->getOptingOut(),
+                'legalLeaves'         => $yearResident->getLegalLeaves(),
+                'paternityLeaves'     => $yearResident->getPaternityLeave(),
+                'maternityLeaves'     => $yearResident->getMaternityLeave(),
+                'unpaidLeave'         => $yearResident->getUnpaidLeave(),
+                'scientificLeaves'    => $yearResident->getScientificLeaves(),
+                'modificationOfThisData' => false,
+            ];
         }
 
+        return $this->json(['residents' => $data]);
     }
-};
+}

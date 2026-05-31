@@ -118,7 +118,7 @@ final class GetRealTimeStatisticsAsManagerTest extends TestCase
         $year = $this->createMock(Years::class);
         $year->method('getId')->willReturn(42);
         $year->method('getTitle')->willReturn('Pédiatrie 2025');
-        $year->method('getLocation')->willReturn('CHU');
+        $hospMock = $this->createMock(Hospital::class); $year->method('getHospital')->willReturn($hospMock);
 
         $managerYear = $this->createMock(ManagerYears::class);
         $managerYear->method('getYears')->willReturn($year);
@@ -167,7 +167,7 @@ final class GetRealTimeStatisticsAsManagerTest extends TestCase
         $year = $this->createMock(Years::class);
         $year->method('getId')->willReturn(7);
         $year->method('getTitle')->willReturn('Anesthésie S2');
-        $year->method('getLocation')->willReturn('CLSJ');
+        $hospMock = $this->createMock(Hospital::class); $year->method('getHospital')->willReturn($hospMock);
 
         $this->yearsRepo
             ->expects($this->once())
@@ -201,7 +201,7 @@ final class GetRealTimeStatisticsAsManagerTest extends TestCase
         $newYear = $this->createMock(Years::class);
         $newYear->method('getId')->willReturn(99);
         $newYear->method('getTitle')->willReturn('Anesthésie S2 — créée ce matin');
-        $newYear->method('getLocation')->willReturn('CLSJ');
+        $hospMock = $this->createMock(Hospital::class); $newYear->method('getHospital')->willReturn($hospMock);
 
         $this->yearsRepo
             ->method('findByHospitalOrderedByDate')

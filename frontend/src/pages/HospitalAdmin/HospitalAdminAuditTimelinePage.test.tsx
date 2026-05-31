@@ -41,7 +41,7 @@ vi.mock("../../components/YearSelect", () => ({
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const YEAR: HospitalYear = {
-  id: 1, title: "Urgences 2024-25", period: "2024-2025", location: "CHU",
+  id: 1, title: "Urgences 2024-25", period: "2024-2025", hospitalName: "CHU",
   speciality: null, comment: null, status: "active",
   dateOfStart: "2024-11-01", dateOfEnd: "2025-01-31",
   residentCount: 2, managerCount: 1,

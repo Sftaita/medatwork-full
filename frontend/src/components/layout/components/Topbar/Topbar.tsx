@@ -74,7 +74,7 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
   });
 
   // ── Menu déroulant ────────────────────────────────────────────────────────
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const ROLE_LABELS: Record<string, string> = {
     manager:        t("topbar.roleManager"),
@@ -169,8 +169,8 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
             sx={{ display: "flex", alignItems: "center", gap: 1, cursor: "pointer" }}
           >
             <Box component="img" sx={{ height: 28 }} alt="Logo Medatwork" src={Logo} />
-            <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">
-              MED<span style={{ opacity: 0.55, margin: "0 1px" }}>@</span>WORK
+            <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="text.primary">
+              MED<Box component="span" sx={{ color: "primary.main" }}>@</Box>WORK
             </Typography>
           </Box>
         )}
@@ -414,50 +414,138 @@ const Topbar = ({ onSidebarOpen }: TopbarProps) => {
         )}
       </Box>
 
-      {/* Mobile nav drawer — visiteurs non connectés */}
+      {/* Mobile nav drawer — Variant A · Hiérarchie éditoriale */}
       <Drawer
-        anchor="left"
+        anchor="right"
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        slotProps={{ paper: { sx: { width: "100vw", p: 2 } } }}
+        sx={{ "& .MuiPaper-root": { width: "86vw", maxWidth: "none" } }}
       >
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-          <Typography fontWeight={800} fontSize={14} letterSpacing=".06em" color="primary.main">
-            MED<span style={{ opacity: 0.55, margin: "0 1px" }}>@</span>WORK
-          </Typography>
-          <IconButton size="small" onClick={() => setMobileNavOpen(false)} aria-label="Fermer">
-            <CloseIcon fontSize="small" />
-          </IconButton>
+        <Box display="flex" flexDirection="column" height="100%" sx={{ bgcolor: "background.paper" }}>
+        {/* Header */}
+        <Box sx={{
+          pt: "60px", px: "22px", pb: "22px", flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          borderBottom: "1px solid", borderColor: "divider",
+        }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "9px" }}>
+            <Box component="img" src={Logo} alt="Logo Medatwork" sx={{ height: 28 }} />
+            <Typography sx={{ fontWeight: 800, fontSize: 14, letterSpacing: ".04em", color: "text.primary" }}>
+              MED<Box component="span" sx={{ color: "primary.main" }}>@</Box>WORK
+            </Typography>
+          </Box>
+          <Box
+            component="button"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Fermer le menu"
+            sx={{
+              width: 34, height: 34, borderRadius: "10px",
+              border: "1px solid", borderColor: "divider",
+              bgcolor: "transparent", color: "text.primary",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </Box>
         </Box>
-        <Divider sx={{ mb: 1 }} />
-        <List disablePadding>
+
+        {/* Navigation */}
+        <Box sx={{ flex: 1, px: "22px", pt: "4px", overflowY: "auto" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, pt: "14px", pb: "12px" }}>
+            <Typography sx={{
+              fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+              fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: "text.disabled",
+            }}>
+              Explorer
+            </Typography>
+            <Box sx={{ flex: 1, height: "1px", bgcolor: "divider" }} />
+          </Box>
+
           {[
             { label: t("landing.nav.audiences"), href: "#audiences" },
             { label: t("landing.nav.features"),  href: "#planning"  },
             { label: t("landing.nav.workflow"),   href: "#workflow"  },
             { label: t("landing.nav.security"),   href: "#tech"      },
-          ].map((link) => (
-            <ListItem key={link.href} disablePadding>
-              <Button
-                component="a"
-                href={isHome ? link.href : `/${link.href}`}
-                fullWidth
-                onClick={() => setMobileNavOpen(false)}
-                sx={{ justifyContent: "flex-start", textTransform: "none", color: "text.primary", fontWeight: 500, py: 1.2, px: 1 }}
-              >
+          ].map((link, i) => (
+            <Box
+              key={link.href}
+              component="a"
+              href={isHome ? link.href : `/${link.href}`}
+              onClick={() => setMobileNavOpen(false)}
+              sx={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                py: "15px", px: "4px", textDecoration: "none",
+                borderBottom: "1px solid", borderColor: "divider", cursor: "pointer",
+              }}
+            >
+              <Typography sx={{ fontSize: 16, fontWeight: 600, letterSpacing: "-.01em", color: "text.primary" }}>
                 {link.label}
-              </Button>
-            </ListItem>
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Typography sx={{
+                  fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  fontSize: 11, color: "text.disabled",
+                }}>
+                  {String(i + 1).padStart(2, "0")}
+                </Typography>
+                <Typography sx={{ color: "primary.main", fontSize: 16, lineHeight: 1 }}>→</Typography>
+              </Box>
+            </Box>
           ))}
-        </List>
-        <Divider sx={{ my: 1.5 }} />
-        <Box display="flex" flexDirection="column" gap={1}>
-          <Button variant="contained" color="primary" fullWidth onClick={() => { setMobileNavOpen(false); navigate("/login"); }}>
-            {t("nav.signIn")}
+
+          {/* Language pills */}
+          <Box sx={{ display: "flex", gap: "6px", mt: "22px", mb: "16px" }}>
+            {(["fr", "nl", "en"] as const).map(l => (
+              <Box
+                key={l}
+                component="button"
+                onClick={() => i18n.changeLanguage(l)}
+                sx={{
+                  fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  fontSize: 11, px: "10px", py: "6px", borderRadius: "999px",
+                  border: "1px solid",
+                  borderColor: i18n.language.startsWith(l) ? "text.primary" : "divider",
+                  bgcolor: i18n.language.startsWith(l) ? "text.primary" : "transparent",
+                  color: i18n.language.startsWith(l) ? "background.paper" : "text.disabled",
+                  cursor: "pointer", letterSpacing: ".1em", textTransform: "uppercase",
+                  transition: "all .12s",
+                }}
+              >
+                {l.toUpperCase()}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        {/* CTA Stack */}
+        <Box sx={{
+          px: "22px", pb: "26px", pt: "18px", flexShrink: 0,
+          borderTop: "1px solid", borderColor: "divider",
+          display: "flex", flexDirection: "column", gap: "10px",
+        }}>
+          <Button
+            variant="contained" color="primary" fullWidth
+            onClick={() => { setMobileNavOpen(false); navigate("/login"); }}
+            sx={{ py: "14px", borderRadius: "12px", fontWeight: 700, fontSize: 15 }}
+          >
+            {t("nav.signIn")} →
           </Button>
-          <Button variant="outlined" fullWidth onClick={() => { setMobileNavOpen(false); navigate("/connecting"); }}>
+          <Button
+            variant="outlined" fullWidth
+            onClick={() => { setMobileNavOpen(false); navigate("/connecting"); }}
+            sx={{ py: "14px", borderRadius: "12px", fontWeight: 600, fontSize: 14 }}
+          >
             {t("nav.register")}
           </Button>
+          <Typography sx={{
+            fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+            fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase",
+            color: "text.disabled", textAlign: "center", pt: "6px",
+          }}>
+            support@medwork.be
+          </Typography>
+        </Box>
         </Box>
       </Drawer>
 

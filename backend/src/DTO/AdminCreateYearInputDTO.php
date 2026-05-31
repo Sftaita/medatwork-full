@@ -9,8 +9,9 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Input DTO for POST /api/admin/hospitals/{id}/years.
  *
- * Required: title, dateOfStart, dateOfEnd, location.
+ * Required: title, dateOfStart, dateOfEnd.
  * Optional: period (derived from dates when absent), comment, speciality.
+ * Location is no longer accepted — it is derived from hospital.name server-side.
  */
 final class AdminCreateYearInputDTO
 {
@@ -18,7 +19,6 @@ final class AdminCreateYearInputDTO
         public readonly string  $title,
         public readonly string  $dateOfStart,
         public readonly string  $dateOfEnd,
-        public readonly string  $location,
         public readonly string  $period,
         public readonly ?string $comment,
         public readonly ?string $speciality,
@@ -34,7 +34,7 @@ final class AdminCreateYearInputDTO
             throw new \InvalidArgumentException('Invalid JSON body');
         }
 
-        foreach (['title', 'dateOfStart', 'dateOfEnd', 'location'] as $field) {
+        foreach (['title', 'dateOfStart', 'dateOfEnd'] as $field) {
             if (empty($data[$field]) || ! is_string($data[$field])) {
                 throw new \InvalidArgumentException("Missing or invalid required field: $field");
             }
@@ -55,24 +55,22 @@ final class AdminCreateYearInputDTO
             throw new \InvalidArgumentException('dateOfEnd must be after dateOfStart');
         }
 
-        // Derive period from years (e.g. "2025-2026") when not explicitly provided
         $period = isset($data['period']) && is_string($data['period']) && $data['period'] !== ''
             ? $data['period']
             : $dateStart->format('Y') . '-' . $dateEnd->format('Y');
 
-        $comment   = isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : null;
+        $comment    = isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : null;
         $speciality = isset($data['speciality']) && is_string($data['speciality']) && $data['speciality'] !== ''
             ? $data['speciality']
             : null;
 
         return new self(
-            title: trim($data['title']),
+            title:       trim($data['title']),
             dateOfStart: $data['dateOfStart'],
-            dateOfEnd: $data['dateOfEnd'],
-            location: trim($data['location']),
-            period: $period,
-            comment: $comment,
-            speciality: $speciality,
+            dateOfEnd:   $data['dateOfEnd'],
+            period:      $period,
+            comment:     $comment,
+            speciality:  $speciality,
         );
     }
 }

@@ -100,9 +100,9 @@ const Validated = () => {
   const decomposeValidationPeriods = (list) =>
     list
       .flatMap((item) => {
-        const { masterFirstname, masterLastname, masterId, speciality, yearId, yearTitle } = item;
+        const { trainingSupervisorFirstname, trainingSupervisorLastname, trainingSupervisorId, speciality, yearId, yearTitle } = item;
         return item.validationPeriods.map((period) => ({
-          masterFirstname, masterLastname, masterId, speciality, yearId, yearTitle,
+          trainingSupervisorFirstname, trainingSupervisorLastname, trainingSupervisorId, speciality, yearId, yearTitle,
           ...period,
         }));
       })
@@ -133,8 +133,8 @@ const Validated = () => {
       if (query !== "") {
         const q = query.toLowerCase();
         matchesQuery =
-          item.masterFirstname.toLowerCase().includes(q) ||
-          item.masterLastname.toLowerCase().includes(q)  ||
+          item.trainingSupervisorFirstname?.toLowerCase().includes(q) ||
+          item.trainingSupervisorLastname?.toLowerCase().includes(q)  ||
           item.residentFirstname.toLowerCase().includes(q) ||
           item.residentLastname.toLowerCase().includes(q)  ||
           item.year.toString().includes(query);
@@ -199,8 +199,8 @@ const Validated = () => {
                       </TableCell>
                       <TableCell>{monthList[row.month] + " " + row?.year}</TableCell>
                       <TableCell variant="body">
-                        {row?.masterLastname
-                          ? row?.masterLastname + " " + row?.masterFirstname
+                        {row?.trainingSupervisorLastname
+                          ? row?.trainingSupervisorLastname + " " + row?.trainingSupervisorFirstname
                           : "Non défini"}
                       </TableCell>
                       <TableCell variant="body">

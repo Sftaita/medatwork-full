@@ -77,15 +77,11 @@ class CreateYear
             $this->entityManager->persist($yearWeekInterval);
         }
 
-        // If a hospital is provided, use its name as location (overrides the passed $location)
-        $resolvedLocation = $hospital !== null ? $hospital->getName() : $location;
-
         $year->setCreatedAt($date)
             ->setToken($token)
             ->setTitle($title)
             ->setSpeciality($speciality)
             ->setComment($comment)
-            ->setLocation($resolvedLocation)
             ->setDateOfStart(new DateTime($dateOfStart, new DateTimeZone('Europe/Paris')))
             ->setDateOfEnd(new DateTime($dateOfEnd, new DateTimeZone('Europe/Paris')))
             ->setPeriod($period);
@@ -94,9 +90,8 @@ class CreateYear
             $year->setHospital($hospital);
         }
 
-        // 3. If the current user is the master of the year, take it's id as Year Master, else let it empty
         if ($isMaster) {
-            $year->setMaster($manager->getId());
+            $year->setTrainingSupervisor($manager);
         }
 
         $this->entityManager->persist($year);
@@ -105,7 +100,6 @@ class CreateYear
         $relation = new ManagerYears();
         $relation->setManager($manager)
                 ->setYears($year)
-                ->setOwner(true)
                 ->setAdmin(true)
                 ->setDataAccess(true)
                 ->setDataValidation(true)
@@ -115,8 +109,22 @@ class CreateYear
         ;
         $this->entityManager->persist($relation);
 
-        // Flush Year and Relation object
-        $this->entityManager->flush();
+        // Flush atomically — both year AND relation must be persisted or neither is
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $this->entityManager->flush();
+
+            // Hard guarantee: if the relation has no ID the insert silently failed
+            if ($relation->getId() === null) {
+                throw new \RuntimeException('La relation manager-année n\'a pas pu être créée.');
+            }
+
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
     }
 
 }

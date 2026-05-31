@@ -129,7 +129,7 @@ final class HospitalAdminYearsOrphanedTest extends TestCase
         $y->method('getId')->willReturn(10);
         $y->method('getTitle')->willReturn('2024-2025');
         $y->method('getPeriod')->willReturn('');
-        $y->method('getLocation')->willReturn('CHU Test');
+        $hospMock = $this->createMock(Hospital::class); $y->method('getHospital')->willReturn($hospMock);
         $y->method('getSpeciality')->willReturn(null);
         $y->method('getComment')->willReturn(null);
         $y->method('getStatus')->willReturn(YearStatus::Active);

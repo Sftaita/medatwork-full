@@ -7,6 +7,7 @@ namespace App\Tests\Unit\Services\StaffPlanner;
 use App\Entity\Resident;
 use App\Entity\StaffPlannerExportBatch;
 use App\Entity\StaffPlannerExportItemSnapshot;
+use App\Entity\Hospital;
 use App\Entity\Years;
 use App\Entity\YearsResident;
 use App\Repository\StaffPlannerExportItemSnapshotRepository;
@@ -51,7 +52,7 @@ final class ExportDiffServiceTest extends TestCase
     {
         $year = $this->createMock(Years::class);
         $year->method('getId')->willReturn(1);
-        $year->method('getHospital')->willReturn(null);
+        $hospMock = $this->createMock(Hospital::class); $year->method('getHospital')->willReturn($hospMock);
 
         $b = $this->createMock(StaffPlannerExportBatch::class);
         $b->method('getId')->willReturn($id);

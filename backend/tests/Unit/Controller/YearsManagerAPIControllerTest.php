@@ -12,9 +12,10 @@ use App\Entity\Years;
 use App\Enum\ManagerJob;
 use App\Enum\Sexe;
 use App\Repository\HospitalRepository;
+use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
-use App\Services\YearsManagement\CreateYear;
+use App\Services\YearsManagement\YearCreationService;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -64,7 +65,7 @@ final class YearsManagerAPIControllerTest extends TestCase
     {
         $year = $this->createMock(Years::class);
         $year->method('getId')->willReturn($id);
-        $year->method('getHospital')->willReturn($hospital);
+        $year->method('getHospital')->willReturn($hospital ?? $this->createMock(Hospital::class));
 
         return $year;
     }
@@ -190,6 +191,7 @@ final class YearsManagerAPIControllerTest extends TestCase
             $this->makeSecurity(),
             $yearsRepo,
             $this->createMock(ManagerYearsRepository::class),
+            $this->createMock(ManagerRepository::class),
         );
 
         $this->assertSame(404, $response->getStatusCode());
@@ -214,6 +216,7 @@ final class YearsManagerAPIControllerTest extends TestCase
             $this->makeSecurity(),
             $yearsRepo,
             $managerYearsRepo,
+            $this->createMock(ManagerRepository::class),
         );
 
         $this->assertSame(403, $response->getStatusCode());
@@ -221,11 +224,13 @@ final class YearsManagerAPIControllerTest extends TestCase
         $this->assertSame("Vous n'avez pas accès à cette ressource", $data['message']);
     }
 
-    // ── No hospital on year ────────────────────────────────────────────────────
+    // ── Hospital with no managers ──────────────────────────────────────────────
 
     public function testYearWithoutHospitalReturnsEmptyArray(): void
     {
-        $year = $this->makeYear(1, null);
+        // Scenario: year has a hospital with 0 managers linked
+        $hospital = $this->makeHospital([]);
+        $year     = $this->makeYear(1, $hospital);
 
         $yearsRepo = $this->createMock(YearsRepository::class);
         $yearsRepo->method('findOneBy')->willReturn($year);
@@ -233,11 +238,15 @@ final class YearsManagerAPIControllerTest extends TestCase
         $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
         $managerYearsRepo->method('checkRelation')->willReturn(true);
 
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findAllForHospital')->with($hospital)->willReturn([]);
+
         $response = $this->buildController()->getHospitalManagersForYear(
             1,
             $this->makeSecurity(),
             $yearsRepo,
             $managerYearsRepo,
+            $managerRepo,
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -248,9 +257,10 @@ final class YearsManagerAPIControllerTest extends TestCase
 
     public function testReturnsManagersFromYearHospital(): void
     {
-        $m1       = $this->makeManager(10, 'Alice', 'Dupont');
-        $m2       = $this->makeManager(11, 'Bob', 'Martin');
-        $hospital = $this->makeHospital([$m1, $m2]);
+        $m1 = $this->makeManager(10, 'Alice', 'Dupont');
+        $m2 = $this->makeManager(11, 'Bob', 'Martin');
+
+        $hospital = $this->createMock(Hospital::class);
         $year     = $this->makeYear(1, $hospital);
 
         $yearsRepo = $this->createMock(YearsRepository::class);
@@ -259,11 +269,16 @@ final class YearsManagerAPIControllerTest extends TestCase
         $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
         $managerYearsRepo->method('checkRelation')->willReturn(true);
 
+        // Le controller utilise ManagerRepository::findAllForHospital() (pas Hospital::getManagers())
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findAllForHospital')->with($hospital)->willReturn([$m1, $m2]);
+
         $response = $this->buildController()->getHospitalManagersForYear(
             1,
             $this->makeSecurity(),
             $yearsRepo,
             $managerYearsRepo,
+            $managerRepo,
         );
 
         $data = json_decode((string) $response->getContent(), true);
@@ -297,6 +312,7 @@ final class YearsManagerAPIControllerTest extends TestCase
             $this->makeSecurity(),
             $yearsRepo,
             $managerYearsRepo,
+            $this->createMock(ManagerRepository::class),
         );
 
         $this->assertSame(200, $response->getStatusCode());
@@ -335,7 +351,7 @@ final class YearsManagerAPIControllerTest extends TestCase
         $response = $this->buildController()->createYear(
             $this->makeRequestBody(),
             $security,
-            $this->createMock(CreateYear::class),
+            $this->createMock(YearCreationService::class),
             $this->createMock(HospitalRepository::class),
         );
 
@@ -344,58 +360,45 @@ final class YearsManagerAPIControllerTest extends TestCase
         $this->assertStringContainsString('permission', $data['message']);
     }
 
-    public function testCreateYearWithPermissionReturns200(): void
+    public function testCreateYearWithMissingHospitalIdReturns400(): void
+    {
+        // hospitalId absent du body → DTO l'autorise mais le controller retourne 400
+        // car hospital ne peut pas être résolu
+        $manager = $this->makeManagerWithRight(true);
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($manager);
+
+        $hospitalRepo = $this->createMock(HospitalRepository::class);
+        $hospitalRepo->method('find')->willReturn(null);
+
+        $response = $this->buildController()->createYear(
+            $this->makeRequestBody(['hospitalId' => 9999]),
+            $security,
+            $this->createMock(YearCreationService::class),
+            $hospitalRepo,
+        );
+
+        $this->assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertStringContainsString('Hôpital', $data['message']);
+    }
+
+    public function testCreateYearWithInvalidBodyReturns400(): void
     {
         $manager = $this->makeManagerWithRight(true);
 
         $security = $this->createMock(Security::class);
         $security->method('getUser')->willReturn($manager);
 
-        $createYearService = $this->createMock(CreateYear::class);
-        $createYearService->expects($this->once())->method('createYear');
-
+        // Corps vide → DTO lève InvalidArgumentException → 400
         $response = $this->buildController()->createYear(
-            $this->makeRequestBody(),
+            new Request([], [], [], [], [], [], json_encode([])),
             $security,
-            $createYearService,
+            $this->createMock(YearCreationService::class),
             $this->createMock(HospitalRepository::class),
         );
 
-        $this->assertSame(200, $response->getStatusCode());
-    }
-
-    public function testCreateYearWithHospitalIdResolvesHospital(): void
-    {
-        $manager = $this->makeManagerWithRight(true);
-
-        $security = $this->createMock(Security::class);
-        $security->method('getUser')->willReturn($manager);
-
-        $hospital       = $this->createMock(Hospital::class);
-        $hospitalRepo   = $this->createMock(HospitalRepository::class);
-        $hospitalRepo->method('find')->with(7)->willReturn($hospital);
-
-        $createYearService = $this->createMock(CreateYear::class);
-        $createYearService->expects($this->once())
-            ->method('createYear')
-            ->with(
-                $manager,
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $hospital,
-            );
-
-        $this->buildController()->createYear(
-            $this->makeRequestBody(['hospitalId' => 7]),
-            $security,
-            $createYearService,
-            $hospitalRepo,
-        );
+        $this->assertSame(400, $response->getStatusCode());
     }
 }

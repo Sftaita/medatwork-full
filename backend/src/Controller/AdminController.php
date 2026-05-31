@@ -238,7 +238,6 @@ class AdminController extends AbstractController
 
         $year = (new Years())
             ->setTitle($dto->title)
-            ->setLocation($dto->location)
             ->setPeriod($dto->period)
             ->setDateOfStart(new \DateTime($dto->dateOfStart))
             ->setDateOfEnd(new \DateTime($dto->dateOfEnd))
@@ -295,7 +294,7 @@ class AdminController extends AbstractController
             'id'            => $year->getId(),
             'title'         => $year->getTitle(),
             'period'        => $year->getPeriod(),
-            'location'      => $year->getLocation(),
+            'hospitalName'  => $year->getHospital()?->getName(),
             'speciality'    => $year->getSpeciality(),
             'dateOfStart'   => $year->getDateOfStart()->format('Y-m-d'),
             'dateOfEnd'     => $year->getDateOfEnd()->format('Y-m-d'),

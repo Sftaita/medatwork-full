@@ -6,6 +6,7 @@ namespace App\Tests\Unit\Services\YearsManagement;
 
 use App\Entity\Manager;
 use App\Entity\Years;
+use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsWeekIntervalsRepository;
@@ -29,6 +30,9 @@ class UpdateYearTest extends TestCase
     /** @var ManagerYearsRepository&MockObject */
     private ManagerYearsRepository $managerYearsRepo;
 
+    /** @var ManagerRepository&MockObject */
+    private ManagerRepository $managerRepo;
+
     /** @var WeekIntervals&MockObject */
     private WeekIntervals $weekIntervals;
 
@@ -42,17 +46,19 @@ class UpdateYearTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->yearsRepo        = $this->createMock(YearsRepository::class);
-        $this->em               = $this->createMock(EntityManagerInterface::class);
-        $this->managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
-        $this->weekIntervals    = $this->createMock(WeekIntervals::class);
+        $this->yearsRepo         = $this->createMock(YearsRepository::class);
+        $this->em                = $this->createMock(EntityManagerInterface::class);
+        $this->managerYearsRepo  = $this->createMock(ManagerYearsRepository::class);
+        $this->managerRepo       = $this->createMock(ManagerRepository::class);
+        $this->weekIntervals     = $this->createMock(WeekIntervals::class);
         $this->weekIntervalsRepo = $this->createMock(YearsWeekIntervalsRepository::class);
-        $this->authChecker      = $this->createMock(AuthorizationCheckerInterface::class);
+        $this->authChecker       = $this->createMock(AuthorizationCheckerInterface::class);
 
         $this->service = new UpdateYear(
             $this->yearsRepo,
             $this->em,
             $this->managerYearsRepo,
+            $this->managerRepo,
             $this->weekIntervals,
             $this->weekIntervalsRepo,
             $this->authChecker,
@@ -110,13 +116,14 @@ class UpdateYearTest extends TestCase
 
     public function testUpdatesLocationField(): void
     {
+        // target='location' a été supprimé — location est désormais dérivé de hospital.name
+        // Ce test vérifie que passer target='location' est ignoré (sans exception)
         $year = new Years();
         $this->yearsRepo->method('findOneBy')->willReturn($year);
         $this->authChecker->method('isGranted')->willReturn(true);
 
-        $this->service->updateYear(1, $this->makeManager(), ['target' => 'location', 'newValue' => 'Bruxelles']);
-
-        $this->assertSame('Bruxelles', $year->getLocation());
+        $result = $this->service->updateYear(1, $this->makeManager(), ['target' => 'location', 'newValue' => 'Bruxelles']);
+        $this->assertNotNull($result, 'updateYear ne doit pas retourner null pour un target inconnu');
     }
 
     public function testUpdatesPeriodField(): void

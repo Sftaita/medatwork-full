@@ -121,7 +121,7 @@ class HospitalAdminDeleteManagerTest extends WebTestCase
 
         $year = new Years();
         $year->setTitle('Del Test Year' . $suffix)
-            ->setLocation('Test')
+            
             ->setPeriod('2025-2026')
             ->setDateOfStart(new \DateTime('-30 days'))
             ->setDateOfEnd(new \DateTime('+300 days'))

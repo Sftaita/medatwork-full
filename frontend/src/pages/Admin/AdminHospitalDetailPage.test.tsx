@@ -64,7 +64,7 @@ const MOCK_YEARS = [
     id: 10,
     title: "Stage cardio S1",
     period: "2025-2026",
-    location: "Cardiologie",
+    hospitalName: "Cardiologie",
     speciality: "Cardiologie",
     dateOfStart: "2025-09-01",
     dateOfEnd: "2026-02-28",

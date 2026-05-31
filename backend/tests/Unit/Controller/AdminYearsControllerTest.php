@@ -72,7 +72,6 @@ final class AdminYearsControllerTest extends TestCase
         $y->method('getId')->willReturn($id);
         $y->method('getTitle')->willReturn($title);
         $y->method('getPeriod')->willReturn('2025-2026');
-        $y->method('getLocation')->willReturn('CHU Liège');
         $y->method('getSpeciality')->willReturn('Cardiologie');
         $y->method('getDateOfStart')->willReturn(new \DateTime('2025-11-01'));
         $y->method('getDateOfEnd')->willReturn(new \DateTime('2026-04-30'));
@@ -240,7 +239,6 @@ final class AdminYearsControllerTest extends TestCase
         $year->method('getId')->willReturn(10);
         $year->method('getTitle')->willReturn('Stage X');
         $year->method('getPeriod')->willReturn('2025-2026');
-        $year->method('getLocation')->willReturn('Leuven');
         $year->method('getSpeciality')->willReturn(null);
         $year->method('getDateOfStart')->willReturn(new \DateTime('2025-11-01'));
         $year->method('getDateOfEnd')->willReturn(new \DateTime('2026-04-30'));

@@ -6,7 +6,6 @@ namespace App\Services\ManagerMonthValidation;
 
 use App\Entity\Manager;
 use App\Entity\Years;
-use App\Repository\ManagerRepository;
 use App\Repository\PeriodValidationRepository;
 
 /**
@@ -19,7 +18,6 @@ use App\Repository\PeriodValidationRepository;
 class ValidationPeriodFetcher
 {
     public function __construct(
-        private ManagerRepository $managerRepository,
         private PeriodValidationRepository $periodValidationRepository,
     ) {
     }
@@ -34,13 +32,7 @@ class ValidationPeriodFetcher
      */
     public function fetchForManager(Manager $manager, bool $activeYearOnly, string $type): array
     {
-        $managerEntity = $this->managerRepository->findOneBy(['id' => $manager]);
-
-        if ($managerEntity === null) {
-            return [];
-        }
-
-        $managerYearRelation = $managerEntity->getManagerYears()->getValues();
+        $managerYearRelation = $manager->getManagerYears()->getValues();
         $today               = date('Y-m-d');
         $raw                 = [];
 
@@ -51,22 +43,15 @@ class ValidationPeriodFetcher
                 continue;
             }
 
-            $masterId = $year->getMaster();
-
-            if ($masterId !== null) {
-                $master          = $this->managerRepository->findOneBy(['id' => $masterId]);
-                $masterFirstname = $master?->getFirstname();
-                $masterLastname  = $master?->getLastname();
-            } else {
-                $masterFirstname = null;
-                $masterLastname  = null;
-            }
+            $supervisor                  = $year->getTrainingSupervisor();
+            $trainingSupervisorFirstname = $supervisor?->getFirstname();
+            $trainingSupervisorLastname  = $supervisor?->getLastname();
 
             $periods = $this->fetchPeriods($year, $today, $activeYearOnly, $type);
 
             foreach ($periods as $period) {
-                $period['masterFirstname'] = $masterFirstname;
-                $period['masterLastname']  = $masterLastname;
+                $period['trainingSupervisorFirstname'] = $trainingSupervisorFirstname;
+                $period['trainingSupervisorLastname']  = $trainingSupervisorLastname;
                 $raw[]                     = $period;
             }
         }

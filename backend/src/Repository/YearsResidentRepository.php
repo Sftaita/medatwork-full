@@ -28,9 +28,11 @@ class YearsResidentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('y')
                     ->leftJoin('y.year', 'year')
+                    ->leftJoin('year.trainingSupervisor', 'ts')
+                    ->leftJoin('year.hospital', 'hosp')
                     ->andWhere('y.resident = :val')
                     ->setParameter('val', $user)
-                    ->select('year.id,y.allowed, year.title, year.dateOfStart, year.dateOfEnd, year.location, year.period, year.master, year.token')
+                    ->select('year.id, y.allowed, year.title, year.dateOfStart, year.dateOfEnd, hosp.name as hospitalName, year.period, ts.id as trainingSupervisorId, year.token')
                     ->orderBy('year.id', 'DESC')
                     ->getQuery()
                     ->getResult();

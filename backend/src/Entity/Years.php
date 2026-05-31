@@ -71,12 +71,6 @@ class Years
 
 
 
-    #[ORM\Column(type: 'string', length: 255)]
-    #[Groups(['years_read'])]
-    #[Assert\NotBlank(message: 'Veuillez entrer un lieu')]
-    #[Assert\Length(min: 2, max: 255, minMessage: 'Le lieu doit contenir au moins {{ limit }} caractères', maxMessage: 'Le lieu doit contenir au maximum {{ limit }} caractères')]
-    private string $location;
-
     /** @var Collection<int, YearsResident> */
     #[ORM\OneToMany(targetEntity: YearsResident::class, mappedBy: 'year')]
     private Collection $residents;
@@ -92,9 +86,6 @@ class Years
     /** @var Collection<int, ManagerYears> */
     #[ORM\OneToMany(targetEntity: ManagerYears::class, mappedBy: 'years')]
     private Collection $managers;
-
-    #[ORM\Column(type: 'integer', nullable: true)]
-    private ?int $master = null;
 
     /** @var Collection<int, PeriodValidation> */
     #[ORM\OneToMany(targetEntity: PeriodValidation::class, mappedBy: 'year')]
@@ -121,13 +112,20 @@ class Years
     #[ORM\OneToMany(targetEntity: YearsWeekTemplates::class, mappedBy: 'year')]
     private Collection $yearsWeekTemplates;
 
-    /** The hospital this internship year belongs to — nullable during migration */
     #[ORM\ManyToOne(targetEntity: Hospital::class, inversedBy: 'years')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?Hospital $hospital = null;
+    #[ORM\JoinColumn(nullable: false)]
+    private Hospital $hospital;
 
     #[ORM\Column(enumType: YearStatus::class, options: ['default' => 'active'])]
     private YearStatus $status = YearStatus::Active;
+
+    /**
+     * Legal training supervisor (maître de stage) responsible for this academic year.
+     * Replaces the legacy `master` integer column.
+     */
+    #[ORM\ManyToOne(targetEntity: Manager::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Manager $trainingSupervisor = null;
 
 
 
@@ -264,18 +262,6 @@ class Years
         return $this;
     }
 
-    public function getLocation(): ?string
-    {
-        return $this->location;
-    }
-
-    public function setLocation(string $location): self
-    {
-        $this->location = $location;
-
-        return $this;
-    }
-
     /**
      * @return Collection<int, YearsResident>
      */
@@ -396,14 +382,14 @@ class Years
         return $this;
     }
 
-    public function getMaster(): ?int
+    public function getTrainingSupervisor(): ?Manager
     {
-        return $this->master;
+        return $this->trainingSupervisor;
     }
 
-    public function setMaster(?int $master): self
+    public function setTrainingSupervisor(?Manager $manager): self
     {
-        $this->master = $master;
+        $this->trainingSupervisor = $manager;
 
         return $this;
     }
@@ -523,12 +509,12 @@ class Years
         return $this;
     }
 
-    public function getHospital(): ?Hospital
+    public function getHospital(): Hospital
     {
         return $this->hospital;
     }
 
-    public function setHospital(?Hospital $hospital): self
+    public function setHospital(Hospital $hospital): self
     {
         $this->hospital = $hospital;
 

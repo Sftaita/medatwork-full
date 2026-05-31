@@ -26,7 +26,7 @@ export interface HospitalYear {
   id: number;
   title: string;
   period: string;
-  location: string;
+  hospitalName: string | null;
   speciality: string | null;
   comment: string | null;
   status: YearStatus;
@@ -41,7 +41,6 @@ export interface HospitalYear {
 
 export interface YearInput {
   title: string;
-  location: string;
   period: string;
   dateOfStart: string;
   dateOfEnd: string;

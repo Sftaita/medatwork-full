@@ -4,7 +4,7 @@ import { SidebarNav } from "./components";
 import useAuth from "../../../../hooks/useAuth";
 
 export const MINI_WIDTH     = 64;
-export const EXPANDED_WIDTH = 240;   // 240px — fidèle au design
+export const EXPANDED_WIDTH = 240;
 
 interface SidebarProps {
   open:       boolean;
@@ -15,13 +15,16 @@ interface SidebarProps {
 
 const Sidebar = ({ open, variant, onClose, collapsed = false }: SidebarProps) => {
   const theme = useTheme();
-  const { selectedMenuItem, setSelectedMenuItem } = useAuth();
+  const { selectedMenuItem, setSelectedMenuItem, authentication } = useAuth();
 
-  const width = variant === "temporary" ? "100vw" : (collapsed ? MINI_WIDTH : EXPANDED_WIDTH);
+  const isMobile = variant === "temporary";
+  const width = isMobile
+    ? "86vw"
+    : (collapsed ? MINI_WIDTH : EXPANDED_WIDTH);
 
   return (
     <Drawer
-      anchor="left"
+      anchor={isMobile ? "right" : "left"}
       onClose={() => onClose()}
       open={open}
       variant={variant}
@@ -31,8 +34,8 @@ const Sidebar = ({ open, variant, onClose, collapsed = false }: SidebarProps) =>
           overflow:   "hidden",
           top:        0,
           height:     "100%",
-          zIndex:     1000,   // au-dessus de l'AppBar (999) pour que le logo recouvre la zone topbar
-          transition: theme.transitions.create("width"),
+          zIndex:     1000,
+          transition: isMobile ? "none" : theme.transitions.create("width"),
         },
       }}
     >

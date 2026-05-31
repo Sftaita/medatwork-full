@@ -92,7 +92,6 @@ class CommunicationMessageRepositoryTest extends WebTestCase
         $year->setDateOfStart(new \DateTime('2025-10-01'));
         $year->setDateOfEnd(new \DateTime('2026-09-30'));
         $year->setCreatedAt(new \DateTime());
-        $year->setLocation('CHU Alpha');
         $year->setPeriod('2025-2026');
         $year->setToken(substr(bin2hex(random_bytes(8)), 0, 10));
         $year->setHospital($hospitalA);

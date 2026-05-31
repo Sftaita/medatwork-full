@@ -57,4 +57,40 @@ class ManagerRepository extends ServiceEntityRepository implements PasswordUpgra
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Returns all managers linked to the hospital — either via the manager_hospital
+     * join table OR via the adminHospital field (hospital admin managers).
+     * Deduplicates by manager id.
+     *
+     * @return Manager[]
+     */
+    public function findAllForHospital(Hospital $hospital): array
+    {
+        $viaJoinTable = $this->createQueryBuilder('m')
+            ->innerJoin('m.hospitals', 'h')
+            ->andWhere('h = :hospital')
+            ->setParameter('hospital', $hospital)
+            ->getQuery()
+            ->getResult();
+
+        $viaAdminField = $this->createQueryBuilder('m')
+            ->andWhere('m.adminHospital = :hospital')
+            ->setParameter('hospital', $hospital)
+            ->getQuery()
+            ->getResult();
+
+        $seen = [];
+        $merged = [];
+        foreach (array_merge($viaJoinTable, $viaAdminField) as $m) {
+            if (!isset($seen[$m->getId()])) {
+                $seen[$m->getId()] = true;
+                $merged[] = $m;
+            }
+        }
+
+        usort($merged, fn(Manager $a, Manager $b) => strcmp($a->getLastname(), $b->getLastname()));
+
+        return $merged;
+    }
 }

@@ -128,7 +128,7 @@ class GetRealTimeStatisticsAsManager extends AbstractController
             $years    = $yearsRepository->findByHospitalOrderedByDate($user->getHospital());
             $yearList = [];
             foreach ($years as $year) {
-                $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'location' => $year->getLocation()];
+                $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'hospitalName' => $year->getHospital()?->getName()];
             }
         } else {
             // Manager: only years with dataAccess=true
@@ -139,7 +139,7 @@ class GetRealTimeStatisticsAsManager extends AbstractController
                 if ($year === null) {
                     continue;
                 }
-                $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'location' => $year->getLocation()];
+                $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'hospitalName' => $year->getHospital()?->getName()];
             }
         }
 

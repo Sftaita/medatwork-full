@@ -82,7 +82,6 @@ class HospitalAdminAddManagerTest extends WebTestCase
 
         $year = new Years();
         $year->setTitle('Test Year 2025');
-        $year->setLocation('Test');
         $year->setPeriod('2025-2026');
         $year->setDateOfStart(new \DateTime('-30 days'));
         $year->setDateOfEnd(new \DateTime('+300 days'));

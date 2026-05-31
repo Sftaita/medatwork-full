@@ -36,18 +36,14 @@ class YearSummaryBuilder
         $results = ['yearsSummary' => [], 'assignements' => []];
 
         foreach ($years as $year) {
-            $masterId = $year['masterId'] ?? null;
-            $yearManager = $masterId !== null ? $this->managerRepo->findOneBy(['id' => $masterId]) : null;
-
             $yearInfo = [
                 'title'           => $year['title'],
-                'masterFirstname' => $yearManager?->getFirstname(),
-                'masterLastname'  => $yearManager?->getLastname(),
+                'trainingSupervisorFirstname' => $year['trainingSupervisorFirstname'] ?? null,
+                'trainingSupervisorLastname'  => $year['trainingSupervisorLastname'] ?? null,
                 'dateOfStart'     => $year['dateOfStart']->format('Y-m-d'),
                 'dateOfEnd'       => $year['dateOfEnd']->format('Y-m-d'),
                 'createdAt'       => $year['createdAt']->format('Y-m-d'),
-                'location'        => $year['location'],
-                'owner'           => $year['owner'],
+                'hospitalName'    => $year['hospitalName'] ?? null,
             ];
 
             $authorization = [
@@ -80,22 +76,19 @@ class YearSummaryBuilder
         $results = ['yearsSummary' => [], 'assignements' => []];
 
         foreach ($years as $year) {
-            $masterId    = $year->getMaster();
-            $yearManager = $masterId !== null ? $this->managerRepo->findOneBy(['id' => $masterId]) : null;
-
+            $ts          = $year->getTrainingSupervisor();
             $dateOfStart = $year->getDateOfStart();
             $dateOfEnd   = $year->getDateOfEnd();
             $createdAt   = $year->getCreatedAt();
 
             $yearInfo = [
                 'title'           => $year->getTitle(),
-                'masterFirstname' => $yearManager?->getFirstname(),
-                'masterLastname'  => $yearManager?->getLastname(),
+                'trainingSupervisorFirstname' => $ts?->getFirstname(),
+                'trainingSupervisorLastname'  => $ts?->getLastname(),
                 'dateOfStart'     => $dateOfStart?->format('Y-m-d'),
                 'dateOfEnd'       => $dateOfEnd?->format('Y-m-d'),
                 'createdAt'       => $createdAt?->format('Y-m-d'),
-                'location'        => $year->getLocation(),
-                'owner'           => true,
+                'hospitalName'    => $year->getHospital()?->getName(),
             ];
 
             $authorization = [

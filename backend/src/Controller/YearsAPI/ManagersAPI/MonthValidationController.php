@@ -106,27 +106,18 @@ class MonthValidationController extends AbstractController
 
         foreach ($manager->getManagerYears()->getValues() as $yearRelation) {
             $year     = $yearRelation->getYears();
-            $masterId = $year->getMaster();
-
-            if ($masterId !== null) {
-                $master = $managerRepository->findOneBy(['id' => $masterId]);
-                $masterFirstname = $master !== null ? $master->getFirstname() : null;
-                $masterLastname  = $master !== null ? $master->getLastname() : null;
-            } else {
-                $masterFirstname = null;
-                $masterLastname  = null;
-            }
+            $supervisor = $year->getTrainingSupervisor();
 
             $periods = $activeYear === 'active'
                 ? $residentValidationRepository->fetchPeriodsForActiveYear($year, $today)
                 : $residentValidationRepository->fetchAllPeriodsYear($year);
 
             $raw[] = [
-                'yearId'            => $year->getId(),
-                'yearTitle'         => $year->getTitle(),
-                'masterId'          => $masterId,
-                'masterFirstname'   => $masterFirstname,
-                'masterLastname'    => $masterLastname,
+                'yearId'                     => $year->getId(),
+                'yearTitle'                  => $year->getTitle(),
+                'trainingSupervisorId'        => $supervisor?->getId(),
+                'trainingSupervisorFirstname' => $supervisor?->getFirstname(),
+                'trainingSupervisorLastname'  => $supervisor?->getLastname(),
                 'speciality'        => $year->getSpeciality(),
                 'validationPeriods' => $periods,
             ];

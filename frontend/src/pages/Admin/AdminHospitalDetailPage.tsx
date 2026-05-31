@@ -267,7 +267,6 @@ const AdminHospitalDetailPage = () => {
     title: "",
     dateOfStart: "",
     dateOfEnd: "",
-    location: "",
     speciality: "",
   });
   const [yearFormError, setYearFormError] = useState("");
@@ -281,7 +280,7 @@ const AdminHospitalDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-hospital-years", hospitalId] });
       setYearOpen(false);
-      setYearForm({ title: "", dateOfStart: "", dateOfEnd: "", location: "", speciality: "" });
+      setYearForm({ title: "", dateOfStart: "", dateOfEnd: "", speciality: "" });
       setYearFormError("");
     },
     onError: (err: any) =>
@@ -519,7 +518,7 @@ const AdminHospitalDetailPage = () => {
                       {new Date(year.dateOfEnd).toLocaleDateString("fr-BE")}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {year.location}
+                      {year.hospitalName}
                     </Typography>
                     {year.speciality && (
                       <Typography variant="caption" color="primary">
@@ -933,13 +932,8 @@ const AdminHospitalDetailPage = () => {
             onSubmit={(e) => {
               e.preventDefault();
               setYearFormError("");
-              if (
-                !yearForm.title ||
-                !yearForm.dateOfStart ||
-                !yearForm.dateOfEnd ||
-                !yearForm.location
-              ) {
-                setYearFormError("Titre, dates et lieu sont obligatoires");
+              if (!yearForm.title || !yearForm.dateOfStart || !yearForm.dateOfEnd) {
+                setYearFormError("Titre et dates sont obligatoires");
                 return;
               }
               createYearMutation.mutate();
@@ -978,13 +972,7 @@ const AdminHospitalDetailPage = () => {
                 />
               </Grid>
             </Grid>
-            <TextField
-              label="Lieu *"
-              value={yearForm.location}
-              onChange={(e) => setYearForm({ ...yearForm, location: e.target.value })}
-              fullWidth
-              placeholder="Ex : Service cardiologie, bâtiment A"
-            />
+            {/* Lieu supprimé — dérivé de hospital.name côté serveur */}
             <TextField
               label="Spécialité"
               value={yearForm.speciality}

@@ -113,7 +113,7 @@ class GetRealTimeStatisticController extends AbstractController
             if ($year === null) {
                 continue;
             }
-            $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'location' => $year->getLocation()];
+            $yearList[] = ['yearId' => $year->getId(), 'title' => $year->getTitle(), 'hospitalName' => $year->getHospital()?->getName()];
         }
         $data['years'] = $yearList;
 

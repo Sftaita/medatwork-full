@@ -27,6 +27,8 @@ use App\Repository\YearsResidentRepository;
 use App\Services\EmailReset\PasswordResetServiceInterface;
 use App\Services\HospitalAdminAuditService;
 use App\Services\YearForceDeleteService;
+use App\Services\YearsManagement\YearCreationInput;
+use App\Services\YearsManagement\YearCreationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -935,7 +937,6 @@ class HospitalAdminController extends AbstractController
         return (new ManagerYears())
             ->setManager($manager)
             ->setYears($year)
-            ->setOwner(false)
             ->setAdmin(false)
             ->setDataAccess(true)
             ->setDataValidation(false)
@@ -1301,7 +1302,7 @@ class HospitalAdminController extends AbstractController
             'id'            => $year->getId(),
             'title'         => $year->getTitle(),
             'period'        => $year->getPeriod(),
-            'location'      => $year->getLocation(),
+            'hospitalName'  => $year->getHospital()?->getName(),
             'speciality'    => $year->getSpeciality(),
             'comment'       => $year->getComment(),
             'status'        => $year->getStatus()->value,
@@ -1394,7 +1395,7 @@ class HospitalAdminController extends AbstractController
      * POST /api/hospital-admin/years
      */
     #[Route('/years', name: 'hospital_admin_years_create', methods: ['POST'])]
-    public function createYear(Request $request, EntityManagerInterface $em): JsonResponse
+    public function createYear(Request $request, EntityManagerInterface $em, YearCreationService $yearCreationService): JsonResponse
     {
         $hospital = $this->resolveHospital();
         $data     = json_decode($request->getContent(), true) ?? [];
@@ -1404,24 +1405,25 @@ class HospitalAdminController extends AbstractController
             return new JsonResponse(['errors' => $errors], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $year = (new Years())
-            ->setTitle(trim($data['title']))
-            ->setLocation(trim($data['location']))
-            ->setPeriod(trim($data['period'] ?? ''))
-            ->setDateOfStart(new \DateTime($data['dateOfStart']))
-            ->setDateOfEnd(new \DateTime($data['dateOfEnd']))
-            ->setSpeciality(isset($data['speciality']) ? trim($data['speciality']) : null)
-            ->setComment(isset($data['comment']) ? trim($data['comment']) : null)
-            ->setStatus(YearStatus::from($data['status'] ?? 'active'))
-            ->setHospital($hospital)
-            ->setCreatedAt(new \DateTime())
-            ->setToken(bin2hex(random_bytes(5)));
+        $input = new YearCreationInput(
+            title:       trim($data['title']),
+            speciality:  isset($data['speciality']) ? trim($data['speciality']) : '',
+            period:      trim($data['period'] ?? ''),
+            dateOfStart: $data['dateOfStart'],
+            dateOfEnd:   $data['dateOfEnd'],
+            hospital:    $hospital,
+            status:      YearStatus::from($data['status'] ?? 'active'),
+            comment:     isset($data['comment']) ? trim($data['comment']) : null,
+        );
 
-        $em->persist($year);
+        $year = $yearCreationService->create($input);
 
         $actor = $this->getUser();
         if ($actor instanceof HospitalAdmin || $actor instanceof Manager) {
-            $this->auditService->log($actor, $hospital, 'create_year', 'year', null, sprintf('Année "%s" créée (%s → %s)', $year->getTitle(), $data['dateOfStart'], $data['dateOfEnd']));
+            $this->auditService->log(
+                $actor, $hospital, 'create_year', 'year', null,
+                sprintf('Année "%s" créée (%s → %s)', $year->getTitle(), $data['dateOfStart'], $data['dateOfEnd']),
+            );
         }
 
         $em->flush();
@@ -1452,7 +1454,6 @@ class HospitalAdminController extends AbstractController
         $data = json_decode($request->getContent(), true) ?? [];
 
         if (isset($data['title']))       { $year->setTitle(trim($data['title'])); }
-        if (isset($data['location']))    { $year->setLocation(trim($data['location'])); }
         if (isset($data['period']))      { $year->setPeriod(trim($data['period'])); }
         // Empty string → null for nullable fields
         if (array_key_exists('speciality', $data)) {
@@ -1759,9 +1760,6 @@ class HospitalAdminController extends AbstractController
         $errors = [];
         if (empty(trim($data['title'] ?? ''))) {
             $errors[] = 'Le titre est requis';
-        }
-        if (empty(trim($data['location'] ?? ''))) {
-            $errors[] = 'Le lieu est requis';
         }
         if (empty($data['dateOfStart'] ?? '')) {
             $errors[] = 'La date de début est requise';

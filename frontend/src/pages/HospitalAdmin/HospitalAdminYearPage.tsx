@@ -243,7 +243,6 @@ function TitleField({ value, onChange, specialityLabel, yearRange, suggestions, 
 interface LivePreviewProps {
   title: string;
   specialityLabel: string;
-  location: string;
   period: string;
   dateOfStart: any;
   dateOfEnd: any;
@@ -251,7 +250,7 @@ interface LivePreviewProps {
   t: any;
 }
 
-function LivePreview({ title, specialityLabel, location, period, dateOfStart, dateOfEnd, dur, t }: LivePreviewProps) {
+function LivePreview({ title, specialityLabel, period, dateOfStart, dateOfEnd, dur, t }: LivePreviewProps) {
   const displayTitle = title?.trim() || specialityLabel || t("yearCreate.titlePlaceholder");
   const startDate = dateOfStart ? dayjs(dateOfStart).format("DD/MM/YYYY") : "JJ/MM/AAAA";
   const endDate = dateOfEnd ? dayjs(dateOfEnd).format("DD/MM/YYYY") : "JJ/MM/AAAA";
@@ -304,9 +303,7 @@ function LivePreview({ title, specialityLabel, location, period, dateOfStart, da
           <PreviewRow label={t("yearCreate.specialityLabel")}>
             {specialityLabel || <Box component="em" sx={{ color: C.ink4, fontStyle: "normal" }}>— à définir —</Box>}
           </PreviewRow>
-          <PreviewRow label={t("haYear.locationLabel")}>
-            {location || <Box component="em" sx={{ color: C.ink4, fontStyle: "normal" }}>— à définir —</Box>}
-          </PreviewRow>
+          {/* location supprimé — dérivé du nom de l'hôpital côté serveur */}
         </Box>
 
         {dur && (
@@ -342,7 +339,6 @@ const HospitalAdminYearPage = () => {
     initialValues: {
       title: "",
       speciality: "",
-      location: authentication?.hospitalName ?? "",
       period: getCurrentAcademicYear(),
       dateOfStart: null as any,
       dateOfEnd: null as any,
@@ -356,7 +352,6 @@ const HospitalAdminYearPage = () => {
         await hospitalAdminApi.createYear({
           title: values.title.trim() || values.speciality,
           speciality: values.speciality,
-          location: values.location,
           period: values.period,
           dateOfStart: dayjs(values.dateOfStart).format("YYYY-MM-DD"),
           dateOfEnd: dayjs(values.dateOfEnd).format("YYYY-MM-DD"),
@@ -405,10 +400,10 @@ const HospitalAdminYearPage = () => {
   const suggestions = useMemo(() => {
     const parts: string[] = [];
     if (specialityLabel) parts.push(specialityLabel);
-    if (specialityLabel && formik.values.location) parts.push(`${specialityLabel} – ${formik.values.location}`);
+    if (specialityLabel) parts.push(specialityLabel);
     if (specialityLabel && formik.values.period) parts.push(`${specialityLabel} ${formik.values.period}`);
     return parts.slice(0, 3);
-  }, [specialityLabel, formik.values.location, formik.values.period]);
+  }, [specialityLabel, formik.values.period]);
 
   return (
     <Box component="form" onSubmit={formik.handleSubmit} noValidate>
@@ -530,17 +525,7 @@ const HospitalAdminYearPage = () => {
                   )}
                 />
               </Box>
-              <Box>
-                <FieldLabel>{t("haYear.locationLabel")}</FieldLabel>
-                <TextField
-                  name="location"
-                  value={formik.values.location}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  fullWidth
-                  size="small"
-                />
-              </Box>
+              {/* location supprimé — dérivé de hospital.name côté serveur */}
             </Box>
 
             <FormSectionDivider />
@@ -565,7 +550,6 @@ const HospitalAdminYearPage = () => {
           <LivePreview
             title={formik.values.title}
             specialityLabel={specialityLabel}
-            location={formik.values.location}
             period={formik.values.period}
             dateOfStart={formik.values.dateOfStart}
             dateOfEnd={formik.values.dateOfEnd}

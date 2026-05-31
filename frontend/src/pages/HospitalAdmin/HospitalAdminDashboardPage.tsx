@@ -274,11 +274,11 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           <Box flex={1} />
 
           {/* Location + speciality */}
-          {year.location && (
+          {year.hospitalName && (
             <Box display="flex" alignItems="center" gap={0.5} mb={1.5}>
               <LocationOnOutlinedIcon sx={{ fontSize: 14, color: "text.disabled" }} />
               <Typography variant="caption" color="text.secondary" noWrap>
-                {year.location}
+                {year.hospitalName}
                 {year.speciality ? ` — ${year.speciality}` : ""}
               </Typography>
             </Box>
@@ -525,7 +525,7 @@ function buildPeriodOptions(extraPeriod?: string): string[] {
 // ── Year form dialog ──────────────────────────────────────────────────────────
 
 const EMPTY_FORM: YearInput = {
-  title: "", location: "", period: getCurrentAcademicYear(),
+  title: "", period: getCurrentAcademicYear(),
   dateOfStart: "", dateOfEnd: "",
   speciality: "", comment: "", status: "active",
 };
@@ -540,24 +540,20 @@ interface YearFormDialogProps {
   defaultLocation?: string;
 }
 
-const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLocation }: YearFormDialogProps) => {
+const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLocation: _defaultLocation }: YearFormDialogProps) => {
   const { t } = useTranslation();
-  const emptyForm: YearInput = {
-    ...EMPTY_FORM,
-    location: defaultLocation ?? "",
-  };
+  const emptyForm: YearInput = { ...EMPTY_FORM };
 
   const [form, setForm] = useState<YearInput>(() =>
     initial
       ? {
-          title: initial.title,
-          location: initial.location,
-          period: initial.period,
+          title:       initial.title,
+          period:      initial.period,
           dateOfStart: initial.dateOfStart,
-          dateOfEnd: initial.dateOfEnd,
-          speciality: initial.speciality ?? "",
-          comment: initial.comment ?? "",
-          status: initial.status,
+          dateOfEnd:   initial.dateOfEnd,
+          speciality:  initial.speciality ?? "",
+          comment:     initial.comment ?? "",
+          status:      initial.status,
         }
       : emptyForm
   );
@@ -581,7 +577,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
   };
 
   const handleSave = () => {
-    if (!form.title.trim() || !form.location.trim() || !form.dateOfStart || !form.dateOfEnd) {
+    if (!form.title.trim() || !form.dateOfStart || !form.dateOfEnd) {
       toast.error(t("haDash.form.errRequired"));
       return;
     }
@@ -609,16 +605,7 @@ const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLoca
             />
           </Grid>
 
-          {/* Lieu + Période */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t("haDash.form.location")}
-              value={form.location}
-              onChange={set("location")}
-              fullWidth
-              size="small"
-            />
-          </Grid>
+          {/* Période */}
           <Grid item xs={12} sm={6}>
             <FormControl size="small" fullWidth>
               <InputLabel>{t("haDash.form.period")}</InputLabel>
@@ -1115,10 +1102,10 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
     >
       <TableCell>
         <Typography variant="body2" fontWeight={600}>{year.title}</Typography>
-        {year.location && (
+        {year.hospitalName && (
           <Typography variant="caption" color="text.secondary">
             <LocationOnOutlinedIcon sx={{ fontSize: 12, mr: 0.3, verticalAlign: "middle" }} />
-            {year.location}{year.speciality ? ` — ${year.speciality}` : ""}
+            {year.hospitalName}{year.speciality ? ` — ${year.speciality}` : ""}
           </Typography>
         )}
       </TableCell>
@@ -1241,7 +1228,7 @@ const HospitalAdminDashboardPage = () => {
           .join(" ");
         return (
           y.title.toLowerCase().includes(q) ||
-          (y.location ?? "").toLowerCase().includes(q) ||
+          (y.hospitalName ?? "").toLowerCase().includes(q) ||
           (y.speciality ?? "").toLowerCase().includes(q) ||
           residentNames.includes(q) ||
           managerNames.includes(q)

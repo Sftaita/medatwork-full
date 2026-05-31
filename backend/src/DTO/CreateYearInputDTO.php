@@ -8,19 +8,19 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Typed input DTO for POST /api/managers/years/create.
+ * Location is no longer accepted — it is derived from hospital.name server-side.
  */
 final class CreateYearInputDTO
 {
     private function __construct(
-        public readonly string  $title,
-        public readonly string  $comment,
-        public readonly string  $location,
-        public readonly string  $dateOfStart,
-        public readonly string  $dateOfEnd,
-        public readonly string  $period,
-        public readonly string  $speciality,
-        public readonly bool    $isMaster,
-        public readonly ?int    $hospitalId,
+        public readonly string $title,
+        public readonly string $comment,
+        public readonly string $dateOfStart,
+        public readonly string $dateOfEnd,
+        public readonly string $period,
+        public readonly string $speciality,
+        public readonly bool   $isMaster,
+        public readonly int    $hospitalId,
     ) {
     }
 
@@ -51,26 +51,19 @@ final class CreateYearInputDTO
             throw new \InvalidArgumentException('isMaster must be a boolean');
         }
 
-        // hospitalId is optional (null = no hospital link)
-        $hospitalId = isset($data['hospitalId']) && is_numeric($data['hospitalId'])
-            ? (int) $data['hospitalId']
-            : null;
-
-        // location: use hospitalId lookup on the frontend, or fallback to explicit location string
-        $location = isset($data['location']) && is_string($data['location']) && $data['location'] !== ''
-            ? $data['location']
-            : '';
+        if (! isset($data['hospitalId']) || ! is_numeric($data['hospitalId']) || (int) $data['hospitalId'] <= 0) {
+            throw new \InvalidArgumentException('hospitalId must be a positive integer');
+        }
 
         return new self(
-            title: $data['title'],
-            comment: isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : '',
-            location: $location,
+            title:       $data['title'],
+            comment:     isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : '',
             dateOfStart: $data['dateOfStart'],
-            dateOfEnd: $data['dateOfEnd'],
-            period: isset($data['period']) && is_string($data['period']) ? $data['period'] : '',
-            speciality: $data['speciality'],
-            isMaster: $data['isMaster'],
-            hospitalId: $hospitalId,
+            dateOfEnd:   $data['dateOfEnd'],
+            period:      isset($data['period']) && is_string($data['period']) ? $data['period'] : '',
+            speciality:  $data['speciality'],
+            isMaster:    $data['isMaster'],
+            hospitalId:  (int) $data['hospitalId'],
         );
     }
 }
