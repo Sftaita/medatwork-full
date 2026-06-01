@@ -15,6 +15,7 @@ use App\Repository\HospitalRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
+use App\Security\Voter\YearAccessVoter;
 use App\Services\YearsManagement\YearCreationService;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -53,10 +54,11 @@ final class YearsManagerAPIControllerTest extends TestCase
         return $controller;
     }
 
-    private function makeSecurity(?Manager $user = null): Security
+    private function makeSecurity(object $user, bool $isGranted = true): Security
     {
         $security = $this->createMock(Security::class);
-        $security->method('getUser')->willReturn($user ?? $this->createMock(Manager::class));
+        $security->method('getUser')->willReturn($user);
+        $security->method('isGranted')->willReturn($isGranted);
 
         return $security;
     }
@@ -188,9 +190,8 @@ final class YearsManagerAPIControllerTest extends TestCase
 
         $response = $this->buildController()->getHospitalManagersForYear(
             99,
-            $this->makeSecurity(),
+            $this->makeSecurity($this->createMock(Manager::class)),
             $yearsRepo,
-            $this->createMock(ManagerYearsRepository::class),
             $this->createMock(ManagerRepository::class),
         );
 
@@ -208,14 +209,10 @@ final class YearsManagerAPIControllerTest extends TestCase
         $yearsRepo = $this->createMock(YearsRepository::class);
         $yearsRepo->method('findOneBy')->willReturn($year);
 
-        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
-        $managerYearsRepo->method('checkRelation')->willReturn(false);
-
         $response = $this->buildController()->getHospitalManagersForYear(
             1,
-            $this->makeSecurity(),
+            $this->makeSecurity($this->createMock(Manager::class), false),
             $yearsRepo,
-            $managerYearsRepo,
             $this->createMock(ManagerRepository::class),
         );
 
@@ -228,24 +225,19 @@ final class YearsManagerAPIControllerTest extends TestCase
 
     public function testYearWithoutHospitalReturnsEmptyArray(): void
     {
-        // Scenario: year has a hospital with 0 managers linked
         $hospital = $this->makeHospital([]);
         $year     = $this->makeYear(1, $hospital);
 
         $yearsRepo = $this->createMock(YearsRepository::class);
         $yearsRepo->method('findOneBy')->willReturn($year);
 
-        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
-        $managerYearsRepo->method('checkRelation')->willReturn(true);
-
         $managerRepo = $this->createMock(ManagerRepository::class);
         $managerRepo->method('findAllForHospital')->with($hospital)->willReturn([]);
 
         $response = $this->buildController()->getHospitalManagersForYear(
             1,
-            $this->makeSecurity(),
+            $this->makeSecurity($this->createMock(Manager::class), true),
             $yearsRepo,
-            $managerYearsRepo,
             $managerRepo,
         );
 
@@ -266,18 +258,13 @@ final class YearsManagerAPIControllerTest extends TestCase
         $yearsRepo = $this->createMock(YearsRepository::class);
         $yearsRepo->method('findOneBy')->willReturn($year);
 
-        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
-        $managerYearsRepo->method('checkRelation')->willReturn(true);
-
-        // Le controller utilise ManagerRepository::findAllForHospital() (pas Hospital::getManagers())
         $managerRepo = $this->createMock(ManagerRepository::class);
         $managerRepo->method('findAllForHospital')->with($hospital)->willReturn([$m1, $m2]);
 
         $response = $this->buildController()->getHospitalManagersForYear(
             1,
-            $this->makeSecurity(),
+            $this->makeSecurity($this->createMock(Manager::class), true),
             $yearsRepo,
-            $managerYearsRepo,
             $managerRepo,
         );
 
@@ -304,14 +291,10 @@ final class YearsManagerAPIControllerTest extends TestCase
         $yearsRepo = $this->createMock(YearsRepository::class);
         $yearsRepo->method('findOneBy')->willReturn($year);
 
-        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
-        $managerYearsRepo->method('checkRelation')->willReturn(true);
-
         $response = $this->buildController()->getHospitalManagersForYear(
             1,
-            $this->makeSecurity(),
+            $this->makeSecurity($this->createMock(Manager::class), true),
             $yearsRepo,
-            $managerYearsRepo,
             $this->createMock(ManagerRepository::class),
         );
 
@@ -340,6 +323,250 @@ final class YearsManagerAPIControllerTest extends TestCase
         $m->method('isCanCreateYear')->willReturn($canCreate);
         return $m;
     }
+
+    // ── getYearManagers ───────────────────────────────────────────────────────
+
+    public function testGetYearManagersReturns404WhenYearNotFound(): void
+    {
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn(null);
+
+        $response = $this->buildController()->getYearManagers(
+            99,
+            $this->makeSecurity($this->createMock(Manager::class)),
+            $this->createMock(ManagerYearsRepository::class),
+            $yearsRepo,
+        );
+
+        $this->assertSame(404, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertSame('Année introuvable.', $data['message']);
+    }
+
+    public function testGetYearManagersReturns403WhenNotGranted(): void
+    {
+        $year = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $response = $this->buildController()->getYearManagers(
+            1,
+            $this->makeSecurity($this->createMock(Manager::class), false),
+            $this->createMock(ManagerYearsRepository::class),
+            $yearsRepo,
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertSame("Vous n'avez pas accès à cette ressource", $data['message']);
+    }
+
+    public function testGetYearManagersReturns200WithManagerList(): void
+    {
+        $year = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('fetchYearManagers')->willReturn([
+            ['managerId' => 10, 'admin' => true, 'dataAccess' => true, 'firstname' => 'Alice', 'lastname' => 'Dupont'],
+        ]);
+
+        $response = $this->buildController()->getYearManagers(
+            1,
+            $this->makeSecurity($this->createMock(Manager::class), true),
+            $managerYearsRepo,
+            $yearsRepo,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertCount(1, $data);
+        $this->assertSame(10, $data[0]['managerId']);
+        $this->assertSame('Alice', $data[0]['firstname']);
+    }
+
+    public function testGetYearManagersGrantedForManagerAdminHospitalSameHospital(): void
+    {
+        // Cas : manager avec adminHospital correspondant à l'hôpital de l'année.
+        // Le voter (YearAccessVoter::VIEW) accorde l'accès — ici isGranted=true simule ce résultat.
+        $year = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('fetchYearManagers')->willReturn([]);
+
+        $manager = $this->createMock(Manager::class);
+
+        $response = $this->buildController()->getYearManagers(
+            1,
+            $this->makeSecurity($manager, true),
+            $managerYearsRepo,
+            $yearsRepo,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testGetYearManagersDeniedForManagerAdminHospitalDifferentHospital(): void
+    {
+        // Cas : manager avec adminHospital ne correspondant pas à l'hôpital de l'année.
+        // Le voter refuse — ici isGranted=false simule ce résultat.
+        $year = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $manager = $this->createMock(Manager::class);
+
+        $response = $this->buildController()->getYearManagers(
+            1,
+            $this->makeSecurity($manager, false),
+            $this->createMock(ManagerYearsRepository::class),
+            $yearsRepo,
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function testGetYearManagersGrantedForHospitalAdminEntitySameHospital(): void
+    {
+        // Cas : HospitalAdmin entity (compte séparé) pour l'hôpital de l'année.
+        // Avant la refactorisation vers le voter, ce cas causait un TypeError.
+        // Le voter le gère nativement — ici isGranted=true simule ce résultat.
+        $year = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('fetchYearManagers')->willReturn([]);
+
+        $hospitalAdmin = $this->createMock(HospitalAdmin::class);
+
+        $response = $this->buildController()->getYearManagers(
+            1,
+            $this->makeSecurity($hospitalAdmin, true),
+            $managerYearsRepo,
+            $yearsRepo,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testGetYearManagersDeniedForHospitalAdminEntityDifferentHospital(): void
+    {
+        $year = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $hospitalAdmin = $this->createMock(HospitalAdmin::class);
+
+        $response = $this->buildController()->getYearManagers(
+            1,
+            $this->makeSecurity($hospitalAdmin, false),
+            $this->createMock(ManagerYearsRepository::class),
+            $yearsRepo,
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    // ── findYearById ──────────────────────────────────────────────────────────
+
+    public function testFindYearByIdReturns404WhenYearNotFound(): void
+    {
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn(null);
+
+        $response = $this->buildController()->findYearById(
+            99,
+            $this->makeSecurity($this->createMock(Manager::class)),
+            $yearsRepo,
+            $this->createMock(ManagerYearsRepository::class),
+        );
+
+        $this->assertSame(404, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertSame('Année introuvable.', $data['message']);
+    }
+
+    public function testFindYearByIdReturns403WhenNotGranted(): void
+    {
+        $yearEntity = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($yearEntity);
+
+        $response = $this->buildController()->findYearById(
+            1,
+            $this->makeSecurity($this->createMock(Manager::class), false),
+            $yearsRepo,
+            $this->createMock(ManagerYearsRepository::class),
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertSame("Vous n'avez pas accès à cette ressource", $data['message']);
+    }
+
+    public function testFindYearByIdReturns200WithYearAndManagers(): void
+    {
+        $yearEntity = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($yearEntity);
+        $yearsRepo->method('findOneById')->willReturn(['id' => 1, 'title' => 'Cardio 2025']);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('fetchYearManagers')->willReturn([
+            ['managerId' => 5, 'admin' => true],
+        ]);
+
+        $response = $this->buildController()->findYearById(
+            1,
+            $this->makeSecurity($this->createMock(Manager::class), true),
+            $yearsRepo,
+            $managerYearsRepo,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertSame('Cardio 2025', $data['title']);
+        $this->assertArrayHasKey('managers', $data);
+        $this->assertSame(5, $data['managers'][0]['managerId']);
+    }
+
+    public function testFindYearByIdGrantedForHospitalAdminEntity(): void
+    {
+        // HospitalAdmin entity — le voter gère le cas ; plus de TypeError comme avant.
+        $yearEntity = $this->createMock(Years::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($yearEntity);
+        $yearsRepo->method('findOneById')->willReturn(['id' => 1, 'title' => 'Test']);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('fetchYearManagers')->willReturn([]);
+
+        $hospitalAdmin = $this->createMock(HospitalAdmin::class);
+
+        $response = $this->buildController()->findYearById(
+            1,
+            $this->makeSecurity($hospitalAdmin, true),
+            $yearsRepo,
+            $managerYearsRepo,
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    // ── createYear — canCreateYear guard ──────────────────────────────────────
 
     public function testCreateYearWithoutPermissionReturns403(): void
     {

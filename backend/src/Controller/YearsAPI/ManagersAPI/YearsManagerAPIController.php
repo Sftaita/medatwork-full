@@ -20,6 +20,7 @@ use App\Repository\YearsResidentRepository;
 use App\Services\YearsManagement\UpdateYear;
 use App\Services\YearsManagement\YearCreationInput;
 use App\Services\YearsManagement\YearCreationService;
+use App\Security\Voter\YearAccessVoter;
 use App\Services\YearsManagement\YearSummaryBuilder;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -37,27 +38,6 @@ class YearsManagerAPIController extends AbstractController
 {
     public function __construct(private readonly EntityManagerInterface $entityManager)
     {
-    }
-
-    /**
-     * Vérifie si un manager a accès à une année :
-     *   1. Via ManagerYears (lien explicite)
-     *   2. Via adminHospital (manager promu admin d'un hôpital)
-     *
-     * Cohérent avec YearAccessVoter.
-     */
-    private function hasAccessToYear(Manager $manager, Years $year, ManagerYearsRepository $repo): bool
-    {
-        if ($repo->checkRelation($manager, $year)) {
-            return true;
-        }
-
-        $adminHospital = $manager->getAdminHospital();
-        if ($adminHospital !== null && $adminHospital->getId() === $year->getHospital()->getId()) {
-            return true;
-        }
-
-        return false;
     }
 
     #[Route('/api/managers/hospitals', name: 'manager_hospitals_list', methods: ['GET'])]
@@ -255,15 +235,13 @@ class YearsManagerAPIController extends AbstractController
     #[Route('/api/managers/getYearManagers/{yearId}', name: 'getManagerList', methods: ['GET'])]
     public function getYearManagers(int $yearId, Security $security, ManagerYearsRepository $managerYearsRepository, YearsRepository $yearsRepository): JsonResponse
     {
-        /** @var Manager $manager */
-        $manager = $security->getUser();
-        $year    = $yearsRepository->findOneBy(['id' => $yearId]);
+        $year = $yearsRepository->findOneBy(['id' => $yearId]);
 
         if (! $year) {
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
 
-        if (! $this->hasAccessToYear($manager, $year, $managerYearsRepository)) {
+        if (! $security->isGranted(YearAccessVoter::VIEW, $year)) {
             return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
         }
 
@@ -271,17 +249,15 @@ class YearsManagerAPIController extends AbstractController
     }
 
     #[Route('/api/managers/years/{yearId}/hospital-managers', name: 'getHospitalManagersForYear', methods: ['GET'])]
-    public function getHospitalManagersForYear(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository, ManagerRepository $managerRepository): JsonResponse
+    public function getHospitalManagersForYear(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerRepository $managerRepository): JsonResponse
     {
-        /** @var Manager $manager */
-        $manager = $security->getUser();
-        $year    = $yearsRepository->findOneBy(['id' => $yearId]);
+        $year = $yearsRepository->findOneBy(['id' => $yearId]);
 
         if (! $year) {
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
 
-        if (! $this->hasAccessToYear($manager, $year, $managerYearsRepository)) {
+        if (! $security->isGranted(YearAccessVoter::VIEW, $year)) {
             return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
         }
 
@@ -309,23 +285,18 @@ class YearsManagerAPIController extends AbstractController
     #[Route('/api/managers/getYearById/{yearId}', name: 'getYearById', methods: ['GET'])]
     public function findYearById(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository): JsonResponse
     {
-        /** @var Manager $manager */
-        $manager  = $security->getUser();
         $yearEntity = $yearsRepository->findOneBy(['id' => $yearId]);
 
         if ($yearEntity === null) {
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
 
-        if (! $this->hasAccessToYear($manager, $yearEntity, $managerYearsRepository)) {
+        if (! $security->isGranted(YearAccessVoter::VIEW, $yearEntity)) {
             return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
         }
 
-        $year = $yearsRepository->findOneById($yearId);
-
-        $managers = $managerYearsRepository->fetchYearManagers($yearId);
-
-        $year['managers'] = $managers;
+        $year             = $yearsRepository->findOneById($yearId);
+        $year['managers'] = $managerYearsRepository->fetchYearManagers($yearId);
 
         return $this->json($year, 200);
     }

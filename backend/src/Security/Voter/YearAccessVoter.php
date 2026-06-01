@@ -16,6 +16,12 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  */
 class YearAccessVoter extends Voter
 {
+    /**
+     * Accès basique : le manager est lié à l'année (ManagerYears existe),
+     * sans condition sur les flags spécifiques (dataAccess, admin, etc.).
+     * Utilisé pour les endpoints de lecture de configuration d'une année.
+     */
+    public const VIEW             = 'year_view';
     public const DATA_ACCESS      = 'year_data_access';
     public const DATA_VALIDATION  = 'year_data_validation';
     public const DATA_DOWNLOAD    = 'year_data_download';
@@ -25,6 +31,7 @@ class YearAccessVoter extends Voter
 
     /** @var list<string> */
     public const SUPPORTED_ATTRIBUTES = [
+        self::VIEW,
         self::DATA_ACCESS,
         self::DATA_VALIDATION,
         self::DATA_DOWNLOAD,
@@ -80,6 +87,7 @@ class YearAccessVoter extends Voter
         }
 
         return match ($attribute) {
+            self::VIEW            => true,
             self::DATA_ACCESS     => (bool) $relation->getDataAccess(),
             self::DATA_VALIDATION => (bool) $relation->getDataValidation(),
             self::DATA_DOWNLOAD   => (bool) $relation->getDataDownload(),

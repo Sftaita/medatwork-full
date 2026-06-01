@@ -205,4 +205,83 @@ final class YearAccessVoterTest extends TestCase
         $result = $this->buildVoter()->vote($this->makeToken($manager), $year, ['unsupported_attribute']);
         $this->assertSame(0, $result);
     }
+
+    // ── VIEW — Manager avec ligne ManagerYears ────────────────────────────────
+
+    public function testViewGrantedWhenManagerYearsRowExists(): void
+    {
+        $manager  = $this->createMock(Manager::class);
+        $manager->method('getAdminHospital')->willReturn(null);
+
+        $relation = $this->createMock(\App\Entity\ManagerYears::class);
+        $this->managerYearsRepo->method('findOneBy')->willReturn($relation);
+
+        $result = $this->buildVoter()->vote($this->makeToken($manager), $this->makeYear(), [YearAccessVoter::VIEW]);
+        $this->assertSame(1, $result, 'VIEW doit être accordé si une ligne ManagerYears existe (même avec tous les flags à false)');
+    }
+
+    public function testViewDeniedWhenNoManagerYearsRow(): void
+    {
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getAdminHospital')->willReturn(null);
+
+        $this->managerYearsRepo->method('findOneBy')->willReturn(null);
+
+        $result = $this->buildVoter()->vote($this->makeToken($manager), $this->makeYear(), [YearAccessVoter::VIEW]);
+        $this->assertSame(-1, $result, 'VIEW doit être refusé si aucune ligne ManagerYears');
+    }
+
+    // ── VIEW — Manager promu adminHospital ────────────────────────────────────
+
+    public function testViewGrantedForManagerAdminHospitalSameHospital(): void
+    {
+        $hospital = $this->makeHospital(1);
+        $year     = $this->makeYear($hospital);
+
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getAdminHospital')->willReturn($hospital);
+
+        $result = $this->buildVoter()->vote($this->makeToken($manager), $year, [YearAccessVoter::VIEW]);
+        $this->assertSame(1, $result, 'VIEW doit être accordé : manager adminHospital, même hôpital que l\'année');
+    }
+
+    public function testViewDeniedForManagerAdminHospitalDifferentHospital(): void
+    {
+        $hospitalA = $this->makeHospital(1);
+        $hospitalB = $this->makeHospital(2);
+        $year      = $this->makeYear($hospitalB);
+
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getAdminHospital')->willReturn($hospitalA);
+
+        $result = $this->buildVoter()->vote($this->makeToken($manager), $year, [YearAccessVoter::VIEW]);
+        $this->assertSame(-1, $result, 'VIEW doit être refusé : manager adminHospital d\'un hôpital différent');
+    }
+
+    // ── VIEW — HospitalAdmin entity ───────────────────────────────────────────
+
+    public function testViewGrantedForHospitalAdminEntitySameHospital(): void
+    {
+        $hospital = $this->makeHospital(1);
+        $year     = $this->makeYear($hospital);
+
+        $admin = $this->createMock(HospitalAdmin::class);
+        $admin->method('getHospital')->willReturn($hospital);
+
+        $result = $this->buildVoter()->vote($this->makeToken($admin), $year, [YearAccessVoter::VIEW]);
+        $this->assertSame(1, $result, 'VIEW doit être accordé : HospitalAdmin entity, même hôpital que l\'année');
+    }
+
+    public function testViewDeniedForHospitalAdminEntityDifferentHospital(): void
+    {
+        $hospitalA = $this->makeHospital(1);
+        $hospitalB = $this->makeHospital(2);
+        $year      = $this->makeYear($hospitalB);
+
+        $admin = $this->createMock(HospitalAdmin::class);
+        $admin->method('getHospital')->willReturn($hospitalA);
+
+        $result = $this->buildVoter()->vote($this->makeToken($admin), $year, [YearAccessVoter::VIEW]);
+        $this->assertSame(-1, $result, 'VIEW doit être refusé : HospitalAdmin entity d\'un hôpital différent');
+    }
 }
