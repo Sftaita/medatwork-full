@@ -1,143 +1,946 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import periodsApi from "../../../../services/periodsApi";
-import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
-import { monthList } from "../../../../doc/lists";
-
-// Material UI
-
+import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
-
-// Local components
-import Steper from "./Steper";
+import InputBase from "@mui/material/InputBase";
+import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
-import SummaryLoader from "./SummaryLoader";
-import ResidentValidation from "./ValidationView/ResidentValidation";
+import Collapse from "@mui/material/Collapse";
+import Tooltip from "@mui/material/Tooltip";
+import { LoadingButton } from "@mui/lab";
+import SearchIcon from "@mui/icons-material/Search";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
+import MessageIcon from "@mui/icons-material/Message";
+import GroupsIcon from "@mui/icons-material/Groups";
+import { toast } from "react-toastify";
+
+import useAxiosPrivate from "../../../../hooks/useAxiosPrivate";
+import useValidationContext from "../../../../hooks/useValidationContext";
+import periodsApi from "../../../../services/periodsApi";
+import managersApi from "../../../../services/managersApi";
+import { monthList, warningList } from "../../../../doc/lists";
+import { toastSuccess, toastError } from "../../../../doc/ToastParams";
 import { handleApiError } from "@/services/apiError";
+import dayjs from "@/lib/dayjs";
+import MessageBox from "./ValidationView/MessageBox";
 
-const General = ({ yearId, _adminRights }) => {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Period {
+  id: number;
+  label: string;   // "Avril 2026"
+  monthNum: number;
+  year: number;
+}
+
+interface Warning {
+  warningType: "minLimit" | "maxLimit" | "overruns" | "smoothing";
+  NumberOfHours?: number;
+  week?: number;
+  startDate?: string;
+  endDate?: string;
+  period?: number;
+}
+
+interface PeriodInfo {
+  periodNumber: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface ResidentReport {
+  residentId: number;
+  residentFirstname: string;
+  residentLastname: string;
+  validationInformation: { validated: boolean };
+  optingOut: boolean;
+  limits: { limit: number; highLimit: number };
+  periodsinfo: PeriodInfo[];
+  smoothedHours: boolean;
+  warningHours: Record<string, unknown>;
+  IllegalHours: Record<string, unknown>;
+  callable: number;
+  hospital: number;
+  shiftOverlap: number;
+  daysOfLeaves: Record<string, number>;
+  warnings: Warning[];
+}
+
+interface ValidationEntry {
+  residentId: number;
+  status: "validate" | "invalidate";
+  managerComment: string;
+  residentNotification: string;
+}
+
+// ── Constants & helpers ───────────────────────────────────────────────────────
+
+const AV_COLORS = [
+  "#7B3FA0","#2f7fc4","#1f9d57","#d9803a",
+  "#c4477f","#5b54c9","#2a9d9d","#b5852a",
+];
+
+export function getInitials(first: string, last: string): string {
+  return ((first?.[0] ?? "") + (last?.[0] ?? "")).toUpperCase();
+}
+
+export function hasLegalAlert(warnings: Warning[]): boolean {
+  return warnings.some((w) => w.warningType !== "minLimit");
+}
+
+export function legalAlertCount(warnings: Warning[]): number {
+  return warnings.filter((w) => w.warningType !== "minLimit").length;
+}
+
+export function priority(report: ResidentReport, validationData: ValidationEntry[]): 0 | 1 | 2 {
+  if (hasLegalAlert(report.warnings)) return 0;
+  const entry = validationData.find((d) => d.residentId === report.residentId);
+  if (!entry || entry.status === "invalidate") return 1;
+  return 2;
+}
+
+export function matchesFilter(
+  report: ResidentReport,
+  filter: string,
+  validationData: ValidationEntry[]
+): boolean {
+  if (filter === "alert") return hasLegalAlert(report.warnings);
+  if (filter === "todo") {
+    const entry = validationData.find((d) => d.residentId === report.residentId);
+    return !entry || entry.status === "invalidate";
+  }
+  if (filter === "done") {
+    const entry = validationData.find((d) => d.residentId === report.residentId);
+    return entry?.status === "validate";
+  }
+  return true;
+}
+
+// ── Avatar ────────────────────────────────────────────────────────────────────
+
+function ResidentAvatar({ first, last, index }: { first: string; last: string; index: number }) {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: 38, height: 38,
+        borderRadius: "50%",
+        bgcolor: AV_COLORS[index % AV_COLORS.length],
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#fff", fontWeight: 700, fontSize: 13, flex: "none",
+      }}
+    >
+      {getInitials(first, last)}
+    </Box>
+  );
+}
+
+// ── Custom toggle (matches design) ────────────────────────────────────────────
+
+function ValidateToggle({
+  validated,
+  onChange,
+}: {
+  validated: boolean;
+  onChange: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Box
+      component="button"
+      role="switch"
+      aria-checked={validated}
+      onClick={(e: React.MouseEvent) => { e.stopPropagation(); onChange(); }}
+      sx={{
+        display: "flex", alignItems: "center", gap: 1,
+        border: "none", background: "transparent", cursor: "pointer",
+        fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+        color: validated ? theme.palette.success.main : "text.secondary",
+        p: 0, flexShrink: 0,
+        "&:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2, borderRadius: 4 },
+      }}
+    >
+      <Box
+        sx={{
+          width: 46, height: 26, borderRadius: 999,
+          bgcolor: validated ? theme.palette.success.main : alpha(theme.palette.text.disabled, 0.3),
+          position: "relative",
+          transition: theme.transitions.create("background-color"),
+          flex: "none",
+          "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute", top: 3, width: 20, height: 20,
+            borderRadius: 999, bgcolor: "#fff",
+            boxShadow: "0 1px 3px rgba(0,0,0,.25)",
+            left: validated ? 23 : 3,
+            transition: theme.transitions.create("left"),
+            "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+          }}
+        />
+      </Box>
+      {validated ? "Validé" : "Valider"}
+    </Box>
+  );
+}
+
+// ── Compliance report (expanded) ──────────────────────────────────────────────
+
+function ComplianceReport({ report }: { report: ResidentReport }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const surfaceColor = isDark ? theme.palette.custom.primarySofter : "#faf6fd";
+  const legalAlerts = report.warnings.filter((w) => w.warningType !== "minLimit");
+  const infoAlerts  = report.warnings.filter((w) => w.warningType === "minLimit");
+  const allAlerts   = [...legalAlerts, ...infoAlerts]; // legal first
+
+  const kv = (label: string, value: React.ReactNode) => (
+    <Box display="flex" justifyContent="space-between" alignItems="center"
+      sx={{ py: "8px", borderBottom: `1px dashed ${theme.palette.divider}`, "&:last-child": { borderBottom: "none" } }}>
+      <Typography fontSize={12.5} color="text.secondary">{label}</Typography>
+      {value}
+    </Box>
+  );
+
+  const badge = (ok: boolean) => (
+    <Box component="span" sx={{
+      display: "inline-flex", alignItems: "center", gap: "5px",
+      fontSize: 11, fontWeight: 700, px: "10px", py: "3px",
+      borderRadius: 999, letterSpacing: ".03em",
+      bgcolor: ok ? theme.palette.success.main : theme.palette.error.main,
+      color: "#fff",
+    }}>
+      {ok ? <CheckIcon sx={{ fontSize: 12 }} /> : <CloseIcon sx={{ fontSize: 12 }} />}
+      {ok ? "OUI" : "NON"}
+    </Box>
+  );
+
+  const monoVal = (v: string | number) => (
+    <Typography component="span" sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: "primary.main" }}>
+      {v}
+    </Typography>
+  );
+
+  const cardSx = {
+    bgcolor: surfaceColor, border: `1px solid ${theme.palette.divider}`,
+    borderRadius: "14px", p: "16px 18px",
+  };
+
+  const cardTitle = (title: string) => (
+    <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+      <Box sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: "primary.main", flex: "none" }} />
+      <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, fontWeight: 600 }}>
+        {title}
+      </Typography>
+    </Box>
+  );
+
+  const totalLeaves = Object.values(report.daysOfLeaves ?? {}).reduce((s: number, v) => s + (Number(v) || 0), 0);
+
+  return (
+    <Box sx={{ borderTop: `1px solid ${theme.palette.divider}`, p: "6px 20px 22px" }}>
+      <Box display="grid" sx={{ gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+        {/* Informations générales */}
+        <Box sx={cardSx}>
+          {cardTitle("Informations générales")}
+          {kv("Opting out", (
+            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: 11, fontWeight: 700, px: "10px", py: "3px", borderRadius: 999, bgcolor: "primary.main", color: "#fff" }}>
+              {report.optingOut ? "OUI" : "NON"}
+            </Box>
+          ))}
+          {kv("Temps de travail maximum", monoVal(`${report.limits?.limit ?? "—"}h`))}
+          {kv("Temps de travail maximum absolu", monoVal(`${report.limits?.highLimit ?? "—"}h`))}
+          {kv("Nombre d'intervalles", monoVal(report.periodsinfo?.length ?? 0))}
+          {(report.periodsinfo ?? []).length > 0 && (
+            <Box display="grid" sx={{ gridTemplateColumns: "1fr 1fr", gap: "10px", mt: 1.5 }}>
+              {report.periodsinfo.map((p) => (
+                <Box key={p.periodNumber} sx={{ bgcolor: "background.paper", border: `1px solid ${theme.palette.divider}`, borderRadius: "11px", p: "12px 14px" }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                    Période n°{p.periodNumber}
+                  </Typography>
+                  <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: "text.secondary", mt: "6px", lineHeight: 1.7 }}>
+                    Début : {dayjs(p.periodStart).format("DD-MM-YYYY")}<br />
+                    Fin&nbsp;&nbsp;&nbsp;: {dayjs(p.periodEnd).format("DD-MM-YYYY")}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+
+        {/* Heures prestées + Absences & gardes */}
+        <Box sx={cardSx}>
+          {cardTitle("Heures prestées")}
+          {kv("Lissage des heures respecté ?", badge(!!report.smoothedHours))}
+          {kv("Respect des heures maximum autorisé ?", badge(Object.keys(report.warningHours ?? {}).length <= 1))}
+          {kv("Respect des heures maximum absolu ?", badge(Object.keys(report.IllegalHours ?? {}).length === 0))}
+          <Box mt={2}>{cardTitle("Absences & gardes")}</Box>
+          {kv("Absences (jours)", monoVal(totalLeaves))}
+          {kv("Gardes appelables", monoVal(report.callable ?? 0))}
+          {kv("Gardes sur place", monoVal(report.hospital ?? 0))}
+          {kv("Conflit de garde ?", badge((report.shiftOverlap ?? 0) === 0))}
+        </Box>
+
+        {/* Alertes — pleine largeur */}
+        {allAlerts.length > 0 ? (
+          <Box sx={{ ...cardSx, gridColumn: "1 / -1" }}>
+            <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+              <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, fontWeight: 600 }}>Alertes</Typography>
+              <Box component="span" sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, bgcolor: alpha(theme.palette.error.main, 0.12), color: "error.main", px: "9px", py: "3px", borderRadius: 999, fontWeight: 600 }}>
+                {allAlerts.length}
+              </Box>
+            </Box>
+            {allAlerts.map((a, i) => {
+              const isErr = a.warningType !== "minLimit";
+              return (
+                <Box key={i} display="flex" gap={1.5} sx={{
+                  p: "13px 15px", borderRadius: "12px", mb: 1,
+                  bgcolor: isErr ? alpha(theme.palette.error.main, 0.07) : alpha(theme.palette.warning.main, 0.08),
+                  border: `1px solid ${isErr ? alpha(theme.palette.error.main, 0.2) : alpha(theme.palette.warning.main, 0.2)}`,
+                }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography component="span" sx={{ fontSize: 12.5, fontWeight: 600 }}>
+                      {warningList[a.warningType] ?? a.warningType}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontFamily: "'JetBrains Mono', monospace", mt: 0.5 }}>
+                      {a.week != null && `Semaine ${a.week}`}
+                      {a.startDate && ` · ${dayjs(a.startDate).format("DD-MM-YYYY")} → ${dayjs(a.endDate).format("DD-MM-YYYY")}`}
+                      {a.period != null && ` · Période n°${a.period}`}
+                    </Typography>
+                  </Box>
+                  {a.NumberOfHours != null && (
+                    <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 14, color: isErr ? "error.main" : "warning.main", flex: "none" }}>
+                      {Math.floor(a.NumberOfHours)}h{String(Math.round((a.NumberOfHours % 1) * 60)).padStart(2, "0")}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        ) : (
+          <Box sx={{ ...cardSx, gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 1.5, bgcolor: alpha(theme.palette.success.main, 0.08), borderColor: alpha(theme.palette.success.main, 0.25) }}>
+            <CheckIcon sx={{ color: "success.main", fontSize: 18 }} />
+            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "success.main" }}>
+              Aucune alerte sur cette période — conformité complète.
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+// ── MACC card ─────────────────────────────────────────────────────────────────
+
+interface MaccCardProps {
+  report: ResidentReport;
+  index: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  validationData: ValidationEntry[];
+  onValidationChange: (residentId: number) => void;
+}
+
+export function MaccCard({ report, index, isOpen, onToggle, validationData, onValidationChange }: MaccCardProps) {
+  const theme = useTheme();
   const { t } = useTranslation();
+  const entry = validationData.find((d) => d.residentId === report.residentId);
+  const isValidated = entry?.status === "validate";
+  const alertCount  = legalAlertCount(report.warnings);
+  const isLegal     = alertCount > 0;
+
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifType, setNotifType] = useState<"ResidentNotification" | "ManagerNotification">("ResidentNotification");
+
+  const hasResidentMsg = !!entry?.residentNotification;
+  const hasManagerMsg  = !!entry?.managerComment;
+
+  return (
+    <Box
+      data-testid={`macc-card-${report.residentId}`}
+      sx={{
+        bgcolor: "background.paper",
+        border: `1px solid ${isOpen ? theme.palette.divider : theme.palette.divider}`,
+        borderRadius: "16px",
+        mb: 1.5,
+        overflow: "hidden",
+        boxShadow: isOpen ? `0 8px 28px -16px ${alpha(theme.palette.common.black, 0.28)}` : "none",
+        transition: theme.transitions.create(["box-shadow", "border-color"]),
+      }}
+    >
+      {/* Row */}
+      <Box
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+        data-testid={`macc-row-${report.residentId}`}
+        onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        display="flex" alignItems="center" gap={1.75} sx={{ p: "16px 18px", cursor: "pointer" }}
+      >
+        {/* Chevron */}
+        <Box sx={{
+          width: 28, height: 28, borderRadius: "8px", flex: "none",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          border: `1px solid ${isOpen ? "transparent" : theme.palette.divider}`,
+          bgcolor: isOpen ? theme.palette.custom.primarySoft : "background.paper",
+          color: isOpen ? "primary.main" : "text.secondary",
+          transition: theme.transitions.create(["transform", "background"]),
+          transform: isOpen ? "rotate(90deg)" : "none",
+        }}>
+          <ChevronRightIcon sx={{ fontSize: 16 }} />
+        </Box>
+
+        {/* Avatar */}
+        <ResidentAvatar first={report.residentFirstname} last={report.residentLastname} index={index} />
+
+        {/* Name + email */}
+        <Box flex={1} minWidth={0}>
+          <Typography fontWeight={600} fontSize={14.5} noWrap>
+            {report.residentFirstname} {report.residentLastname}
+          </Typography>
+          <Typography
+            component="span"
+            sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: "text.disabled", display: "block", mt: "2px" }}
+            noWrap
+          >
+            {`${report.residentFirstname?.toLowerCase()}.${report.residentLastname?.toLowerCase()}@medwork.be`}
+          </Typography>
+        </Box>
+
+        {/* Status chips */}
+        <Box display="flex" gap="7px" alignItems="center" onClick={(e) => e.stopPropagation()}>
+          {isLegal ? (
+            <Box component="span" data-testid={`chip-alert-${report.residentId}`} sx={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              fontSize: 11, fontWeight: 600, px: "9px", py: "4px", borderRadius: 999,
+              bgcolor: alpha(theme.palette.error.main, 0.1),
+              color: "error.main",
+            }}>
+              {alertCount} alerte{alertCount > 1 ? "s" : ""}
+            </Box>
+          ) : (
+            <Box component="span" data-testid={`chip-conforme-${report.residentId}`} sx={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              fontSize: 11, fontWeight: 600, px: "9px", py: "4px", borderRadius: 999,
+              bgcolor: alpha(theme.palette.success.main, 0.1),
+              color: "success.main",
+            }}>
+              <CheckIcon sx={{ fontSize: 12 }} />
+              Conforme
+            </Box>
+          )}
+          {report.optingOut && (
+            <Box component="span" data-testid={`chip-opting-${report.residentId}`} sx={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              fontSize: 11, fontWeight: 600, px: "9px", py: "4px", borderRadius: 999,
+              border: `1px solid ${theme.palette.divider}`,
+              color: "text.secondary",
+            }}>
+              Opting out
+            </Box>
+          )}
+        </Box>
+
+        {/* Notification buttons */}
+        <Box display="flex" gap={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
+          <Tooltip title={t("yearDetail.validation.tooltipResident", "Notification au MACCS")}>
+            <IconButton size="small" onClick={() => { setNotifType("ResidentNotification"); setNotifOpen(true); }}
+              sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasResidentMsg ? "primary.main" : "text.disabled" }}>
+              <MessageIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("yearDetail.validation.tooltipManagers", "Notification aux managers")}>
+            <IconButton size="small" onClick={() => { setNotifType("ManagerNotification"); setNotifOpen(true); }}
+              sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasManagerMsg ? "primary.main" : "text.disabled" }}>
+              <GroupsIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {/* Validate toggle */}
+        <Box onClick={(e) => e.stopPropagation()}>
+          <ValidateToggle
+            validated={isValidated}
+            onChange={() => onValidationChange(report.residentId)}
+          />
+        </Box>
+      </Box>
+
+      {/* Compliance report */}
+      <Collapse in={isOpen} timeout={200} unmountOnExit>
+        <ComplianceReport report={report} />
+      </Collapse>
+
+      <MessageBox
+        openDialog={notifOpen}
+        setOpenDialog={setNotifOpen}
+        notificationType={notifType}
+        residentId={report.residentId}
+      />
+    </Box>
+  );
+}
+
+// ── Filter chip ───────────────────────────────────────────────────────────────
+
+function FilterChip({
+  label, count, active, countVariant = "neutral",
+  onClick,
+}: {
+  label: string; count: number; active: boolean;
+  countVariant?: "neutral" | "danger" | "ok";
+  onClick: () => void;
+}) {
+  const theme = useTheme();
+  const badgeBg =
+    active      ? alpha("#fff", 0.22) :
+    countVariant === "danger" ? alpha(theme.palette.error.main, 0.1) :
+    countVariant === "ok"     ? alpha(theme.palette.success.main, 0.1) :
+    theme.palette.background.default;
+  const badgeColor =
+    active      ? "#fff" :
+    countVariant === "danger" ? theme.palette.error.main :
+    countVariant === "ok"     ? theme.palette.success.main :
+    theme.palette.text.secondary;
+
+  return (
+    <Box
+      component="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      sx={{
+        display: "inline-flex", alignItems: "center", gap: "7px",
+        px: "13px", py: "8px", borderRadius: "10px",
+        border: `1px solid ${active ? "transparent" : theme.palette.divider}`,
+        bgcolor: active ? theme.palette.text.primary : "background.paper",
+        color: active ? "#fff" : "text.secondary",
+        fontWeight: 600, fontSize: 12.5, fontFamily: "inherit",
+        cursor: "pointer", flex: "none",
+        transition: theme.transitions.create(["background", "color"]),
+        "&:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+      }}
+    >
+      {label}
+      <Box component="span" sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, px: "6px", py: "1px", borderRadius: 999, bgcolor: badgeBg, color: badgeColor }}>
+        {count}
+      </Box>
+    </Box>
+  );
+}
+
+// ── Month rail item ───────────────────────────────────────────────────────────
+
+type MonthStatus = "alert" | "ok" | "pending";
+
+function MonthRailItem({
+  period, position, isActive, status, onClick,
+}: {
+  period: Period; position: number; isActive: boolean; status: MonthStatus | null; onClick: () => void;
+}) {
+  const theme = useTheme();
+  const nodeColor = isActive
+    ? { bg: theme.palette.primary.main, color: "#fff" }
+    : { bg: alpha(theme.palette.text.primary, 0.08), color: theme.palette.text.secondary };
+
+  const dotColors: Record<MonthStatus, string> = {
+    alert:   theme.palette.error.main,
+    ok:      theme.palette.success.main,
+    pending: theme.palette.warning.main,
+  };
+
+  return (
+    <Box
+      role="option"
+      aria-selected={isActive}
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      display="flex" alignItems="center" gap={1.5}
+      sx={{
+        p: "9px 12px", borderRadius: "11px", position: "relative", zIndex: 1,
+        bgcolor: isActive ? theme.palette.custom.primarySoft : "transparent",
+        cursor: "pointer",
+        "&:hover": { bgcolor: isActive ? theme.palette.custom.primarySoft : theme.palette.background.default },
+        "&:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+      }}
+    >
+      <Box sx={{
+        width: 30, height: 30, borderRadius: 999, flex: "none", zIndex: 2,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600,
+        bgcolor: nodeColor.bg, color: nodeColor.color,
+        transition: theme.transitions.create(["background", "color"]),
+      }}>
+        {status === "ok" ? <CheckIcon sx={{ fontSize: 14 }} /> : position}
+      </Box>
+
+      <Box flex={1} minWidth={0}>
+        <Typography sx={{ fontSize: 12.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", lineHeight: 1.2 }} noWrap>
+          {period.label}
+        </Typography>
+      </Box>
+
+      {status && (
+        <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: dotColors[status], flex: "none" }} />
+      )}
+    </Box>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights?: boolean | null }) => {
+  const { t } = useTranslation();
+  const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
+  const { periodId, setPeriodId, residentValidationData, setResidentValidationData } = useValidationContext();
 
-  const [loading, setLoading] = useState(true);
+  // ── Periods list ───────────────────────────────────────────────────────────
+  const [loading, setLoading]     = useState(true);
+  const [periods, setPeriods]     = useState<Period[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // ── Period report ──────────────────────────────────────────────────────────
   const [periodLoading, setPeriodLoading] = useState(false);
-  const [periods, setPeriods] = useState([]);
-  const [periodReport, setPeriodReport] = useState([]);
-  const fetchPeriods = async () => {
-    setLoading(true);
+  const [periodReport, setPeriodReport]   = useState<ResidentReport[]>([]);
+  const [periodStatuses, setPeriodStatuses] = useState<Map<number, MonthStatus>>(new Map());
 
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [filter,    setFilter]    = useState<"all" | "alert" | "todo" | "done">("all");
+  const [query,     setQuery]     = useState("");
+  const [openCards, setOpenCards] = useState<Set<number>>(new Set());
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  // ── Fetch periods list ─────────────────────────────────────────────────────
+  const fetchPeriods = useCallback(async () => {
+    if (!yearId) return;
+    setLoading(true);
     try {
       const { method, url } = periodsApi.fetchPeriod();
-      const request = await axiosPrivate[method](url + yearId);
-      const transformed = transformer(request.data);
-
+      const res = await axiosPrivate[method](url + yearId);
+      const raw: { id: number; month: number; year: number }[] = res.data ?? [];
+      raw.sort((a, b) => {
+        const dA = new Date(a.year, a.month - 1);
+        const dB = new Date(b.year, b.month - 1);
+        return dB.getTime() - dA.getTime();
+      });
+      const transformed: Period[] = raw.map((item) => ({
+        id:       item.id,
+        label:    `${monthList[item.month as keyof typeof monthList] ?? ""} ${item.year}`,
+        monthNum: item.month,
+        year:     item.year,
+      }));
       setPeriods(transformed);
-      if (transformed[0]?.id !== undefined) {
+      if (transformed[0]) {
         getPeriodSummary(transformed[0].id);
+        setPeriodId(transformed[0].id);
       }
     } catch (error) {
       handleApiError(error);
-      setLoading(false);
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearId]);
 
-  const getPeriodSummary = async (periodId) => {
-    if (periodId === undefined || periodId === null) return;
+  // ── Fetch period report ────────────────────────────────────────────────────
+  const getPeriodSummary = useCallback(async (pid: number) => {
     setPeriodLoading(true);
-
+    setOpenCards(new Set());
     try {
       const { method, url } = periodsApi.getPeriodReport();
-      const request = await axiosPrivate[method](url + periodId);
-      setPeriodReport(request?.data);
+      const res = await axiosPrivate[method](url + pid);
+      const data: ResidentReport[] = res?.data ?? [];
+      setPeriodReport(data);
+
+      // Init validation context
+      setResidentValidationData(
+        data.map((r) => ({
+          residentId:           r.residentId,
+          status:               r.validationInformation?.validated ? "validate" : "invalidate",
+          managerComment:       "",
+          residentNotification: "",
+        }))
+      );
+
+      // Compute status for rail dot
+      const hasLegal = data.some((r) => hasLegalAlert(r.warnings));
+      const allDone  = data.every((r) => r.validationInformation?.validated);
+      const status: MonthStatus = hasLegal ? "alert" : allDone ? "ok" : "pending";
+      setPeriodStatuses((prev) => new Map(prev).set(pid, status));
     } catch (error) {
       handleApiError(error);
     } finally {
       setPeriodLoading(false);
     }
-  };
-
-  const transformer = (periods) => {
-    periods?.sort((a, b) => {
-      const dateA = new Date(a.year, a.month - 1);
-      const dateB = new Date(b.year, b.month - 1);
-
-      return dateB - dateA;
-    });
-
-    const months = periods.map((item) => ({
-      id: item.id,
-      label: monthList[item.month] + " " + item.year,
-    }));
-
-    return months;
-  };
-
-  useEffect(() => {
-    if (yearId) {
-      fetchPeriods();
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearId]); // intentional: fetchPeriods is defined in component scope and doesn't need to be in deps
+  }, [axiosPrivate]);
+
+  useEffect(() => { fetchPeriods(); }, [fetchPeriods]);
+
+  // ── Period selection ───────────────────────────────────────────────────────
+  const handleSelectMonth = (index: number) => {
+    setSelectedIndex(index);
+    setFilter("all");
+    setQuery("");
+    const pid = periods[index]?.id;
+    if (pid !== undefined) {
+      setPeriodId(pid);
+      getPeriodSummary(pid);
+    }
+  };
+
+  // ── Validation toggle ──────────────────────────────────────────────────────
+  const handleValidationChange = useCallback((residentId: number) => {
+    setResidentValidationData(
+      (residentValidationData as ValidationEntry[]).map((d) =>
+        d.residentId === residentId
+          ? { ...d, status: d.status === "validate" ? "invalidate" : "validate" }
+          : d
+      )
+    );
+  }, [residentValidationData, setResidentValidationData]);
+
+  // ── Card open/close ────────────────────────────────────────────────────────
+  const toggleCard = (residentId: number) => {
+    setOpenCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(residentId)) next.delete(residentId);
+      else next.add(residentId);
+      return next;
+    });
+  };
+
+  // ── Valider les conformes ──────────────────────────────────────────────────
+  const handleBulkValidate = useCallback(() => {
+    const data = residentValidationData as ValidationEntry[];
+    const updated = data.map((d) => {
+      const report = periodReport.find((r) => r.residentId === d.residentId);
+      if (!report) return d;
+      if (!hasLegalAlert(report.warnings) && d.status === "invalidate") {
+        return { ...d, status: "validate" as const };
+      }
+      return d;
+    });
+    setResidentValidationData(updated);
+    toast.success(t("yearDetail.validation.bulkSuccess", "Validations enregistrées"), toastSuccess);
+  }, [residentValidationData, periodReport, setResidentValidationData, t]);
+
+  // ── Save validations ───────────────────────────────────────────────────────
+  const handleSave = async () => {
+    if (!periodId) return;
+    setSaveLoading(true);
+    try {
+      const { method, url } = managersApi.updateResidentValidationPeriod();
+      await axiosPrivate[method](url + periodId, residentValidationData);
+      toast.success(t("yearDetail.validation.saved", "Validations enregistrées"), toastSuccess);
+    } catch (error) {
+      handleApiError(error);
+      toast.error(t("yearDetail.validation.saveError", "Erreur lors de l'enregistrement"), toastError);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  // ── Derived counts & filtered list ────────────────────────────────────────
+  const validationData = residentValidationData as ValidationEntry[];
+
+  const counts = useMemo(() => ({
+    all:   periodReport.length,
+    alert: periodReport.filter((r) => hasLegalAlert(r.warnings)).length,
+    todo:  periodReport.filter((r) => {
+      const e = validationData.find((d) => d.residentId === r.residentId);
+      return !e || e.status === "invalidate";
+    }).length,
+    done:  periodReport.filter((r) => {
+      const e = validationData.find((d) => d.residentId === r.residentId);
+      return e?.status === "validate";
+    }).length,
+  }), [periodReport, validationData]);
+
+  const validatedCount = counts.done;
+  const total          = counts.all;
+
+  const filteredSorted = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return periodReport
+      .filter((r) => {
+        if (q && !`${r.residentFirstname} ${r.residentLastname}`.toLowerCase().includes(q)) return false;
+        return matchesFilter(r, filter, validationData);
+      })
+      .sort((a, b) => priority(a, validationData) - priority(b, validationData));
+  }, [periodReport, filter, query, validationData]);
+
+  const conformesLeft = periodReport.filter((r) => {
+    const e = validationData.find((d) => d.residentId === r.residentId);
+    return !hasLegalAlert(r.warnings) && (!e || e.status === "invalidate");
+  }).length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="30vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (periods.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="20vh">
+        <Typography color="text.secondary">{t("yearDetail.noPeriods", "Aucune période disponible.")}</Typography>
+      </Box>
+    );
+  }
+
+  const selectedPeriod = periods[selectedIndex] ?? periods[0];
 
   return (
-    <Grid container spacing={4}>
-      {loading ? (
-        <Grid container>
+    <Box display="grid" sx={{ gridTemplateColumns: "232px 1fr", gap: "22px", alignItems: "start" }}>
+      {/* ── Month rail ──────────────────────────────────────────────────── */}
+      <Box
+        role="listbox"
+        aria-label={t("yearDetail.validation.railLabel", "Sélection du mois")}
+        sx={{
+          position: "sticky",
+          top: { xs: 58 + 62, sm: 66 + 62, md: 71 + 62 },
+          bgcolor: "background.paper",
+          border: `1px solid ${theme.palette.divider}`,
+          borderRadius: "16px",
+          p: 1,
+        }}
+      >
+        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ px: 1.5, py: 1.5, pb: 1.25 }}>
+          <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, fontWeight: 600 }}>Mois</Typography>
+        </Box>
+
+        {/* Connecting line + items */}
+        <Box sx={{ position: "relative", "&::before": { content: '""', position: "absolute", left: 27, top: 15, bottom: 15, width: 2, bgcolor: theme.palette.divider, zIndex: 0 } }}>
+          {periods.map((period, i) => (
+            <MonthRailItem
+              key={period.id}
+              period={period}
+              position={i + 1}
+              isActive={i === selectedIndex}
+              status={periodStatuses.get(period.id) ?? null}
+              onClick={() => handleSelectMonth(i)}
+            />
+          ))}
+        </Box>
+      </Box>
+
+      {/* ── Workspace ───────────────────────────────────────────────────── */}
+      <Box>
+        {/* Header */}
+        <Box display="flex" alignItems="center" gap={1.75} mb={1.75}>
+          <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 18, fontWeight: 600 }}>
+            {selectedPeriod?.label ?? ""}
+          </Typography>
+          <Box component="span" sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "text.secondary", border: `1px solid ${theme.palette.divider}`, borderRadius: 999, px: "10px", py: "4px" }}>
+            {total} MACCS
+          </Box>
+          <Box flex={1} />
+          {total > 0 && (
+            <Box display="flex" alignItems="center" gap={1} fontSize={12.5} color="text.secondary" fontWeight={500}>
+              <Typography fontSize="inherit" color="inherit" fontWeight="inherit">Validés</Typography>
+              <Box sx={{ height: 6, width: 120, borderRadius: 999, bgcolor: alpha(theme.palette.primary.main, 0.12), overflow: "hidden" }}>
+                <Box sx={{ height: "100%", width: `${(validatedCount / total) * 100}%`, bgcolor: theme.palette.success.main, borderRadius: 999, transition: theme.transitions.create("width") }} />
+              </Box>
+              <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "inherit", color: "inherit" }}>
+                {validatedCount} / {total}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
+        {/* Toolbar */}
+        <Box display="flex" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
+          <Box display="flex" gap="6px" role="radiogroup" aria-label={t("yearDetail.validation.filterLabel", "Filtres")}>
+            <FilterChip label="Tous"      count={counts.all}   active={filter === "all"}   onClick={() => setFilter("all")}   />
+            <FilterChip label="Alertes"   count={counts.alert} active={filter === "alert"} onClick={() => setFilter("alert")} countVariant="danger" />
+            <FilterChip label="À valider" count={counts.todo}  active={filter === "todo"}  onClick={() => setFilter("todo")}  />
+            <FilterChip label="Validés"   count={counts.done}  active={filter === "done"}  onClick={() => setFilter("done")}  countVariant="ok" />
+          </Box>
+          <Box flex={1} />
+          {/* Search */}
+          <Box display="flex" alignItems="center" gap={1} sx={{
+            height: 40, px: 1.75, bgcolor: "background.paper",
+            border: `1px solid ${theme.palette.divider}`, borderRadius: "12px",
+            "&:focus-within": { borderColor: "primary.main", boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}` },
+          }}>
+            <SearchIcon sx={{ color: "text.disabled", fontSize: 17 }} />
+            <InputBase
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("yearDetail.validation.searchPlaceholder", "Rechercher un MACCS…")}
+              inputProps={{ "aria-label": t("yearDetail.validation.searchPlaceholder", "Rechercher un MACCS…") }}
+              sx={{ fontSize: 13.5, width: 220 }}
+            />
+          </Box>
+          {/* Valider les conformes */}
           <Box
-            minHeight={1}
-            width={1}
-            display="flex"
-            height={"20vh"}
-            alignItems="center"
-            justifyContent={"center"}
+            component="button"
+            data-testid="btn-bulk-validate"
+            disabled={conformesLeft === 0}
+            onClick={handleBulkValidate}
+            sx={{
+              display: "flex", alignItems: "center", gap: "7px",
+              height: 40, px: 2, borderRadius: "11px",
+              border: `1px solid ${theme.palette.divider}`,
+              bgcolor: "background.paper", color: "text.primary",
+              fontWeight: 600, fontSize: 13, fontFamily: "inherit", cursor: "pointer",
+              opacity: conformesLeft === 0 ? 0.5 : 1,
+              "&:disabled": { cursor: "not-allowed" },
+              "&:hover:not(:disabled)": { bgcolor: "background.default" },
+            }}
           >
+            <CheckIcon sx={{ fontSize: 16 }} />
+            Valider les conformes
+          </Box>
+          {/* Save */}
+          <LoadingButton
+            variant="contained"
+            size="small"
+            loading={saveLoading}
+            onClick={handleSave}
+            sx={{ height: 40, px: 2 }}
+          >
+            {t("yearDetail.validation.save", "Enregistrer")}
+          </LoadingButton>
+        </Box>
+
+        {/* MACC list */}
+        {periodLoading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="20vh">
             <CircularProgress />
           </Box>
-        </Grid>
-      ) : periods.length === 0 ? (
-        <Grid item xs={12}>
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="20vh">
-            <Typography color="text.secondary">{t("yearDetail.noPeriods")}</Typography>
+        ) : filteredSorted.length === 0 ? (
+          <Box sx={{ p: "40px", textAlign: "center", color: "text.disabled", fontSize: 13.5, border: `1px dashed ${theme.palette.divider}`, borderRadius: "16px" }}>
+            {t("yearDetail.validation.empty", "Aucun MACCS ne correspond à ce filtre.")}
           </Box>
-        </Grid>
-      ) : (
-        <>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ p: { xs: 3, md: 3 } }}>
-              <Box
-                display="flex"
-                flexDirection={{ xs: "column", sm: "row" }}
-                flex="1 1 100%"
-                justifyContent={{ sm: "space-between" }}
-                alignItems={{ xs: "flex-start", sm: "center" }}
-                marginBottom={4}
-              >
-                <Steper
-                  periods={periods}
-                  setPeriods={(x) => setPeriods(x)}
-                  reload={() => fetchPeriods()}
-                  getPeriodSummary={(periodId) => getPeriodSummary(periodId)}
-                />
-              </Box>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={9}>
-            {periodLoading ? (
-              <Card sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                <SummaryLoader />
-              </Card>
-            ) : (
-              <ResidentValidation periodReport={periodReport} />
-            )}
-          </Grid>
-        </>
-      )}
-    </Grid>
+        ) : (
+          filteredSorted.map((report, i) => (
+            <MaccCard
+              key={report.residentId}
+              report={report}
+              index={i}
+              isOpen={openCards.has(report.residentId)}
+              onToggle={() => toggleCard(report.residentId)}
+              validationData={validationData}
+              onValidationChange={handleValidationChange}
+            />
+          ))
+        )}
+      </Box>
+    </Box>
   );
 };
 
