@@ -90,9 +90,16 @@ export interface ResidentReport {
     validated: boolean;
     validatedBy?: unknown;
     validationHistory?: Array<Record<string, unknown>>;
-    /** Dernier commentaire manager (retourné par periodReport depuis v2) */
+    /**
+     * Dernier commentaire INTERNE manager.
+     * Endpoint /api/managers/periodReport — ROLE_MANAGER requis.
+     * JAMAIS exposé aux résidents.
+     */
     lastManagerComment?: string | null;
-    /** Dernière notification résident */
+    lastManagerCommentAuthorId?: number | null;
+    lastManagerCommentAuthorName?: string | null;
+    lastManagerCommentAt?: string | null;
+    /** Dernière notification résident — champ DISTINCT du commentaire interne. */
     lastResidentNotification?: string | null;
   };
   optingOut: boolean;
@@ -111,7 +118,13 @@ export interface ResidentReport {
 interface ValidationEntry {
   residentId: number;
   status: "validate" | "invalidate";
+  /** Commentaire interne manager — jamais transmis au résident. */
   managerComment: string;
+  /** Auteur du dernier commentaire interne (dénormalisé depuis l'historique). */
+  managerCommentAuthorName?: string | null;
+  /** Date du dernier commentaire interne ("YYYY-MM-DD HH:mm:ss"). */
+  managerCommentAt?: string | null;
+  /** Message distinct destiné au résident — affiché/transmis au MACCS. */
   residentNotification: string;
 }
 
@@ -499,18 +512,40 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
         <Box display="flex" gap={1} alignItems="center" onClick={(e) => e.stopPropagation()}
           sx={{ order: { xs: 6, sm: 0 } }}
         >
-          <Tooltip title={t("yearDetail.validation.tooltipResident", "Notification au MACCS")}>
-            <IconButton size="small" onClick={() => { setNotifType("ResidentNotification"); setNotifOpen(true); }}
-              sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasResidentMsg ? "primary.main" : "text.disabled" }}>
+          {/* Bouton message MACCS */}
+          <Tooltip title={hasResidentMsg ? "Message MACCS saisi" : "Message au MACCS"}>
+            <IconButton
+              size="small"
+              aria-label="Message au MACCS"
+              onClick={() => { setNotifType("ResidentNotification"); setNotifOpen(true); }}
+              sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasResidentMsg ? "primary.main" : "text.disabled" }}
+            >
               <MessageIcon sx={{ fontSize: 17 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title={t("yearDetail.validation.tooltipManagers", "Notification aux managers")}>
-            <IconButton size="small" onClick={() => { setNotifType("ManagerNotification"); setNotifOpen(true); }}
-              sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasManagerMsg ? "primary.main" : "text.disabled" }}>
-              <GroupsIcon sx={{ fontSize: 17 }} />
-            </IconButton>
-          </Tooltip>
+          {/* Bouton commentaire interne manager */}
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <Tooltip title={hasManagerMsg ? `Commentaire interne — ${entry?.managerCommentAuthorName ?? "manager"}` : "Commentaire interne manager"}>
+              <IconButton
+                size="small"
+                aria-label="Commentaire interne manager"
+                data-testid={`btn-internal-comment-${report.residentId}`}
+                onClick={() => { setNotifType("ManagerNotification"); setNotifOpen(true); }}
+                sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasManagerMsg ? "warning.main" : "text.disabled" }}
+              >
+                <GroupsIcon sx={{ fontSize: 17 }} />
+              </IconButton>
+            </Tooltip>
+            {/* Auteur du dernier commentaire interne */}
+            {hasManagerMsg && entry?.managerCommentAuthorName && (
+              <Typography
+                sx={{ fontSize: 9, color: "text.disabled", lineHeight: 1, mt: "2px", maxWidth: 60, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={`${entry.managerCommentAuthorName} · ${entry.managerCommentAt?.substring(0, 10) ?? ""}`}
+              >
+                {entry.managerCommentAuthorName?.split(" ")[0]}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         {/* Validate toggle — order:7 sur mobile, poussé à droite */}
@@ -746,13 +781,17 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
       const data: ResidentReport[] = res?.data ?? [];
       setPeriodReport(data);
 
-      // Init validation context — pré-renseigne les commentaires existants
+      // Init validation context — pré-renseigne commentaires internes et notifications résidents
       setResidentValidationData(
         data.map((r) => ({
-          residentId:           r.residentId,
-          status:               r.validationInformation?.validated ? "validate" : "invalidate",
-          managerComment:       r.validationInformation?.lastManagerComment ?? "",
-          residentNotification: r.validationInformation?.lastResidentNotification ?? "",
+          residentId:              r.residentId,
+          status:                  r.validationInformation?.validated ? "validate" : "invalidate",
+          // Commentaire interne manager (jamais transmis au résident)
+          managerComment:          r.validationInformation?.lastManagerComment ?? "",
+          managerCommentAuthorName:r.validationInformation?.lastManagerCommentAuthorName ?? null,
+          managerCommentAt:        r.validationInformation?.lastManagerCommentAt ?? null,
+          // Notification destinée au MACCS (champ distinct)
+          residentNotification:    r.validationInformation?.lastResidentNotification ?? "",
         }))
       );
 

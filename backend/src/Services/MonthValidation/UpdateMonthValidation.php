@@ -65,10 +65,12 @@ class UpdateMonthValidation
 
         // Prepare validation history item
         $historyItem = [
-            'uuid' => bin2hex(random_bytes(16)),
-            'action' => $isValidated ? 'validated' : 'invalidated',
-            'actionBy' => $manager->getId(),
-            'actionAt' => (new \DateTime('now', new \DateTimeZone('Europe/Brussels')))->format('Y-m-d H:i:s'),
+            'uuid'         => bin2hex(random_bytes(16)),
+            'action'       => $isValidated ? 'validated' : 'invalidated',
+            'actionBy'     => $manager->getId(),
+            // Nom dénormalisé : permet l'affichage sans JOIN même si le manager est supprimé
+            'actionByName' => trim($manager->getFirstname() . ' ' . $manager->getLastname()),
+            'actionAt'     => (new \DateTime('now', new \DateTimeZone('Europe/Brussels')))->format('Y-m-d H:i:s'),
         ];
 
         // If a manager comment is provided, add it to the history item

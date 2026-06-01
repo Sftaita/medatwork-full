@@ -266,16 +266,31 @@ class GetPeriodSummary
             $residentSummary['IllegalHours']        = $illegalHours;
             $residentSummary['warnings']            = $errors;
             $residentSummary['shiftOverlap']        = [];
-            $history  = $residentValidation->getValidationHistory() ?? [];
+            $history = $residentValidation->getValidationHistory() ?? [];
+
+            // Dernier item contenant un commentaire manager non vide
+            $lastCommentItem = null;
+            foreach (array_reverse($history) as $item) {
+                if (isset($item['managerComment']) && $item['managerComment'] !== '') {
+                    $lastCommentItem = $item;
+                    break;
+                }
+            }
+
+            // Dernier item global (pour residentNotification)
             $lastItem = !empty($history) ? $history[array_key_last($history)] : null;
 
             $residentSummary['validationInformation'] = [
-                'validated'               => (bool) $residentValidation->getValidated(),
-                'validatedBy'             => $residentValidation->getValidatedBy(),
-                'validationHistory'       => $history,
-                // Dernier commentaire manager (pre-populate MessageBox côté frontend)
-                'lastManagerComment'      => isset($lastItem['managerComment']) ? (string) $lastItem['managerComment'] : null,
-                'lastResidentNotification'=> isset($lastItem['residentNotification']) ? (string) $lastItem['residentNotification'] : null,
+                'validated'                    => (bool) $residentValidation->getValidated(),
+                'validatedBy'                  => $residentValidation->getValidatedBy(),
+                'validationHistory'            => $history,
+                // Dernier commentaire interne manager (visible par managers/RH/admin, JAMAIS par le résident)
+                'lastManagerComment'           => $lastCommentItem ? (string) $lastCommentItem['managerComment'] : null,
+                'lastManagerCommentAuthorId'   => $lastCommentItem ? ($lastCommentItem['actionBy']     ?? null) : null,
+                'lastManagerCommentAuthorName' => $lastCommentItem ? ($lastCommentItem['actionByName'] ?? null) : null,
+                'lastManagerCommentAt'         => $lastCommentItem ? ($lastCommentItem['actionAt']     ?? null) : null,
+                // Dernière notification résident (champ distinct du commentaire interne)
+                'lastResidentNotification'     => isset($lastItem['residentNotification']) ? (string) $lastItem['residentNotification'] : null,
             ];
 
             $summary[] = $residentSummary;
