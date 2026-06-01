@@ -280,9 +280,14 @@ class GetPeriodSummary
             // Dernier item global (pour residentNotification)
             $lastItem = !empty($history) ? $history[array_key_last($history)] : null;
 
+            $validatedByManager = $residentValidation->getValidatedBy();
+
             $residentSummary['validationInformation'] = [
                 'validated'                    => (bool) $residentValidation->getValidated(),
-                'validatedBy'                  => $residentValidation->getValidatedBy(),
+                // Sérialisé comme scalaire pour éviter les circular references Doctrine proxy
+                'validatedBy'                  => $validatedByManager
+                    ? ['id' => $validatedByManager->getId(), 'name' => trim($validatedByManager->getFirstname() . ' ' . $validatedByManager->getLastname())]
+                    : null,
                 'validationHistory'            => $history,
                 // Dernier commentaire interne manager (visible par managers/RH/admin, JAMAIS par le résident)
                 'lastManagerComment'           => $lastCommentItem ? (string) $lastCommentItem['managerComment'] : null,
