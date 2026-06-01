@@ -578,8 +578,7 @@ function MonthRailItem({
         p:          "9px 12px",
         borderRadius: "11px",
         position:   "relative",
-        zIndex:     1,
-        // Largeur minimale fixe en mode horizontal (tablet/mobile)
+        // Pas de zIndex : l'item reste en flux normal, la ligne (zIndex:1) le traverse
         minWidth:   { xs: "170px", md: "unset" },
         flex:       { xs: "0 0 auto", md: "unset" },
         bgcolor:    isActive ? theme.palette.custom.primarySoft : "transparent",
@@ -589,7 +588,8 @@ function MonthRailItem({
       }}
     >
       <Box sx={{
-        width: 30, height: 30, borderRadius: 999, flex: "none", zIndex: 2,
+        width: 30, height: 30, borderRadius: 999, flex: "none",
+        position: "relative", zIndex: 2,  // au-dessus de la ligne (zIndex:1)
         display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600,
         bgcolor: nodeColor.bg, color: nodeColor.color,
@@ -856,11 +856,11 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
               content:  { xs: "none", md: '""' },
               position: "absolute",
               left:     27,
-              top:      15,
-              bottom:   15,
+              top:      26,   // centre du premier nœud (padding 9px + rayon 15px)
+              bottom:   26,   // centre du dernier nœud
               width:    2,
               bgcolor:  theme.palette.divider,
-              zIndex:   0,
+              zIndex:   1,   // au-dessus du fond de l'item, sous le nœud
             },
           }}
         >
