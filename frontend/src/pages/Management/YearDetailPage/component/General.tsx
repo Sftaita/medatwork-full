@@ -650,6 +650,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
   const [query,     setQuery]     = useState("");
   const [openCards, setOpenCards] = useState<Set<number>>(new Set());
   const [saveLoading, setSaveLoading] = useState(false);
+  const [dirty, setDirty] = useState(false); // modifications locales non encore sauvegardées
 
   // ── Fetch periods list ─────────────────────────────────────────────────────
   const fetchPeriods = useCallback(async () => {
@@ -723,6 +724,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
     setSelectedIndex(index);
     setFilter("all");
     setQuery("");
+    setDirty(false);
     const pid = periods[index]?.id;
     if (pid !== undefined) {
       setPeriodId(pid);
@@ -739,6 +741,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
           : d
       )
     );
+    setDirty(true);
   }, [residentValidationData, setResidentValidationData]);
 
   // ── Card open/close ────────────────────────────────────────────────────────
@@ -751,29 +754,44 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
     });
   };
 
-  // ── Valider les conformes ──────────────────────────────────────────────────
+  // ── Valider les conformes (état local seulement — Enregistrer pour sauvegarder) ─
   const handleBulkValidate = useCallback(() => {
     const data = residentValidationData as ValidationEntry[];
+    let count = 0;
     const updated = data.map((d) => {
       const report = periodReport.find((r) => r.residentId === d.residentId);
       if (!report) return d;
       if (!hasLegalAlert(report.warnings) && d.status === "invalidate") {
+        count++;
         return { ...d, status: "validate" as const };
       }
       return d;
     });
     setResidentValidationData(updated);
-    toast.success(t("yearDetail.validation.bulkSuccess", "Validations enregistrées"), toastSuccess);
+    setDirty(true);
+    toast.success(
+      `${count} conforme${count > 1 ? "s" : ""} marqué${count > 1 ? "s" : ""} — cliquez sur Enregistrer pour sauvegarder`,
+      toastSuccess
+    );
   }, [residentValidationData, periodReport, setResidentValidationData, t]);
 
   // ── Save validations ───────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!periodId) return;
+    // Fallback : si le store Zustand n'a pas encore le periodId,
+    // on le lit directement depuis l'état local des périodes
+    const activePeriodId = periodId ?? periods[selectedIndex]?.id;
+
+    if (!activePeriodId) {
+      toast.error("Aucune période sélectionnée — réessayez dans un instant.", toastError);
+      return;
+    }
+
     setSaveLoading(true);
     try {
       const { method, url } = managersApi.updateResidentValidationPeriod();
-      await axiosPrivate[method](url + periodId, residentValidationData);
-      toast.success(t("yearDetail.validation.saved", "Validations enregistrées"), toastSuccess);
+      await axiosPrivate[method](url + activePeriodId, residentValidationData);
+      setDirty(false);
+      toast.success(t("yearDetail.validation.saved", "Validations enregistrées avec succès"), toastSuccess);
     } catch (error) {
       handleApiError(error);
       toast.error(t("yearDetail.validation.saveError", "Erreur lors de l'enregistrement"), toastError);
@@ -1024,13 +1042,28 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
             Valider les conformes
           </Box>
 
+          {/* Indicateur modifications non sauvegardées */}
+          {dirty && (
+            <Box sx={{
+              display: "inline-flex", alignItems: "center", gap: "7px",
+              fontSize: 12, fontWeight: 600, color: "warning.main",
+              "&::before": { content: '""', width: 7, height: 7, borderRadius: 999, bgcolor: "warning.main", display: "inline-block" },
+            }}>
+              Non sauvegardé
+            </Box>
+          )}
+
           {/* Enregistrer */}
           <LoadingButton
             variant="contained"
             size="small"
             loading={saveLoading}
             onClick={handleSave}
-            sx={{ height: 40, px: 2, width: { xs: "100%", sm: "auto" } }}
+            sx={{
+              height: 40, px: 2, width: { xs: "100%", sm: "auto" },
+              // Plus visible quand des changements attendent d'être sauvegardés
+              ...(dirty && { boxShadow: `0 4px 14px -4px ${alpha(theme.palette.primary.main, 0.5)}` }),
+            }}
           >
             {t("yearDetail.validation.save", "Enregistrer")}
           </LoadingButton>
