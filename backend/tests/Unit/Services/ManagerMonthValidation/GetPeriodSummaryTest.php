@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Services\ManagerMonthValidation;
 
+use App\Entity\Hospital;
+use App\Entity\Manager;
 use App\Entity\PeriodValidation;
 use App\Entity\Resident;
 use App\Entity\ResidentValidation;
@@ -564,6 +566,99 @@ class GetPeriodSummaryTest extends TestCase
         self::assertFalse($result[0]['smoothedHours']);
         self::assertNotEmpty($result[0]['warnings']);
         self::assertSame('smoothing', $result[0]['warnings'][0]['warningType']);
+    }
+
+    // ── validatedBy — sérialisation scalaire (régression circular reference) ──
+
+    /**
+     * Régression : $this->json() lançait une CircularReferenceException quand
+     * validatedBy était sérialisé comme entité Manager complète avec proxy Hospital.
+     *
+     * Le fix consiste à retourner ['id' => ..., 'name' => ...] plutôt que l'entité.
+     * Ce test détecte tout retour en arrière vers une entité non scalaire.
+     */
+    public function testValidatedByIsScalarArrayNotEntityToPreventCircularReference(): void
+    {
+        // Créer un Hospital mock (la relation qui causait la circular reference via le proxy Doctrine)
+        $hospital = $this->createMock(Hospital::class);
+        $hospital->method('getId')->willReturn(5);
+
+        // Créer un Manager mock avec une relation Hospital (exactement le scénario du bug)
+        $manager = $this->createMock(Manager::class);
+        $manager->method('getId')->willReturn(11);
+        $manager->method('getFirstname')->willReturn('Brigitte');
+        $manager->method('getLastname')->willReturn('Delvaux');
+        $manager->method('getAdminHospital')->willReturn($hospital); // relation qui causait la boucle
+
+        $rv = $this->createMock(ResidentValidation::class);
+        $rv->method('getValidated')->willReturn(true);
+        $rv->method('getValidatedBy')->willReturn($manager); // ← retourne l'entité Manager
+        $rv->method('getValidationHistory')->willReturn([]);
+
+        $resident = $this->makeResident(42, 'Alice', 'Dupont');
+        $yr       = $this->makeYearsResident($resident, false);
+        $period   = $this->makePeriod(2026, 4);
+        $year     = $this->makeYear([$yr]);
+
+        $period->method('getYear')->willReturn($year);
+        $this->periodRepo->method('findOneBy')->willReturn($period);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $this->stubNoPeriods();
+        $this->validationService->method('getOrCreateResidentValidation')->willReturn($rv);
+
+        $result = $this->service->generateResidentPeriodData(1);
+
+        self::assertCount(1, $result);
+        $validatedBy = $result[0]['validationInformation']['validatedBy'];
+
+        // ── Assertions clés ──────────────────────────────────────────────────
+
+        // 1. validatedBy est un tableau scalaire, PAS une entité Manager
+        self::assertIsArray($validatedBy, 'validatedBy doit être un tableau scalaire, pas une entité (risque de circular reference)');
+
+        // 2. La structure scalaire contient id et name
+        self::assertArrayHasKey('id',   $validatedBy);
+        self::assertArrayHasKey('name', $validatedBy);
+        self::assertSame(11, $validatedBy['id']);
+        self::assertSame('Brigitte Delvaux', $validatedBy['name']);
+
+        // 3. json_encode réussit sans exception — reproduction exacte du bug 500
+        //    Avant le fix : lançait \Symfony\Component\Serializer\Exception\CircularReferenceException
+        $json = json_encode($result, JSON_THROW_ON_ERROR);
+        self::assertNotEmpty($json);
+        self::assertStringContainsString('"validatedBy"', $json);
+        self::assertStringContainsString('"Brigitte Delvaux"', $json);
+    }
+
+    /**
+     * Quand aucun manager n'a encore validé (première fois), validatedBy doit être null
+     * et non un tableau vide — null est sérialisable sans risque.
+     */
+    public function testValidatedByIsNullWhenNeverValidated(): void
+    {
+        $rv = $this->createMock(ResidentValidation::class);
+        $rv->method('getValidated')->willReturn(false);
+        $rv->method('getValidatedBy')->willReturn(null); // pas encore validé
+        $rv->method('getValidationHistory')->willReturn([]);
+
+        $resident = $this->makeResident(1, 'Jean', 'Dupont');
+        $yr       = $this->makeYearsResident($resident, false);
+        $period   = $this->makePeriod(2026, 4);
+        $year     = $this->makeYear([$yr]);
+
+        $period->method('getYear')->willReturn($year);
+        $this->periodRepo->method('findOneBy')->willReturn($period);
+        $this->authChecker->method('isGranted')->willReturn(true);
+        $this->stubNoPeriods();
+        $this->validationService->method('getOrCreateResidentValidation')->willReturn($rv);
+
+        $result = $this->service->generateResidentPeriodData(1);
+
+        self::assertNull($result[0]['validationInformation']['validatedBy']);
+
+        // json_encode doit aussi fonctionner pour le cas null
+        $json = json_encode($result, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('"validatedBy":null', $json);
     }
 
     // ── YearsResident with null resident is skipped ───────────────────────────
