@@ -551,14 +551,24 @@ function FilterChip({
 type MonthStatus = "alert" | "ok" | "pending";
 
 function MonthRailItem({
-  period, position, isActive, status, onClick,
+  period, position, isActive, status, subLabel, onClick,
 }: {
-  period: Period; position: number; isActive: boolean; status: MonthStatus | null; onClick: () => void;
+  period: Period; position: number; isActive: boolean;
+  status: MonthStatus | null; subLabel?: string; onClick: () => void;
 }) {
-  const theme = useTheme();
-  const nodeColor = isActive
-    ? { bg: theme.palette.primary.main, color: "#fff" }
-    : { bg: alpha(theme.palette.text.primary, 0.08), color: theme.palette.text.secondary };
+  const theme  = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  // Fond SOLIDE du nœud — obligatoire pour masquer la ligne derrière
+  const nodeBg =
+    isActive       ? theme.palette.primary.main :
+    status === "ok"? (isDark ? "#1a3020" : "#e8f6ee") :
+                     (isDark ? "#2a2030" : "#efecf3");
+
+  const nodeColor =
+    isActive       ? "#fff" :
+    status === "ok"? theme.palette.success.dark :
+                     theme.palette.text.secondary;
 
   const dotColors: Record<MonthStatus, string> = {
     alert:   theme.palette.error.main,
@@ -575,33 +585,39 @@ function MonthRailItem({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       display="flex" alignItems="center" gap={1.5}
       sx={{
-        p:          "9px 12px",
+        p:            "9px 12px",
         borderRadius: "11px",
-        position:   "relative",
-        // Pas de zIndex : l'item reste en flux normal, la ligne (zIndex:1) le traverse
-        minWidth:   { xs: "170px", md: "unset" },
-        flex:       { xs: "0 0 auto", md: "unset" },
-        bgcolor:    isActive ? theme.palette.custom.primarySoft : "transparent",
-        cursor:     "pointer",
-        "&:hover": { bgcolor: isActive ? theme.palette.custom.primarySoft : theme.palette.background.default },
+        position:     "relative",
+        minWidth:     { xs: "170px", md: "unset" },
+        flex:         { xs: "0 0 auto", md: "unset" },
+        bgcolor:      isActive ? theme.palette.custom.primarySoft : "transparent",
+        cursor:       "pointer",
+        "&:hover":    { bgcolor: isActive ? theme.palette.custom.primarySoft : theme.palette.background.default },
         "&:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
       }}
     >
+      {/* Nœud — fond solide + z-index 2 pour passer AU-DESSUS de la ligne */}
       <Box sx={{
         width: 30, height: 30, borderRadius: 999, flex: "none",
-        position: "relative", zIndex: 2,  // au-dessus de la ligne (zIndex:1)
+        position: "relative", zIndex: 2,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600,
-        bgcolor: nodeColor.bg, color: nodeColor.color,
+        bgcolor: nodeBg, color: nodeColor,
         transition: theme.transitions.create(["background", "color"]),
       }}>
         {status === "ok" ? <CheckIcon sx={{ fontSize: 14 }} /> : position}
       </Box>
 
+      {/* Label + sous-libellé */}
       <Box flex={1} minWidth={0}>
         <Typography sx={{ fontSize: 12.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", lineHeight: 1.2 }} noWrap>
           {period.label}
         </Typography>
+        {subLabel && (
+          <Typography sx={{ fontSize: 10.5, color: "text.disabled", mt: "1px", lineHeight: 1.3 }} noWrap>
+            {subLabel}
+          </Typography>
+        )}
       </Box>
 
       {status && (
@@ -820,6 +836,21 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
 
   const selectedPeriod = periods[selectedIndex] ?? periods[0];
 
+  // ── Sous-libellé pour chaque mois du rail ─────────────────────────────────
+  const getRailSubLabel = (idx: number, pid: number): string => {
+    if (idx === selectedIndex && periodReport.length > 0) {
+      const alertCount = counts.alert;
+      if (alertCount > 0) return `${counts.all} MACCS · ${alertCount} alerte${alertCount > 1 ? "s" : ""}`;
+      if (counts.done === counts.all && counts.all > 0) return `${counts.all} validé${counts.all > 1 ? "s" : ""}`;
+      return `${counts.done} / ${counts.all} validé${counts.done > 1 ? "s" : ""}`;
+    }
+    const s = periodStatuses.get(pid);
+    if (s === "alert")   return "Alertes";
+    if (s === "ok")      return "Validé";
+    if (s === "pending") return "En attente";
+    return "";
+  };
+
   return (
     <Box display="grid" sx={{ gridTemplateColumns: { xs: "1fr", md: "232px 1fr" }, gap: { xs: "16px", md: "22px" }, alignItems: "start" }}>
       {/* ── Month rail ──────────────────────────────────────────────────── */}
@@ -827,7 +858,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
         role="listbox"
         aria-label={t("yearDetail.validation.railLabel", "Sélection du mois")}
         sx={{
-          // Desktop : sticky vertical. Tablet/mobile : scroller horizontal
+          minWidth:      0,          // empêche la colonne de grille de déborder
           position:      { xs: "static", md: "sticky" },
           top:           { md: 71 + 62 },
           bgcolor:       "background.paper",
@@ -838,6 +869,11 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ px: 1.5, py: 1.5, pb: 1.25 }}>
           <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, fontWeight: 600 }}>Mois</Typography>
+          {periods.length > 0 && (
+            <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "text.disabled" }}>
+              {periods[periods.length - 1]?.year}–{String(periods[0]?.year).slice(-2)}
+            </Typography>
+          )}
         </Box>
 
         {/* Rail : vertical sur desktop, scroller horizontal sur tablet/mobile */}
@@ -845,22 +881,24 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
           sx={{
             position:     { xs: "static", md: "relative" },
             display:      { xs: "flex", md: "block" },
-            flexDirection:{ xs: "row",  md: "unset" },
-            overflowX:    { xs: "auto", md: "unset" },
+            flexDirection:{ xs: "row",  md: "column" },
+            overflowX:    { xs: "auto", md: "visible" },
             gap:          { xs: "8px", md: 0 },
             pb:           { xs: "4px", md: 0 },
             "&::-webkit-scrollbar": { display: "none" },
             scrollbarWidth: "none",
-            // Ligne verticale uniquement en mode desktop
+            // Ligne verticale : masquée sur mobile (display:none),
+            // visible sur desktop (::before positionné dans .rail-track)
             "&::before": {
-              content:  { xs: "none", md: '""' },
+              content:  '""',
+              display:  { xs: "none", md: "block" },  // masqué sur mobile
               position: "absolute",
               left:     27,
-              top:      26,   // centre du premier nœud (padding 9px + rayon 15px)
-              bottom:   26,   // centre du dernier nœud
+              top:      26,
+              bottom:   26,
               width:    2,
-              bgcolor:  theme.palette.divider,
-              zIndex:   1,   // au-dessus du fond de l'item, sous le nœud
+              bgcolor:  theme.palette.mode === "dark" ? alpha(theme.palette.primary.main, 0.18) : "#e2dee8",
+              zIndex:   1,
             },
           }}
         >
@@ -871,6 +909,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
               position={i + 1}
               isActive={i === selectedIndex}
               status={periodStatuses.get(period.id) ?? null}
+              subLabel={getRailSubLabel(i, period.id)}
               onClick={() => handleSelectMonth(i)}
             />
           ))}
@@ -878,7 +917,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
       </Box>
 
       {/* ── Workspace ───────────────────────────────────────────────────── */}
-      <Box>
+      <Box sx={{ minWidth: 0 }}>
         {/* Header */}
         <Box display="flex" alignItems="center" gap={1.75} mb={1.75} flexWrap="wrap">
           <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 18, fontWeight: 600 }}>
@@ -991,7 +1030,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
             size="small"
             loading={saveLoading}
             onClick={handleSave}
-            sx={{ height: 40, px: 2 }}
+            sx={{ height: 40, px: 2, width: { xs: "100%", sm: "auto" } }}
           >
             {t("yearDetail.validation.save", "Enregistrer")}
           </LoadingButton>
