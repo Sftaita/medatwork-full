@@ -266,10 +266,16 @@ class GetPeriodSummary
             $residentSummary['IllegalHours']        = $illegalHours;
             $residentSummary['warnings']            = $errors;
             $residentSummary['shiftOverlap']        = [];
+            $history  = $residentValidation->getValidationHistory() ?? [];
+            $lastItem = !empty($history) ? $history[array_key_last($history)] : null;
+
             $residentSummary['validationInformation'] = [
-                'validated'         => (bool) $residentValidation->getValidated(),
-                'validatedBy'       => $residentValidation->getValidatedBy(),
-                'validationHistory' => $residentValidation->getValidationHistory(),
+                'validated'               => (bool) $residentValidation->getValidated(),
+                'validatedBy'             => $residentValidation->getValidatedBy(),
+                'validationHistory'       => $history,
+                // Dernier commentaire manager (pre-populate MessageBox côté frontend)
+                'lastManagerComment'      => isset($lastItem['managerComment']) ? (string) $lastItem['managerComment'] : null,
+                'lastResidentNotification'=> isset($lastItem['residentNotification']) ? (string) $lastItem['residentNotification'] : null,
             ];
 
             $summary[] = $residentSummary;

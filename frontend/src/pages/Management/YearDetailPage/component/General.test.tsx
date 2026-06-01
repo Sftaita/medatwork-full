@@ -140,6 +140,21 @@ vi.mock("../../../../services/managersApi", () => ({
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../../../../services/apiError", () => ({ handleApiError: vi.fn() }));
 
+// ConfirmLeaveDialog : stub exposant les boutons pour les tests
+vi.mock("./ValidationView/ConfirmLeaveDialog", () => ({
+  default: ({ open, saving, onCancel, onDiscard, onSaveAndContinue }: {
+    open: boolean; saving: boolean;
+    onCancel: () => void; onDiscard: () => void; onSaveAndContinue: () => void;
+  }) => open ? (
+    <div data-testid="confirm-leave-dialog">
+      <span>Modifications non sauvegardées</span>
+      <button disabled={saving} onClick={onSaveAndContinue}>Enregistrer puis continuer</button>
+      <button disabled={saving} onClick={onDiscard}>Quitter sans enregistrer</button>
+      <button disabled={saving} onClick={onCancel}>Annuler</button>
+    </div>
+  ) : null,
+}));
+
 vi.mock("./ValidationView/MessageBox", () => ({
   default: ({ openDialog, residentId, notificationType }: {
     openDialog: boolean; residentId: number; notificationType: string;
@@ -707,8 +722,11 @@ describe("État dirty", () => {
     fireEvent.click(toggle);
     await waitFor(() => expect(screen.getByText("Non sauvegardé")).toBeInTheDocument());
 
-    // Changer de mois
+    // Avec dirty=true, le changement de mois ouvre la confirmation
     fireEvent.click(screen.getAllByRole("option")[1]);
+    await waitFor(() => screen.getByTestId("confirm-leave-dialog"));
+    // Quitter sans enregistrer → changement de mois effectif → dirty=false
+    fireEvent.click(screen.getByText("Quitter sans enregistrer"));
     await waitFor(() => expect(screen.queryByText("Non sauvegardé")).not.toBeInTheDocument());
   });
 });
@@ -871,12 +889,286 @@ describe("Changement de mois", () => {
     });
   });
 
-  it("réinitialise l'état dirty", async () => {
+  it("réinitialise l'état dirty (via confirmation 'Quitter sans enregistrer')", async () => {
     setupNormalLoad(); renderGeneral(); await waitForCards();
     const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
     fireEvent.click(toggle);
     await waitFor(() => expect(screen.getByText("Non sauvegardé")).toBeInTheDocument());
+    // Avec dirty=true → confirmation ouverte
     fireEvent.click(screen.getAllByRole("option")[1]);
+    await waitFor(() => screen.getByTestId("confirm-leave-dialog"));
+    fireEvent.click(screen.getByText("Quitter sans enregistrer"));
     await waitFor(() => expect(screen.queryByText("Non sauvegardé")).not.toBeInTheDocument());
+  });
+});
+
+// ── Nouveaux tests — protection données + commentaires + erreurs ───────────────
+
+// ── T1-CRITIQUE : dirty=true + changement de mois → confirmation ──────────────
+
+describe("Protection données — changement de mois avec dirty", () => {
+  it("T1 — affiche la confirmation quand dirty=true et l'utilisateur change de mois", async () => {
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    // Rendre dirty
+    const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
+    fireEvent.click(toggle);
+    await waitFor(() => expect(screen.getByText("Non sauvegardé")).toBeInTheDocument());
+
+    // Tenter de changer de mois
+    fireEvent.click(screen.getAllByRole("option")[1]);
+
+    // La confirmation doit s'afficher
+    await waitFor(() =>
+      expect(screen.getByText("Modifications non sauvegardées")).toBeInTheDocument()
+    );
+    // Le mois ne doit PAS avoir changé (mois 0 encore sélectionné)
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("T3 — 'Quitter sans enregistrer' change de mois et perd les modifications", async () => {
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
+    fireEvent.click(toggle);
+    await waitFor(() => screen.getByText("Non sauvegardé"));
+
+    // Ouvrir la confirmation
+    fireEvent.click(screen.getAllByRole("option")[1]);
+    await waitFor(() => screen.getByText("Modifications non sauvegardées"));
+
+    // Cliquer "Quitter sans enregistrer"
+    fireEvent.click(screen.getByText("Quitter sans enregistrer"));
+
+    // PUT ne doit PAS avoir été appelé
+    expect(mockPut).not.toHaveBeenCalled();
+
+    // Le mois 2 doit maintenant être sélectionné
+    await waitFor(() =>
+      expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true")
+    );
+  });
+
+  it("T4 — 'Annuler' ferme le dialogue et reste sur le mois courant", async () => {
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
+    fireEvent.click(toggle);
+    await waitFor(() => screen.getByText("Non sauvegardé"));
+
+    // Ouvrir la confirmation
+    fireEvent.click(screen.getAllByRole("option")[1]);
+    await waitFor(() => screen.getByText("Modifications non sauvegardées"));
+
+    // Cliquer "Annuler"
+    fireEvent.click(screen.getByText("Annuler"));
+
+    // Dialogue fermé
+    await waitFor(() =>
+      expect(screen.queryByText("Modifications non sauvegardées")).not.toBeInTheDocument()
+    );
+    // Mois 0 toujours actif
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+    // Les modifications sont toujours là
+    expect(screen.getByText("Non sauvegardé")).toBeInTheDocument();
+  });
+
+  it("T5 — 'Enregistrer puis continuer' : PUT appelé, puis changement de mois après succès", async () => {
+    mockPut.mockResolvedValue({});
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
+    fireEvent.click(toggle);
+    await waitFor(() => screen.getByText("Non sauvegardé"));
+
+    // Ouvrir confirmation
+    fireEvent.click(screen.getAllByRole("option")[1]);
+    await waitFor(() => screen.getByText("Modifications non sauvegardées"));
+
+    // Cliquer "Enregistrer puis continuer"
+    fireEvent.click(screen.getByText("Enregistrer puis continuer"));
+
+    // PUT doit être appelé
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+
+    // Après succès : changement vers mois 2
+    await waitFor(() =>
+      expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true")
+    );
+    // dirty doit être réinitialisé
+    expect(screen.queryByText("Non sauvegardé")).not.toBeInTheDocument();
+  });
+
+  it("T6 — PUT échoue → pas de changement de mois automatique", async () => {
+    mockPut.mockRejectedValue({ response: { status: 500, data: {} } });
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
+    fireEvent.click(toggle);
+    await waitFor(() => screen.getByText("Non sauvegardé"));
+
+    // Ouvrir confirmation
+    fireEvent.click(screen.getAllByRole("option")[1]);
+    await waitFor(() => screen.getByText("Modifications non sauvegardées"));
+
+    // Cliquer "Enregistrer puis continuer"
+    fireEvent.click(screen.getByText("Enregistrer puis continuer"));
+
+    // PUT a échoué → mois 0 doit rester actif
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("T13 — changement de mois bloqué pendant une sauvegarde en cours", async () => {
+    let resolveSave!: (v: unknown) => void;
+    mockPut.mockReturnValue(new Promise(r => { resolveSave = r; }));
+
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    // Déclencher une sauvegarde (bloquée)
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }));
+
+    // Tenter de changer de mois pendant la sauvegarde
+    fireEvent.click(screen.getAllByRole("option")[1]);
+
+    // Le mois 0 doit rester sélectionné (le clic est ignoré)
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+
+    // Débloquer la sauvegarde
+    act(() => resolveSave({}));
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+  });
+});
+
+// ── T7-T8 : commentaires manager ──────────────────────────────────────────────
+
+describe("Commentaires manager", () => {
+  it("T7 — commentaire saisi dans MessageBox est présent dans le payload PUT", async () => {
+    mockPut.mockResolvedValue({});
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    // Ouvrir MessageBox d'Alice
+    const card    = screen.getByTestId(`macc-card-${ALICE.residentId}`);
+    const buttons = within(card).getAllByRole("button");
+    fireEvent.click(buttons[1]); // bouton notif MACCS
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`msgbox-${ALICE.residentId}-ResidentNotification`)).toBeInTheDocument()
+    );
+
+    // MessageBox met à jour le store Zustand via son propre bouton Confirmer —
+    // ici la MessageBox est mockée (affiche un div), donc on simule directement
+    // la mise à jour du store comme le ferait le composant réel.
+    act(() => {
+      useValidationStore.setState({
+        residentValidationData: useValidationStore.getState().residentValidationData.map((d: any) =>
+          d.residentId === ALICE.residentId
+            ? { ...d, residentNotification: "test-commentaire" }
+            : d
+        ),
+      });
+    });
+
+    // Cliquer Enregistrer
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }));
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+
+    // Le payload doit contenir le commentaire
+    const payload = mockPut.mock.calls[0][1] as Array<{ residentId: number; residentNotification: string }>;
+    const aliceEntry = payload.find(e => e.residentId === ALICE.residentId);
+    expect(aliceEntry?.residentNotification).toBe("test-commentaire");
+  });
+
+  it("T8 — commentaire existant retourné par periodReport → pré-renseigné dans le store", async () => {
+    const ALICE_WITH_COMMENT = makeReport({
+      residentId:            ALICE.residentId,
+      residentFirstname:     "Alice",
+      residentLastname:      "Dupont",
+      validationInformation: {
+        validated:               false,
+        lastManagerComment:      "commentaire existant",
+        lastResidentNotification:"notif existante",
+      },
+    });
+
+    mockGet.mockImplementation((url: string) => {
+      if (url.startsWith("managers/validationList/")) return Promise.resolve({ data: PERIODS_RESP });
+      if (url.startsWith("managers/periodReport/"))   return Promise.resolve({ data: [ALICE_WITH_COMMENT, BOB, CAROL] });
+      return Promise.reject(new Error("Unknown"));
+    });
+    renderGeneral();
+    await waitForCards();
+
+    // Le store doit avoir été initialisé avec le dernier commentaire
+    const storeData = useValidationStore.getState().residentValidationData as Array<{ residentId: number; managerComment: string; residentNotification: string }>;
+    const aliceData = storeData.find(d => d.residentId === ALICE.residentId);
+    expect(aliceData?.managerComment).toBe("commentaire existant");
+    expect(aliceData?.residentNotification).toBe("notif existante");
+  });
+});
+
+// ── T9-T11 : erreurs API différenciées ────────────────────────────────────────
+
+describe("Erreurs API différenciées", () => {
+  async function triggerSaveWithError(status: number, body: Record<string, string>) {
+    mockPut.mockRejectedValue({ response: { status, data: body } });
+    setupNormalLoad();
+    renderGeneral();
+    await waitForCards();
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }));
+  }
+
+  it("T9 — 403 → message 'droits insuffisants'", async () => {
+    const { toast } = await import("react-toastify");
+    await triggerSaveWithError(403, {});
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/droits/i),
+        expect.anything()
+      )
+    );
+  });
+
+  it("T10 — 422 → message 'période verrouillée'", async () => {
+    const { toast } = await import("react-toastify");
+    await triggerSaveWithError(422, { error: "Période fermée" });
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/verrouillée/i),
+        expect.anything()
+      )
+    );
+  });
+
+  it("T11 — 404 → message 'période introuvable'", async () => {
+    const { toast } = await import("react-toastify");
+    await triggerSaveWithError(404, {});
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/introuvable/i),
+        expect.anything()
+      )
+    );
+  });
+});
+
+// ── T12 : double-clic rapide sur toggle → état cohérent ───────────────────────
+
+describe("Double-clic rapide sur toggle", () => {
+  it("T12 — deux clics consécutifs → état final = état initial (annulation de l'annulation)", async () => {
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+
+    const toggle = within(screen.getByTestId(`macc-card-${ALICE.residentId}`)).getByRole("switch");
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+
+    // Deux clics sans attendre le re-render entre les deux
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+
+    // Après deux clics : retour à l'état initial (false)
+    await waitFor(() =>
+      expect(within(screen.getByTestId(`macc-card-${ALICE.residentId}`))
+        .getByRole("switch")).toHaveAttribute("aria-checked", "false")
+    );
   });
 });

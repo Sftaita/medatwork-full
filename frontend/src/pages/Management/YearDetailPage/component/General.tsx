@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -26,6 +26,7 @@ import { toastSuccess, toastError } from "../../../../doc/ToastParams";
 import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 import MessageBox from "./ValidationView/MessageBox";
+import ConfirmLeaveDialog from "./ValidationView/ConfirmLeaveDialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,36 @@ interface Warning {
   period?: number;
 }
 
+// ── Erreurs API différenciées ─────────────────────────────────────────────────
+
+export function parseValidationError(error: unknown): string {
+  const status = (error as { response?: { status?: number; data?: { message?: string; error?: string; code?: string } } })?.response?.status;
+  const body   = (error as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+  const msg    = body?.message || body?.error || "";
+
+  if (status === 403) return "Vous n'avez pas les droits pour valider cette période.";
+  if (status === 422) return `Période verrouillée — ${msg || "impossible de modifier."}`;
+  if (status === 404) return "Période introuvable. Rechargez la page.";
+  if (status === 400) {
+    if (typeof msg === "string" && msg.toLowerCase().includes("droit")) {
+      return "Vous n'avez pas les droits pour valider.";
+    }
+    if (typeof msg === "string" && msg.toLowerCase().includes("invalid")) {
+      return `Données invalides — ${msg}`;
+    }
+    return `Erreur de validation — ${msg || "vérifiez les informations."}`;
+  }
+  if (status === 500) return "Erreur serveur. Contactez l'administrateur.";
+  return "Erreur lors de l'enregistrement. Réessayez dans un instant.";
+}
+
+// ── Handle exposé au parent (save, dirty) ─────────────────────────────────────
+
+export interface GeneralHandle {
+  /** Déclenche la sauvegarde. Retourne true si succès. */
+  save: () => Promise<boolean>;
+}
+
 interface PeriodInfo {
   periodNumber: number;
   periodStart: string;
@@ -55,7 +86,15 @@ export interface ResidentReport {
   residentId: number;
   residentFirstname: string;
   residentLastname: string;
-  validationInformation: { validated: boolean };
+  validationInformation: {
+    validated: boolean;
+    validatedBy?: unknown;
+    validationHistory?: Array<Record<string, unknown>>;
+    /** Dernier commentaire manager (retourné par periodReport depuis v2) */
+    lastManagerComment?: string | null;
+    /** Dernière notification résident */
+    lastResidentNotification?: string | null;
+  };
   optingOut: boolean;
   limits: { limit: number; highLimit: number };
   periodsinfo: PeriodInfo[];
@@ -629,7 +668,14 @@ function MonthRailItem({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights?: boolean | null }) => {
+interface GeneralProps {
+  yearId: number | null;
+  _adminRights?: boolean | null;
+  /** Le parent est notifié quand l'état dirty change. */
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearId, _adminRights, onDirtyChange }, ref) {
   const { t } = useTranslation();
   const theme = useTheme();
   const axiosPrivate = useAxiosPrivate();
@@ -649,8 +695,14 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
   const [filter,    setFilter]    = useState<"all" | "alert" | "todo" | "done">("all");
   const [query,     setQuery]     = useState("");
   const [openCards, setOpenCards] = useState<Set<number>>(new Set());
-  const [saveLoading, setSaveLoading] = useState(false);
-  const [dirty, setDirty] = useState(false); // modifications locales non encore sauvegardées
+  const [saveLoading,       setSaveLoading]       = useState(false);
+  const [dirty,             setDirty]             = useState(false);
+  // Confirmation avant changement de mois
+  const [confirmOpen,       setConfirmOpen]       = useState(false);
+  const [pendingMonthIndex, setPendingMonthIndex] = useState<number | null>(null);
+
+  // Stable ref vers handleSave pour useImperativeHandle
+  const handleSaveRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
 
   // ── Fetch periods list ─────────────────────────────────────────────────────
   const fetchPeriods = useCallback(async () => {
@@ -694,13 +746,13 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
       const data: ResidentReport[] = res?.data ?? [];
       setPeriodReport(data);
 
-      // Init validation context
+      // Init validation context — pré-renseigne les commentaires existants
       setResidentValidationData(
         data.map((r) => ({
           residentId:           r.residentId,
           status:               r.validationInformation?.validated ? "validate" : "invalidate",
-          managerComment:       "",
-          residentNotification: "",
+          managerComment:       r.validationInformation?.lastManagerComment ?? "",
+          residentNotification: r.validationInformation?.lastResidentNotification ?? "",
         }))
       );
 
@@ -719,30 +771,43 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
 
   useEffect(() => { fetchPeriods(); }, [fetchPeriods]);
 
-  // ── Period selection ───────────────────────────────────────────────────────
-  const handleSelectMonth = (index: number) => {
+  // ── Changement de mois effectif (après confirmation ou sans dirty) ───────────
+  const doSelectMonth = useCallback((index: number) => {
     setSelectedIndex(index);
     setFilter("all");
     setQuery("");
     setDirty(false);
+    onDirtyChange?.(false);
     const pid = periods[index]?.id;
     if (pid !== undefined) {
       setPeriodId(pid);
       getPeriodSummary(pid);
     }
-  };
+  }, [periods, setPeriodId, getPeriodSummary, onDirtyChange]);
 
-  // ── Validation toggle ──────────────────────────────────────────────────────
+  // ── Sélection de mois avec protection dirty ───────────────────────────────
+  const handleSelectMonth = useCallback((index: number) => {
+    if (saveLoading) return; // bloque pendant une sauvegarde en cours
+    if (dirty) {
+      setPendingMonthIndex(index);
+      setConfirmOpen(true);
+      return;
+    }
+    doSelectMonth(index);
+  }, [saveLoading, dirty, doSelectMonth]);
+
+  // ── Validation toggle (mise à jour fonctionnelle → pas de bug double-clic) ──
   const handleValidationChange = useCallback((residentId: number) => {
-    setResidentValidationData(
-      (residentValidationData as ValidationEntry[]).map((d) =>
+    setResidentValidationData((prev) =>
+      (prev as ValidationEntry[]).map((d) =>
         d.residentId === residentId
           ? { ...d, status: d.status === "validate" ? "invalidate" : "validate" }
           : d
       )
     );
     setDirty(true);
-  }, [residentValidationData, setResidentValidationData]);
+    onDirtyChange?.(true);
+  }, [setResidentValidationData, onDirtyChange]);
 
   // ── Card open/close ────────────────────────────────────────────────────────
   const toggleCard = (residentId: number) => {
@@ -769,21 +834,20 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
     });
     setResidentValidationData(updated);
     setDirty(true);
+    onDirtyChange?.(true);
     toast.success(
       `${count} conforme${count > 1 ? "s" : ""} marqué${count > 1 ? "s" : ""} — cliquez sur Enregistrer pour sauvegarder`,
       toastSuccess
     );
-  }, [residentValidationData, periodReport, setResidentValidationData, t]);
+  }, [residentValidationData, periodReport, setResidentValidationData, onDirtyChange, t]);
 
-  // ── Save validations ───────────────────────────────────────────────────────
-  const handleSave = async () => {
-    // Fallback : si le store Zustand n'a pas encore le periodId,
-    // on le lit directement depuis l'état local des périodes
+  // ── Save validations → retourne true si succès ────────────────────────────
+  const handleSave = useCallback(async (): Promise<boolean> => {
     const activePeriodId = periodId ?? periods[selectedIndex]?.id;
 
     if (!activePeriodId) {
       toast.error("Aucune période sélectionnée — réessayez dans un instant.", toastError);
-      return;
+      return false;
     }
 
     setSaveLoading(true);
@@ -791,14 +855,48 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
       const { method, url } = managersApi.updateResidentValidationPeriod();
       await axiosPrivate[method](url + activePeriodId, residentValidationData);
       setDirty(false);
+      onDirtyChange?.(false);
       toast.success(t("yearDetail.validation.saved", "Validations enregistrées avec succès"), toastSuccess);
+      return true;
     } catch (error) {
       handleApiError(error);
-      toast.error(t("yearDetail.validation.saveError", "Erreur lors de l'enregistrement"), toastError);
+      toast.error(parseValidationError(error), toastError);
+      return false;
     } finally {
       setSaveLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodId, periods, selectedIndex, residentValidationData, axiosPrivate, onDirtyChange, t]);
+
+  // Mise à jour de la ref stable pour useImperativeHandle
+  handleSaveRef.current = handleSave;
+
+  // ── Exposer save() au parent via ref ──────────────────────────────────────
+  useImperativeHandle(ref, () => ({
+    save: () => handleSaveRef.current(),
+  }));
+
+  // ── Handlers dialogue confirmation de changement de mois ─────────────────
+  const handleConfirmCancel = useCallback(() => {
+    setConfirmOpen(false);
+    setPendingMonthIndex(null);
+  }, []);
+
+  const handleConfirmDiscard = useCallback(() => {
+    setConfirmOpen(false);
+    const idx = pendingMonthIndex;
+    setPendingMonthIndex(null);
+    if (idx !== null) doSelectMonth(idx);
+  }, [pendingMonthIndex, doSelectMonth]);
+
+  const handleConfirmSaveAndContinue = useCallback(async () => {
+    const ok = await handleSaveRef.current();
+    setConfirmOpen(false);
+    const idx = pendingMonthIndex;
+    setPendingMonthIndex(null);
+    if (ok && idx !== null) doSelectMonth(idx);
+    // Si save échoue : toast d'erreur déjà affiché, on reste sur le mois courant
+  }, [pendingMonthIndex, doSelectMonth]);
 
   // ── Derived counts & filtered list ────────────────────────────────────────
   const validationData = residentValidationData as ValidationEntry[];
@@ -870,6 +968,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
   };
 
   return (
+    <>
     <Box display="grid" sx={{ gridTemplateColumns: { xs: "1fr", md: "232px 1fr" }, gap: { xs: "16px", md: "22px" }, alignItems: "start" }}>
       {/* ── Month rail ──────────────────────────────────────────────────── */}
       <Box
@@ -1093,7 +1192,17 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
         )}
       </Box>
     </Box>
+
+    {/* ── Dialogue confirmation changement de mois ─────────────────────── */}
+    <ConfirmLeaveDialog
+      open={confirmOpen}
+      saving={saveLoading}
+      onCancel={handleConfirmCancel}
+      onDiscard={handleConfirmDiscard}
+      onSaveAndContinue={handleConfirmSaveAndContinue}
+    />
+    </>
   );
-};
+});
 
 export default General;

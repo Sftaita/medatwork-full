@@ -13,6 +13,7 @@ use App\Repository\ResidentRepository;
 use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Security\Voter\YearAccessVoter;
+use Doctrine\ORM\EntityManagerInterface;
 use App\Services\MonthValidation\UpdateMonthValidation;
 use App\Exception\PeriodLockedException;
 use App\Services\Notifications\UpdateYearResidentNotifications;
@@ -29,6 +30,7 @@ class ValidationController extends AbstractController
         private readonly PeriodValidationRepository $periodValidationRepository,
         private readonly ResidentRepository $residentRepository,
         private readonly ResidentValidationRepository $residentValidationRepository,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -85,66 +87,89 @@ class ValidationController extends AbstractController
         $lastDayOfMonth = (clone $firstDayOfMonth)->modify('last day of this month 23:59:59');
 
 
-        foreach ($dto->items as $item) {
-            $residentId = $item->residentId;
-            $resident = $this->residentRepository->find($residentId);
+        // ── Transaction atomique : aucune validation partielle ────────────────
+        $conn = $this->entityManager->getConnection();
 
-            if ($resident === null) {
-                continue;
-            }
+        /** @var list<array{itemData: array<string,mixed>, period: mixed, manager: Manager, resident: mixed}> $pendingNotifications */
+        $pendingNotifications = [];
 
-            // Fetch the existing validation
-            $existingValidation = $this->residentValidationRepository->findOneBy([
-                'periodValidation' => $period,
-                'resident' => $resident,
-            ]);
+        $conn->beginTransaction();
+        try {
+            foreach ($dto->items as $item) {
+                $residentId = $item->residentId;
+                $resident   = $this->residentRepository->find($residentId);
 
-            $actionIsValidated = $item->status === 'validate';
-
-            // Check if the action is different or if it doesn't exist
-            if (! $existingValidation || $existingValidation->getValidated() !== $actionIsValidated) {
-
-                // If trying to invalidate a resident who has never been validated, skip this iteration
-                if (! $actionIsValidated && ! $existingValidation) {
+                if ($resident === null) {
                     continue;
                 }
 
-                // Build the legacy data array expected by downstream services
-                /** @var array<string, mixed> $itemData */
-                $itemData = [
-                    'residentId'           => $item->residentId,
-                    'status'               => $item->status,
-                    'managerComment'       => $item->managerComment,
-                    'residentNotification' => $item->residentNotification,
-                ];
+                $existingValidation = $this->residentValidationRepository->findOneBy([
+                    'periodValidation' => $period,
+                    'resident'         => $resident,
+                ]);
 
-                // The action is different, update it
-                try {
+                $actionIsValidated = $item->status === 'validate';
 
+                if (! $existingValidation || $existingValidation->getValidated() !== $actionIsValidated) {
+                    if (! $actionIsValidated && ! $existingValidation) {
+                        continue;
+                    }
+
+                    /** @var array<string, mixed> $itemData */
+                    $itemData = [
+                        'residentId'           => $item->residentId,
+                        'status'               => $item->status,
+                        'managerComment'       => $item->managerComment,
+                        'residentNotification' => $item->residentNotification,
+                    ];
+
+                    // Opérations DB dans la transaction
                     $updateMonthValidation->updateResidentValidationStatus($periodId, $itemData, $manager, $resident);
-                    $notification->notifyValidationChange($itemData, $period, $manager, $resident);
                     $timesheetRepository->updateIsEditableForResidentInPeriod($residentId, $yearId, $firstDayOfMonth, $lastDayOfMonth, $actionIsValidated);
                     $gardeRepository->updateIsEditableForResidentInPeriod($residentId, $yearId, $firstDayOfMonth, $lastDayOfMonth, $actionIsValidated);
                     $absenceRepository->updateIsEditableForResidentInPeriod($residentId, $yearId, $firstDayOfMonth, $lastDayOfMonth, $actionIsValidated);
 
-
-                } catch (PeriodLockedException $e) {
-                    if ($period->getYear() !== null && $period->getMonth() !== null && $period->getYearNb() !== null) {
-                        $auditService->recordValidationBlockedByLock(
-                            $resident, $period->getYear(), $period->getMonth(), $period->getYearNb(),
-                            $manager->getId() ?? 0,
-                        );
-                    }
-                    return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
-                } catch (\Exception $e) {
-                    $logger->error('Validation update failed', ['exception' => $e, 'residentId' => $item->residentId]);
-
-                    return new JsonResponse(['error' => 'Une erreur est survenue lors de la mise à jour.'], 400);
+                    // Notification différée — envoyée après commit
+                    $pendingNotifications[] = compact('itemData', 'period', 'manager', 'resident');
                 }
             }
+
+            $conn->commit();
+
+        } catch (PeriodLockedException $e) {
+            if ($conn->isTransactionActive()) {
+                $conn->rollBack();
+            }
+            if ($period->getYear() !== null && $period->getMonth() !== null && $period->getYearNb() !== null) {
+                $auditService->recordValidationBlockedByLock(
+                    $resident ?? new \stdClass(), $period->getYear(), $period->getMonth(), $period->getYearNb(),
+                    $manager->getId() ?? 0,
+                );
+            }
+            return new JsonResponse([
+                'error' => $e->getMessage(),
+                'code'  => 'period_locked',
+            ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+
+        } catch (\Throwable $e) {
+            if ($conn->isTransactionActive()) {
+                $conn->rollBack();
+            }
+            $logger->error('Validation batch failed — transaction rolled back', ['exception' => $e]);
+            return new JsonResponse([
+                'error' => 'Erreur lors de la mise à jour. Aucune modification enregistrée.',
+                'code'  => 'server_error',
+            ], 500);
         }
 
-
+        // ── Post-commit : notifications (best-effort, n'échoue pas la requête) ─
+        foreach ($pendingNotifications as $pending) {
+            try {
+                $notification->notifyValidationChange($pending['itemData'], $pending['period'], $pending['manager'], $pending['resident']);
+            } catch (\Exception $e) {
+                $logger->warning('Notification failed after commit', ['exception' => $e]);
+            }
+        }
 
         return new JsonResponse(['message' => 'Residents validation status updated successfully.'], 200);
 

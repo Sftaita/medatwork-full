@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme, alpha } from "@mui/material/styles";
@@ -12,8 +12,9 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 // Tab panels — unchanged
 import Partners from "./component/Partners";
 import Residents from "./component/Residents";
-import General from "./component/General";
+import General, { type GeneralHandle } from "./component/General";
 import Setup from "./component/Setup";
+import ConfirmLeaveDialog from "./component/ValidationView/ConfirmLeaveDialog";
 import StaffPlanner from "./component/ParametersViews/StaffPlanner";
 import ResidentParameters from "./component/ParametersViews/ResidentParameters";
 import Compliance from "./component/Compliance";
@@ -202,6 +203,15 @@ const YearDetailPage = () => {
       null,
   }));
 
+  // ── Dirty state de l'onglet Validation ────────────────────────────────────
+  const [validationDirty, setValidationDirty] = useState(false);
+  const generalRef = useRef<GeneralHandle>(null);
+
+  // État pour confirmation changement d'onglet
+  const [tabConfirmOpen,  setTabConfirmOpen]  = useState(false);
+  const [pendingTab,      setPendingTab]      = useState<ActiveLink | null>(null);
+  const [tabSaving,       setTabSaving]       = useState(false);
+
   // ── Navigation ─────────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
     if (isSubView) {
@@ -211,9 +221,48 @@ const YearDetailPage = () => {
     }
   }, [isSubView, navigate]);
 
-  const handleTabChange = (key: TabKey) => {
+  const doTabChange = useCallback((key: ActiveLink) => {
     setActiveLink(key);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const handleTabChange = (key: TabKey) => {
+    // Si on quitte l'onglet Validation avec des modifications non sauvegardées
+    if (activeLink === "general" && validationDirty && key !== "general") {
+      setPendingTab(key);
+      setTabConfirmOpen(true);
+      return;
+    }
+    doTabChange(key);
+  };
+
+  const handleTabConfirmCancel = () => {
+    setTabConfirmOpen(false);
+    setPendingTab(null);
+  };
+
+  const handleTabConfirmDiscard = () => {
+    setTabConfirmOpen(false);
+    setValidationDirty(false);
+    const target = pendingTab;
+    setPendingTab(null);
+    if (target) doTabChange(target);
+  };
+
+  const handleTabConfirmSaveAndContinue = async () => {
+    if (!generalRef.current) return;
+    setTabSaving(true);
+    const ok = await generalRef.current.save();
+    setTabSaving(false);
+    setTabConfirmOpen(false);
+    if (ok) {
+      setValidationDirty(false);
+      const target = pendingTab;
+      setPendingTab(null);
+      if (target) doTabChange(target);
+    }
+    // Si échec : toast déjà affiché, on reste sur Validation
+    setPendingTab(null);
   };
 
   return (
@@ -357,7 +406,12 @@ const YearDetailPage = () => {
         aria-labelledby={`tab-${activeTab}`}
       >
         {activeLink === "general" && (
-          <General yearId={id} adminRights={adminRights} />
+          <General
+            ref={generalRef}
+            yearId={id}
+            adminRights={adminRights}
+            onDirtyChange={setValidationDirty}
+          />
         )}
         {activeLink === "residents" && (
           <Residents
@@ -382,6 +436,15 @@ const YearDetailPage = () => {
           <Compliance yearId={id} />
         )}
       </Box>
+
+      {/* ── Confirmation changement d'onglet (dirty Validation) ──────────── */}
+      <ConfirmLeaveDialog
+        open={tabConfirmOpen}
+        saving={tabSaving}
+        onCancel={handleTabConfirmCancel}
+        onDiscard={handleTabConfirmDiscard}
+        onSaveAndContinue={handleTabConfirmSaveAndContinue}
+      />
     </Box>
   );
 };

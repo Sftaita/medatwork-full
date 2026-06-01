@@ -88,9 +88,21 @@ vi.mock("react-i18next", () => ({
 // Each stub exposes a data-testid so tests can assert which panel is rendered.
 // Setup also exposes buttons to trigger sub-view transitions (it receives setActiveLink).
 
-vi.mock("./component/General", () => ({
-  default: () => <div data-testid="panel-general" />,
-}));
+vi.mock("./component/General", () => {
+  const { forwardRef } = require("react");
+  return {
+    default: forwardRef(
+      ({ onDirtyChange }: { onDirtyChange?: (d: boolean) => void }, ref: unknown) => (
+        <div data-testid="panel-general">
+          {/* Bouton de test pour simuler dirty=true depuis le parent */}
+          <button data-testid="make-dirty" onClick={() => onDirtyChange?.(true)}>
+            Make Dirty
+          </button>
+        </div>
+      )
+    ),
+  };
+});
 
 vi.mock("./component/Residents", () => ({
   default: () => <div data-testid="panel-residents" />,
@@ -98,6 +110,23 @@ vi.mock("./component/Residents", () => ({
 
 vi.mock("./component/Partners", () => ({
   default: () => <div data-testid="panel-partners" />,
+}));
+
+// Stub ConfirmLeaveDialog : expose ses boutons pour les tests
+vi.mock("./component/ValidationView/ConfirmLeaveDialog", () => ({
+  default: ({ open, onCancel, onDiscard, onSaveAndContinue }: {
+    open: boolean;
+    onCancel: () => void;
+    onDiscard: () => void;
+    onSaveAndContinue: () => void;
+  }) => open ? (
+    <div data-testid="confirm-leave-dialog">
+      <span>Modifications non sauvegardées</span>
+      <button onClick={onCancel}>Annuler</button>
+      <button onClick={onDiscard}>Quitter sans enregistrer</button>
+      <button onClick={onSaveAndContinue}>Enregistrer puis continuer</button>
+    </div>
+  ) : null,
 }));
 
 vi.mock("./component/Setup", () => ({
@@ -482,5 +511,69 @@ describe("Bouton retour principal (header)", () => {
     // En sous-vue, handleBack appelle setActiveLink("setup") — pas navigate(-1)
     expect(mockNavigate).not.toHaveBeenCalledWith(-1);
     expect(screen.getByTestId("panel-setup")).toBeInTheDocument();
+  });
+});
+
+// ── T2-CRITIQUE : dirty=true + changement d'onglet → confirmation ─────────────
+
+describe("Protection données — changement d'onglet avec dirty Validation", () => {
+  it("T2 — affiche la confirmation quand dirty=true et l'utilisateur change d'onglet", () => {
+    renderPage();
+
+    // L'onglet Validation est actif par défaut (general)
+    expect(screen.getByTestId("panel-general")).toBeInTheDocument();
+
+    // Simuler dirty=true via le bouton exposé par le mock de General
+    fireEvent.click(screen.getByTestId("make-dirty"));
+
+    // Tenter de changer vers MACCS
+    clickTab("MACCS");
+
+    // La confirmation doit s'afficher
+    expect(screen.getByTestId("confirm-leave-dialog")).toBeInTheDocument();
+    expect(screen.getByText("Modifications non sauvegardées")).toBeInTheDocument();
+
+    // L'onglet Validation doit rester actif (pas de changement encore)
+    expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("'Annuler' depuis la confirmation d'onglet → reste sur Validation", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("make-dirty"));
+    clickTab("MACCS");
+    expect(screen.getByTestId("confirm-leave-dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Annuler"));
+
+    // Dialogue fermé
+    expect(screen.queryByTestId("confirm-leave-dialog")).not.toBeInTheDocument();
+    // Onglet Validation toujours actif
+    expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("panel-general")).toBeInTheDocument();
+  });
+
+  it("'Quitter sans enregistrer' depuis la confirmation d'onglet → navigue vers MACCS", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("make-dirty"));
+    clickTab("MACCS");
+    expect(screen.getByTestId("confirm-leave-dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Quitter sans enregistrer"));
+
+    // Dialogue fermé + MACCS actif
+    expect(screen.queryByTestId("confirm-leave-dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "MACCS" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("panel-residents")).toBeInTheDocument();
+  });
+
+  it("pas de confirmation si dirty=false (changement normal)", () => {
+    renderPage();
+    // Ne pas rendre dirty
+
+    clickTab("MACCS");
+
+    // Aucune confirmation
+    expect(screen.queryByTestId("confirm-leave-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("panel-residents")).toBeInTheDocument();
   });
 });
