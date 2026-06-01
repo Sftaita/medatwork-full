@@ -11,6 +11,7 @@ use App\Entity\Hospital;
 use App\Entity\HospitalAdmin;
 use App\Entity\Manager;
 use App\Entity\ManagerYears;
+use App\Entity\Years;
 use App\Repository\HospitalRepository;
 use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
@@ -36,6 +37,27 @@ class YearsManagerAPIController extends AbstractController
 {
     public function __construct(private readonly EntityManagerInterface $entityManager)
     {
+    }
+
+    /**
+     * Vérifie si un manager a accès à une année :
+     *   1. Via ManagerYears (lien explicite)
+     *   2. Via adminHospital (manager promu admin d'un hôpital)
+     *
+     * Cohérent avec YearAccessVoter.
+     */
+    private function hasAccessToYear(Manager $manager, Years $year, ManagerYearsRepository $repo): bool
+    {
+        if ($repo->checkRelation($manager, $year)) {
+            return true;
+        }
+
+        $adminHospital = $manager->getAdminHospital();
+        if ($adminHospital !== null && $adminHospital->getId() === $year->getHospital()->getId()) {
+            return true;
+        }
+
+        return false;
     }
 
     #[Route('/api/managers/hospitals', name: 'manager_hospitals_list', methods: ['GET'])]
@@ -241,11 +263,11 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
 
-        if (! $managerYearsRepository->checkRelation($manager, $year)) {
-            return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 400);
+        if (! $this->hasAccessToYear($manager, $year, $managerYearsRepository)) {
+            return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
         }
 
-        return $this->json($managerYearsRepository->fetchYearManagers($year), 200);
+        return new JsonResponse($managerYearsRepository->fetchYearManagers($year), 200);
     }
 
     #[Route('/api/managers/years/{yearId}/hospital-managers', name: 'getHospitalManagersForYear', methods: ['GET'])]
@@ -259,7 +281,7 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
 
-        if (! $managerYearsRepository->checkRelation($manager, $year)) {
+        if (! $this->hasAccessToYear($manager, $year, $managerYearsRepository)) {
             return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
         }
 
@@ -295,7 +317,7 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => 'Année introuvable.'], 404);
         }
 
-        if (! $managerYearsRepository->checkRelation($manager, $yearEntity)) {
+        if (! $this->hasAccessToYear($manager, $yearEntity, $managerYearsRepository)) {
             return new JsonResponse(['message' => "Vous n'avez pas accès à cette ressource"], 403);
         }
 
