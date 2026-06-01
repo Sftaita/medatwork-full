@@ -243,8 +243,8 @@ function ComplianceReport({ report }: { report: ResidentReport }) {
   const totalLeaves = Object.values(report.daysOfLeaves ?? {}).reduce((s: number, v) => s + (Number(v) || 0), 0);
 
   return (
-    <Box sx={{ borderTop: `1px solid ${theme.palette.divider}`, p: "6px 20px 22px" }}>
-      <Box display="grid" sx={{ gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+    <Box sx={{ borderTop: `1px solid ${theme.palette.divider}`, p: { xs: "6px 14px 18px", md: "6px 20px 22px" } }}>
+      <Box display="grid" sx={{ gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: "14px" }}>
         {/* Informations générales */}
         <Box sx={cardSx}>
           {cardTitle("Informations générales")}
@@ -257,7 +257,7 @@ function ComplianceReport({ report }: { report: ResidentReport }) {
           {kv("Temps de travail maximum absolu", monoVal(`${report.limits?.highLimit ?? "—"}h`))}
           {kv("Nombre d'intervalles", monoVal(report.periodsinfo?.length ?? 0))}
           {(report.periodsinfo ?? []).length > 0 && (
-            <Box display="grid" sx={{ gridTemplateColumns: "1fr 1fr", gap: "10px", mt: 1.5 }}>
+            <Box display="grid" sx={{ gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: "10px", mt: 1.5 }}>
               {report.periodsinfo.map((p) => (
                 <Box key={p.periodNumber} sx={{ bgcolor: "background.paper", border: `1px solid ${theme.palette.divider}`, borderRadius: "11px", p: "12px 14px" }}>
                   <Typography sx={{ fontSize: 11, fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: ".04em" }}>
@@ -381,7 +381,12 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
         data-testid={`macc-row-${report.residentId}`}
         onClick={onToggle}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
-        display="flex" alignItems="center" gap={1.75} sx={{ p: "16px 18px", cursor: "pointer" }}
+        display="flex" alignItems="center" gap={1.75}
+        sx={{
+          p:        { xs: "14px", sm: "16px 18px" },
+          cursor:   "pointer",
+          flexWrap: { xs: "wrap", sm: "nowrap" },
+        }}
       >
         {/* Chevron */}
         <Box sx={{
@@ -413,8 +418,12 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           </Typography>
         </Box>
 
-        {/* Status chips */}
-        <Box display="flex" gap="7px" alignItems="center" onClick={(e) => e.stopPropagation()}>
+        {/* Status chips — pleine largeur sous le nom sur mobile (order:5) */}
+        <Box
+          display="flex" gap="7px" alignItems="center" flexWrap="wrap"
+          onClick={(e) => e.stopPropagation()}
+          sx={{ order: { xs: 5, sm: 0 }, flexBasis: { xs: "100%", sm: "auto" }, ml: { xs: 0, sm: "4px" } }}
+        >
           {isLegal ? (
             <Box component="span" data-testid={`chip-alert-${report.residentId}`} sx={{
               display: "inline-flex", alignItems: "center", gap: "5px",
@@ -447,8 +456,10 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           )}
         </Box>
 
-        {/* Notification buttons */}
-        <Box display="flex" gap={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
+        {/* Notification buttons — order:6 sur mobile */}
+        <Box display="flex" gap={1} alignItems="center" onClick={(e) => e.stopPropagation()}
+          sx={{ order: { xs: 6, sm: 0 } }}
+        >
           <Tooltip title={t("yearDetail.validation.tooltipResident", "Notification au MACCS")}>
             <IconButton size="small" onClick={() => { setNotifType("ResidentNotification"); setNotifOpen(true); }}
               sx={{ borderRadius: "10px", border: `1px solid ${theme.palette.divider}`, color: hasResidentMsg ? "primary.main" : "text.disabled" }}>
@@ -463,8 +474,8 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           </Tooltip>
         </Box>
 
-        {/* Validate toggle */}
-        <Box onClick={(e) => e.stopPropagation()}>
+        {/* Validate toggle — order:7 sur mobile, poussé à droite */}
+        <Box onClick={(e) => e.stopPropagation()} sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 } }}>
           <ValidateToggle
             validated={isValidated}
             onChange={() => onValidationChange(report.residentId)}
@@ -564,9 +575,15 @@ function MonthRailItem({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       display="flex" alignItems="center" gap={1.5}
       sx={{
-        p: "9px 12px", borderRadius: "11px", position: "relative", zIndex: 1,
-        bgcolor: isActive ? theme.palette.custom.primarySoft : "transparent",
-        cursor: "pointer",
+        p:          "9px 12px",
+        borderRadius: "11px",
+        position:   "relative",
+        zIndex:     1,
+        // Largeur minimale fixe en mode horizontal (tablet/mobile)
+        minWidth:   { xs: "170px", md: "unset" },
+        flex:       { xs: "0 0 auto", md: "unset" },
+        bgcolor:    isActive ? theme.palette.custom.primarySoft : "transparent",
+        cursor:     "pointer",
         "&:hover": { bgcolor: isActive ? theme.palette.custom.primarySoft : theme.palette.background.default },
         "&:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
       }}
@@ -804,26 +821,49 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
   const selectedPeriod = periods[selectedIndex] ?? periods[0];
 
   return (
-    <Box display="grid" sx={{ gridTemplateColumns: "232px 1fr", gap: "22px", alignItems: "start" }}>
+    <Box display="grid" sx={{ gridTemplateColumns: { xs: "1fr", md: "232px 1fr" }, gap: { xs: "16px", md: "22px" }, alignItems: "start" }}>
       {/* ── Month rail ──────────────────────────────────────────────────── */}
       <Box
         role="listbox"
         aria-label={t("yearDetail.validation.railLabel", "Sélection du mois")}
         sx={{
-          position: "sticky",
-          top: { xs: 58 + 62, sm: 66 + 62, md: 71 + 62 },
-          bgcolor: "background.paper",
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: "16px",
-          p: 1,
+          // Desktop : sticky vertical. Tablet/mobile : scroller horizontal
+          position:      { xs: "static", md: "sticky" },
+          top:           { md: 71 + 62 },
+          bgcolor:       "background.paper",
+          border:        `1px solid ${theme.palette.divider}`,
+          borderRadius:  "16px",
+          p:             1,
         }}
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ px: 1.5, py: 1.5, pb: 1.25 }}>
           <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, fontWeight: 600 }}>Mois</Typography>
         </Box>
 
-        {/* Connecting line + items */}
-        <Box sx={{ position: "relative", "&::before": { content: '""', position: "absolute", left: 27, top: 15, bottom: 15, width: 2, bgcolor: theme.palette.divider, zIndex: 0 } }}>
+        {/* Rail : vertical sur desktop, scroller horizontal sur tablet/mobile */}
+        <Box
+          sx={{
+            position:     { xs: "static", md: "relative" },
+            display:      { xs: "flex", md: "block" },
+            flexDirection:{ xs: "row",  md: "unset" },
+            overflowX:    { xs: "auto", md: "unset" },
+            gap:          { xs: "8px", md: 0 },
+            pb:           { xs: "4px", md: 0 },
+            "&::-webkit-scrollbar": { display: "none" },
+            scrollbarWidth: "none",
+            // Ligne verticale uniquement en mode desktop
+            "&::before": {
+              content:  { xs: "none", md: '""' },
+              position: "absolute",
+              left:     27,
+              top:      15,
+              bottom:   15,
+              width:    2,
+              bgcolor:  theme.palette.divider,
+              zIndex:   0,
+            },
+          }}
+        >
           {periods.map((period, i) => (
             <MonthRailItem
               key={period.id}
@@ -840,7 +880,7 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
       {/* ── Workspace ───────────────────────────────────────────────────── */}
       <Box>
         {/* Header */}
-        <Box display="flex" alignItems="center" gap={1.75} mb={1.75}>
+        <Box display="flex" alignItems="center" gap={1.75} mb={1.75} flexWrap="wrap">
           <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 18, fontWeight: 600 }}>
             {selectedPeriod?.label ?? ""}
           </Typography>
@@ -849,12 +889,16 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
           </Box>
           <Box flex={1} />
           {total > 0 && (
-            <Box display="flex" alignItems="center" gap={1} fontSize={12.5} color="text.secondary" fontWeight={500}>
+            <Box
+              display="flex" alignItems="center" gap={1}
+              fontSize={12.5} color="text.secondary" fontWeight={500}
+              sx={{ width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "space-between", sm: "flex-start" } }}
+            >
               <Typography fontSize="inherit" color="inherit" fontWeight="inherit">Validés</Typography>
-              <Box sx={{ height: 6, width: 120, borderRadius: 999, bgcolor: alpha(theme.palette.primary.main, 0.12), overflow: "hidden" }}>
+              <Box sx={{ height: 6, flex: 1, minWidth: 80, maxWidth: { xs: "unset", sm: 120 }, borderRadius: 999, bgcolor: alpha(theme.palette.primary.main, 0.12), overflow: "hidden" }}>
                 <Box sx={{ height: "100%", width: `${(validatedCount / total) * 100}%`, bgcolor: theme.palette.success.main, borderRadius: 999, transition: theme.transitions.create("width") }} />
               </Box>
-              <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "inherit", color: "inherit" }}>
+              <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "inherit", color: "inherit", flex: "none" }}>
                 {validatedCount} / {total}
               </Typography>
             </Box>
@@ -862,50 +906,86 @@ const General = ({ yearId, _adminRights }: { yearId: number | null; _adminRights
         </Box>
 
         {/* Toolbar */}
-        <Box display="flex" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
-          <Box display="flex" gap="6px" role="radiogroup" aria-label={t("yearDetail.validation.filterLabel", "Filtres")}>
+        <Box display="flex" flexWrap="wrap" gap={{ xs: 1, sm: 1.5 }} mb={2}>
+          {/* Filtres — scroll horizontal sur mobile */}
+          <Box
+            role="radiogroup"
+            aria-label={t("yearDetail.validation.filterLabel", "Filtres")}
+            sx={{
+              display:        "flex",
+              gap:            "6px",
+              width:          { xs: "100%", sm: "auto" },
+              overflowX:      { xs: "auto", sm: "visible" },
+              "&::-webkit-scrollbar": { display: "none" },
+              scrollbarWidth: "none",
+              pb:             { xs: "2px", sm: 0 },
+              flexShrink:     0,
+            }}
+          >
             <FilterChip label="Tous"      count={counts.all}   active={filter === "all"}   onClick={() => setFilter("all")}   />
             <FilterChip label="Alertes"   count={counts.alert} active={filter === "alert"} onClick={() => setFilter("alert")} countVariant="danger" />
             <FilterChip label="À valider" count={counts.todo}  active={filter === "todo"}  onClick={() => setFilter("todo")}  />
             <FilterChip label="Validés"   count={counts.done}  active={filter === "done"}  onClick={() => setFilter("done")}  countVariant="ok" />
           </Box>
-          <Box flex={1} />
-          {/* Search */}
-          <Box display="flex" alignItems="center" gap={1} sx={{
-            height: 40, px: 1.75, bgcolor: "background.paper",
-            border: `1px solid ${theme.palette.divider}`, borderRadius: "12px",
-            "&:focus-within": { borderColor: "primary.main", boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}` },
-          }}>
+
+          {/* Spacer — uniquement sur desktop */}
+          <Box sx={{ flex: { xs: 0, sm: 1 } }} />
+
+          {/* Recherche — pleine largeur sur mobile */}
+          <Box
+            display="flex" alignItems="center" gap={1}
+            sx={{
+              height:  40,
+              px:      1.75,
+              width:   { xs: "100%", sm: "auto" },
+              bgcolor: "background.paper",
+              border:  `1px solid ${theme.palette.divider}`,
+              borderRadius: "12px",
+              "&:focus-within": { borderColor: "primary.main", boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}` },
+            }}
+          >
             <SearchIcon sx={{ color: "text.disabled", fontSize: 17 }} />
             <InputBase
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("yearDetail.validation.searchPlaceholder", "Rechercher un MACCS…")}
               inputProps={{ "aria-label": t("yearDetail.validation.searchPlaceholder", "Rechercher un MACCS…") }}
-              sx={{ fontSize: 13.5, width: 220 }}
+              sx={{ fontSize: 13.5, width: { xs: "100%", sm: 220 } }}
             />
           </Box>
-          {/* Valider les conformes */}
+
+          {/* Valider les conformes — pleine largeur sur mobile */}
           <Box
             component="button"
             data-testid="btn-bulk-validate"
             disabled={conformesLeft === 0}
             onClick={handleBulkValidate}
             sx={{
-              display: "flex", alignItems: "center", gap: "7px",
-              height: 40, px: 2, borderRadius: "11px",
-              border: `1px solid ${theme.palette.divider}`,
-              bgcolor: "background.paper", color: "text.primary",
-              fontWeight: 600, fontSize: 13, fontFamily: "inherit", cursor: "pointer",
-              opacity: conformesLeft === 0 ? 0.5 : 1,
-              "&:disabled": { cursor: "not-allowed" },
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  { xs: "center", sm: "flex-start" },
+              gap:             "7px",
+              height:          40,
+              px:              2,
+              width:           { xs: "100%", sm: "auto" },
+              borderRadius:    "11px",
+              border:          `1px solid ${theme.palette.divider}`,
+              bgcolor:         "background.paper",
+              color:           "text.primary",
+              fontWeight:      600,
+              fontSize:        13,
+              fontFamily:      "inherit",
+              cursor:          "pointer",
+              opacity:         conformesLeft === 0 ? 0.5 : 1,
+              "&:disabled":    { cursor: "not-allowed" },
               "&:hover:not(:disabled)": { bgcolor: "background.default" },
             }}
           >
             <CheckIcon sx={{ fontSize: 16 }} />
             Valider les conformes
           </Box>
-          {/* Save */}
+
+          {/* Enregistrer */}
           <LoadingButton
             variant="contained"
             size="small"

@@ -216,18 +216,15 @@ const YearDetailPage = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ── Layout values ──────────────────────────────────────────────────────────
-  const px = isMd ? 4 : 2;
-
   return (
     <Box
       sx={{
-        px,
-        pt: 3,
-        pb: 8,
+        px:       { xs: 2, md: 4 },
+        pt:       { xs: 2, md: 3 },
+        pb:       8,
         maxWidth: 1500,
-        mx: "auto",
-        width: "100%",
+        mx:       "auto",
+        width:    "100%",
       }}
     >
       {/* ── Page header ─────────────────────────────────────────────────── */}
@@ -254,33 +251,42 @@ const YearDetailPage = () => {
           >
             {t("yearDetail.breadcrumb", "Tableau de bord")}
           </Typography>
-          <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
+          <Box>
             <Typography
               variant="h4"
               sx={{
                 fontFamily:    "'Poppins', sans-serif",
                 fontWeight:    700,
-                fontSize:      { xs: "22px", md: "27px" },
+                fontSize:      { xs: "21px", sm: "22px", md: "27px" },
                 letterSpacing: "-.01em",
                 lineHeight:    1.2,
               }}
             >
               {title || " "}
             </Typography>
+            {/* Chip sous le titre sur mobile, inline sur desktop */}
             <Chip
               label={t("yearDetail.chip", "Année active")}
               color="primary"
               size="small"
-              sx={{ fontWeight: 600, fontSize: 13 }}
+              sx={{
+                fontWeight: 600,
+                fontSize:   13,
+                mt:         { xs: 0.75, sm: 0 },
+                display:    { xs: "flex", sm: "inline-flex" },
+                width:      "fit-content",
+              }}
             />
           </Box>
         </Box>
 
+        {/* Masqué sur mobile — le retour est dans la topbar */}
         <IconButton
           onClick={handleBack}
           aria-label={t("yearDetail.back")}
           data-testid="btn-back-header"
           sx={{
+            display:      { xs: "none", sm: "flex" },
             width:        40,
             height:       40,
             borderRadius: "11px",
