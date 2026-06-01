@@ -279,6 +279,7 @@ const YearDetailPage = () => {
         <IconButton
           onClick={handleBack}
           aria-label={t("yearDetail.back")}
+          data-testid="btn-back-header"
           sx={{
             width:        40,
             height:       40,
@@ -325,6 +326,7 @@ const YearDetailPage = () => {
           <IconButton
             onClick={() => setActiveLink("setup")}
             aria-label={t("yearDetail.back")}
+            data-testid="btn-back-subview"
             size="small"
             sx={{
               borderRadius: "8px",
