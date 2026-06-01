@@ -43,8 +43,9 @@
  *     · Filtre par nom (insensible à la casse)
  *     · État vide si aucun résultat
  *
- *   Tri par priorité
- *     · Alertes > non validés > validés
+ *   Ordre alphabétique
+ *     · Trié par nom de famille puis prénom (localeCompare fr)
+ *     · Indépendant du statut validé/alerte
  *
  *   Cartes MACC — chips de statut
  *     · Conforme (pas d'alerte légale)
@@ -522,25 +523,34 @@ describe("Recherche", () => {
   });
 });
 
-// ── Tri par priorité ───────────────────────────────────────────────────────────
+// ── Ordre alphabétique (nom puis prénom) ───────────────────────────────────────
+// Fixtures : ALICE=Dupont, BOB=Martin, CAROL=Leroy → ordre : Dupont < Leroy < Martin
 
-describe("Tri par priorité", () => {
+describe("Ordre alphabétique", () => {
   function cardOrder() {
     return screen.getAllByTestId(/macc-card-/).map((c) =>
       Number(c.getAttribute("data-testid")?.replace("macc-card-", ""))
     );
   }
 
-  it("Bob (alertes) avant Alice (conforme non validé)", async () => {
-    setupNormalLoad(); renderGeneral(); await waitForCards();
-    const ids = cardOrder();
-    expect(ids.indexOf(BOB.residentId)).toBeLessThan(ids.indexOf(ALICE.residentId));
-  });
-
-  it("Alice (non validée) avant Carol (validée)", async () => {
+  it("cartes triées par nom de famille : Dupont < Leroy < Martin, indépendamment du statut", async () => {
     setupNormalLoad(); renderGeneral(); await waitForCards();
     const ids = cardOrder();
     expect(ids.indexOf(ALICE.residentId)).toBeLessThan(ids.indexOf(CAROL.residentId));
+    expect(ids.indexOf(CAROL.residentId)).toBeLessThan(ids.indexOf(BOB.residentId));
+  });
+
+  it("Bob (alertes légales) n'est PAS mis en premier — reste à sa place alphabétique (Martin = dernier)", async () => {
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+    const ids = cardOrder();
+    expect(ids.indexOf(BOB.residentId)).toBeGreaterThan(ids.indexOf(ALICE.residentId));
+    expect(ids.indexOf(BOB.residentId)).toBeGreaterThan(ids.indexOf(CAROL.residentId));
+  });
+
+  it("Carol (validée) n'est PAS reléguée en dernier — garde sa position alphabétique (Leroy avant Martin)", async () => {
+    setupNormalLoad(); renderGeneral(); await waitForCards();
+    const ids = cardOrder();
+    expect(ids.indexOf(CAROL.residentId)).toBeLessThan(ids.indexOf(BOB.residentId));
   });
 });
 

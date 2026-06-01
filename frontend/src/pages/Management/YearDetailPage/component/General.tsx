@@ -963,7 +963,10 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
         if (q && !`${r.residentFirstname} ${r.residentLastname}`.toLowerCase().includes(q)) return false;
         return matchesFilter(r, filter, validationData);
       })
-      .sort((a, b) => priority(a, validationData) - priority(b, validationData));
+      .sort((a, b) =>
+        `${a.residentLastname} ${a.residentFirstname}`
+          .localeCompare(`${b.residentLastname} ${b.residentFirstname}`, "fr", { sensitivity: "base" })
+      );
   }, [periodReport, filter, query, validationData]);
 
   const conformesLeft = periodReport.filter((r) => {
