@@ -11,6 +11,18 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="Architecture">
+            <directory>tests/Architecture</directory>
+        </testsuite>
+        <!-- P0 notif prefs — subset pour CI bloquante -->
+        <testsuite name="p0-notif-prefs">
+            <file>tests/Unit/Services/NotificationDecisionServiceTest.php</file>
+            <file>tests/Unit/DTO/YearNotifPrefPatchInputDTOTest.php</file>
+            <file>tests/Unit/Services/UpdateYearResidentNotificationsWireTest.php</file>
+            <file>tests/Architecture/NotificationArchitectureTest.php</file>
+            <file>tests/Integration/YearNotifPrefServiceIntegrationTest.php</file>
+            <file>tests/Integration/YearNotifPrefControllerSecurityTest.php</file>
+        </testsuite>
     </testsuites>
 
     <coverage>

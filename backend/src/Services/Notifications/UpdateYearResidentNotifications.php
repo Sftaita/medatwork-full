@@ -18,9 +18,10 @@ use Doctrine\ORM\EntityManagerInterface;
 class UpdateYearResidentNotifications
 {
     public function __construct(
-        private readonly ManagerYearsRepository $managerYearsRepository,
-        private readonly EntityManagerInterface $entityManager,
-        private readonly ManagerRepository $managerRepository,
+        private readonly ManagerYearsRepository     $managerYearsRepository,
+        private readonly EntityManagerInterface     $entityManager,
+        private readonly ManagerRepository          $managerRepository,
+        private readonly \App\Services\NotificationDecisionService $decisionService,
     ) {
     }
 
@@ -41,6 +42,24 @@ class UpdateYearResidentNotifications
         $year = $period->getYear();
 
         if ($year === null) {
+            return;
+        }
+
+        // ── Gate NotificationDecisionService ─────────────────────────────────
+        // Détermine l'événement selon le statut de validation
+        $eventType = ($data['status'] === 'validate') ? 'MONTH_VALIDATION' : 'VALIDATION_REJECTED';
+
+        // Vérification globale sur le canal email pour le manager acteur.
+        // Si désactivé globalement → pas de notification in-app non plus (cohérence).
+        // P0 : gate simplifié sur email du manager acteur.
+        // P1 : vérification par canal et par destinataire.
+        if (!$this->decisionService->shouldSend(
+            'manager',
+            (int) $managerThatValidated->getId(),
+            $year,
+            $eventType,
+            'email',
+        )) {
             return;
         }
 
