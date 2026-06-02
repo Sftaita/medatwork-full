@@ -12,6 +12,7 @@ use App\Entity\Resident;
 use App\Entity\Years;
 use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
+use App\Services\NotificationDecisionService;
 use App\Services\Notifications\UpdateYearResidentNotifications;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -29,10 +30,16 @@ class UpdateYearResidentNotificationsTest extends TestCase
         $this->managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
         $this->managerRepo      = $this->createMock(ManagerRepository::class);
 
+        // NotificationDecisionService injecté depuis notre Sprint P0.
+        // Par défaut : shouldSend=true pour ne pas bloquer les assertions existantes.
+        $decisionService = $this->createMock(NotificationDecisionService::class);
+        $decisionService->method('shouldSend')->willReturn(true);
+
         $this->service = new UpdateYearResidentNotifications(
             $this->managerYearsRepo,
             $this->em,
             $this->managerRepo,
+            $decisionService,
         );
     }
 

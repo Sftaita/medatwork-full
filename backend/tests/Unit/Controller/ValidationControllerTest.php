@@ -19,6 +19,8 @@ use App\Repository\ResidentValidationRepository;
 use App\Repository\TimesheetRepository;
 use App\Services\MonthValidation\UpdateMonthValidation;
 use App\Services\Notifications\UpdateYearResidentNotifications;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use App\Services\StaffPlanner\AuditService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -72,10 +74,21 @@ final class ValidationControllerTest extends TestCase
         $container = new Container();
         $container->set('security.token_storage', $tokenStorage);
 
+        // Mocker la connexion DBAL pour que beginTransaction() ne plante pas
+        $conn = $this->createMock(Connection::class);
+        $conn->method('beginTransaction')->willReturn(null);
+        $conn->method('commit')->willReturn(null);
+        $conn->method('rollBack')->willReturn(null);
+        $conn->method('isTransactionActive')->willReturn(false);
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getConnection')->willReturn($conn);
+
         $controller = new ValidationController(
             $this->periodRepo,
             $this->residentRepo,
             $this->residentValidationRepo,
+            $em,
         );
         $controller->setContainer($container);
 
@@ -132,10 +145,21 @@ final class ValidationControllerTest extends TestCase
         $container->set('security.token_storage', $tokenStorage);
         $container->set('security.authorization_checker', $authChecker);
 
+        // Mocker la connexion DBAL pour que beginTransaction() ne plante pas
+        $conn = $this->createMock(Connection::class);
+        $conn->method('beginTransaction')->willReturn(null);
+        $conn->method('commit')->willReturn(null);
+        $conn->method('rollBack')->willReturn(null);
+        $conn->method('isTransactionActive')->willReturn(false);
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getConnection')->willReturn($conn);
+
         $controller = new ValidationController(
             $this->periodRepo,
             $this->residentRepo,
             $this->residentValidationRepo,
+            $em,
         );
         $controller->setContainer($container);
 
@@ -265,7 +289,8 @@ final class ValidationControllerTest extends TestCase
         $this->assertStringContainsString('verrouillée', $data['error']);
     }
 
-    public function testGenericExceptionReturns400NotMaskedByLockCheck(): void
+    /** Exception générique → 500 depuis l'ajout de la transaction atomique (était 400, sémantiquement incorrect). */
+    public function testGenericExceptionReturns500NotMaskedByLockCheck(): void
     {
         $period   = $this->makePeriod();
         $resident = $this->createMock(Resident::class);
@@ -293,7 +318,8 @@ final class ValidationControllerTest extends TestCase
             $this->createMock(AuditService::class),
         );
 
-        $this->assertSame(400, $response->getStatusCode());
+        // Transaction atomique : exception générique → 500 server_error (plus correct que 400)
+        $this->assertSame(500, $response->getStatusCode());
         $data = json_decode((string) $response->getContent(), true);
         $this->assertArrayHasKey('error', $data);
     }
