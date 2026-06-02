@@ -102,6 +102,9 @@ import { lightTheme } from "../../../../doc/CustomizedTheme";
 import { useValidationStore } from "../../../../store/validationStore";
 import General, {
   getInitials,
+  getInitialsFromFullName,
+  findLastValidatedAt,
+  formatValidationDate,
   hasLegalAlert,
   legalAlertCount,
   priority,
@@ -1376,5 +1379,153 @@ describe("Traçabilité commentaires — règles d'accès métier", () => {
     expect(alice.managerCommentAuthorName).toBe("Brigitte Delvaux");
     // L'historique complet peut être consulté par hospital-admin/RH via validationHistory
     expect(history[1].actionByName).toBe("Jean Martin"); // invalidation par Manager B visible
+  });
+});
+
+// ── Nouveaux helpers — traçabilité validateur ─────────────────────────────────
+
+describe("getInitialsFromFullName", () => {
+  it("extrait 2 initiales depuis 'Brigitte Delvaux'", () => {
+    expect(getInitialsFromFullName("Brigitte Delvaux")).toBe("BD");
+  });
+  it("prend le 1er et le dernier mot pour les noms composés 'Jean-Pierre Van den Berg'", () => {
+    expect(getInitialsFromFullName("Jean-Pierre Van den Berg")).toBe("JB");
+  });
+  it("gère un nom seul", () => {
+    expect(getInitialsFromFullName("Brigitte")).toBe("BB");
+  });
+  it("gère une chaîne vide", () => {
+    expect(getInitialsFromFullName("")).toBe("");
+  });
+});
+
+describe("findLastValidatedAt", () => {
+  it("retourne null pour un historique vide", () => {
+    expect(findLastValidatedAt([])).toBeNull();
+    expect(findLastValidatedAt(null)).toBeNull();
+    expect(findLastValidatedAt(undefined)).toBeNull();
+  });
+
+  it("retourne actionAt du dernier item 'validated'", () => {
+    const history = [
+      { action: "validated",   actionAt: "2026-04-01 10:00:00" },
+      { action: "invalidated", actionAt: "2026-04-05 15:00:00" },
+      { action: "validated",   actionAt: "2026-04-12 09:00:00" },
+    ];
+    expect(findLastValidatedAt(history)).toBe("2026-04-12 09:00:00");
+  });
+
+  it("retourne null si le dernier item est 'invalidated' et aucun 'validated' avant", () => {
+    const history = [{ action: "invalidated", actionAt: "2026-04-05 15:00:00" }];
+    // Il y a un item invalidated mais aucun validated → null
+    expect(findLastValidatedAt(history)).toBeNull();
+  });
+
+  it("retourne actionAt du 1er item validated si le dernier est invalidated", () => {
+    const history = [
+      { action: "validated",   actionAt: "2026-04-01 10:00:00" },
+      { action: "invalidated", actionAt: "2026-04-05 15:00:00" },
+    ];
+    expect(findLastValidatedAt(history)).toBe("2026-04-01 10:00:00");
+  });
+});
+
+describe("formatValidationDate", () => {
+  it("retourne null pour null/undefined", () => {
+    expect(formatValidationDate(null)).toBeNull();
+    expect(formatValidationDate(undefined)).toBeNull();
+  });
+
+  it("retourne null pour une date invalide", () => {
+    expect(formatValidationDate("not-a-date")).toBeNull();
+  });
+
+  it("formate une date valide en français", () => {
+    const result = formatValidationDate("2026-04-28 10:00:00");
+    // Le résultat doit contenir "28" et "avril" ou "avr."
+    expect(result).toBeTruthy();
+    expect(result).toMatch(/28/);
+  });
+});
+
+// ── UI traçabilité — bandeau + micro-ligne ────────────────────────────────────
+
+describe("Traçabilité du validateur dans l'UI", () => {
+  const HISTORY_WITH_VALIDATION = [
+    { action: "validated", actionBy: 11, actionByName: "Brigitte Delvaux", actionAt: "2026-04-12 14:23:05" },
+  ];
+
+  function makeValidatedReport(residentId: number, firstname: string, lastname: string): ResidentReport {
+    return makeReport({
+      residentId,
+      residentFirstname: firstname,
+      residentLastname:  lastname,
+      validationInformation: {
+        validated: true,
+        validatedBy: { id: 11, name: "Brigitte Delvaux" } as unknown,
+        validationHistory: HISTORY_WITH_VALIDATION,
+        lastManagerComment: null,
+        lastResidentNotification: null,
+      },
+    });
+  }
+
+  it("la micro-ligne de traçabilité est visible pour un MACC validé (serveur)", async () => {
+    const ALICE_VALIDATED = makeValidatedReport(ALICE.residentId, "Alice", "Dupont");
+
+    mockGet.mockImplementation((url: string) => {
+      if (url.startsWith("managers/validationList/")) return Promise.resolve({ data: PERIODS_RESP });
+      if (url.startsWith("managers/periodReport/"))   return Promise.resolve({ data: [ALICE_VALIDATED, BOB, CAROL] });
+      return Promise.reject(new Error("Unknown"));
+    });
+    renderGeneral();
+    await waitForCards();
+
+    // La micro-ligne data-testid="validator-info-{id}" doit être présente
+    expect(screen.getByTestId(`validator-info-${ALICE.residentId}`)).toBeInTheDocument();
+    // Elle contient les initiales "BD"
+    expect(screen.getByTestId(`validator-info-${ALICE.residentId}`).textContent).toContain("BD");
+  });
+
+  it("la micro-ligne est absente pour un MACC non validé (serveur validated=false)", async () => {
+    setupNormalLoad(); // ALICE = validated: false
+    renderGeneral();
+    await waitForCards();
+
+    // Alice n'est pas validée côté serveur → pas de micro-ligne
+    expect(screen.queryByTestId(`validator-info-${ALICE.residentId}`)).not.toBeInTheDocument();
+  });
+
+  it("le bandeau vert 'Validé par' est affiché dans le détail déplié", async () => {
+    const ALICE_VALIDATED = makeValidatedReport(ALICE.residentId, "Alice", "Dupont");
+
+    mockGet.mockImplementation((url: string) => {
+      if (url.startsWith("managers/validationList/")) return Promise.resolve({ data: PERIODS_RESP });
+      if (url.startsWith("managers/periodReport/"))   return Promise.resolve({ data: [ALICE_VALIDATED, BOB, CAROL] });
+      return Promise.reject(new Error("Unknown"));
+    });
+    renderGeneral();
+    await waitForCards();
+
+    // Ouvrir le rapport d'Alice
+    fireEvent.click(screen.getByTestId(`macc-row-${ALICE.residentId}`));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Validé par/)).toBeInTheDocument()
+    );
+    expect(screen.getByText(/Brigitte Delvaux/)).toBeInTheDocument();
+  });
+
+  it("le bandeau vert est absent si la validation n'est pas confirmée par le serveur", async () => {
+    // Alice non validée côté serveur
+    setupNormalLoad();
+    renderGeneral();
+    await waitForCards();
+
+    fireEvent.click(screen.getByTestId(`macc-row-${ALICE.residentId}`));
+
+    await waitFor(() => screen.getByText("Informations générales"));
+    // Pas de bandeau "Validé par" pour Alice (not validated server-side)
+    expect(screen.queryByText(/Validé par/)).not.toBeInTheDocument();
   });
 });

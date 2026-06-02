@@ -139,6 +139,43 @@ export function getInitials(first: string, last: string): string {
   return ((first?.[0] ?? "") + (last?.[0] ?? "")).toUpperCase();
 }
 
+/** Initiales depuis un nom complet "Prénom Nom" (prend 1ᵉʳ + dernier mot). */
+export function getInitialsFromFullName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+}
+
+/**
+ * Trouve la date du dernier item d'historique avec `action: "validated"`.
+ * Retourne null si l'historique est vide ou si l'état courant est "invalidated".
+ */
+export function findLastValidatedAt(
+  history?: Array<Record<string, unknown>> | null
+): string | null {
+  if (!history || history.length === 0) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].action === "validated") {
+      return (history[i].actionAt as string) ?? null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Formate un timestamp "YYYY-MM-DD HH:mm:ss" en date courte française "28 mars".
+ * Utilise l'API Intl du navigateur — pas de dépendance dayjs.
+ */
+export function formatValidationDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr.replace(" ", "T"));
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  } catch {
+    return null;
+  }
+}
+
 export function hasLegalAlert(warnings: Warning[]): boolean {
   return warnings.some((w) => w.warningType !== "minLimit");
 }
@@ -294,8 +331,45 @@ function ComplianceReport({ report }: { report: ResidentReport }) {
 
   const totalLeaves = Object.values(report.daysOfLeaves ?? {}).reduce((s: number, v) => s + (Number(v) || 0), 0);
 
+  // ── Traçabilité du validateur ─────────────────────────────────────────────
+  const serverValidated = report.validationInformation?.validated ?? false;
+  const validatedByObj  = report.validationInformation?.validatedBy as { name?: string } | null | undefined;
+  const validatedByName = serverValidated ? (validatedByObj?.name ?? null) : null;
+  const validatedAt     = serverValidated ? findLastValidatedAt(report.validationInformation?.validationHistory) : null;
+  const validatedAtFmt  = formatValidationDate(validatedAt);
+  const validatedByIni  = validatedByName ? getInitialsFromFullName(validatedByName) : null;
+
   return (
     <Box sx={{ borderTop: `1px solid ${theme.palette.divider}`, p: { xs: "6px 14px 18px", md: "6px 20px 22px" } }}>
+
+      {/* ── Bandeau "Validé par X le JJ MMM" ───────────────────────────── */}
+      {serverValidated && validatedByName && (
+        <Box
+          display="flex" alignItems="center" gap={1.5}
+          sx={{
+            mb: 2, p: "12px 16px",
+            bgcolor: alpha(theme.palette.success.main, 0.08),
+            border: `1px solid ${alpha(theme.palette.success.main, 0.25)}`,
+            borderRadius: "12px",
+          }}
+        >
+          {/* Avatar rond du validateur */}
+          <Box sx={{
+            width: 24, height: 24, borderRadius: 999, flex: "none",
+            bgcolor: theme.palette.success.main,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontSize: 9, fontWeight: 700,
+          }}>
+            {validatedByIni}
+          </Box>
+          <Typography sx={{ fontSize: 12.5, color: "success.main", fontWeight: 500 }}>
+            Validé par{" "}
+            <Box component="span" sx={{ fontWeight: 700 }}>{validatedByName}</Box>
+            {validatedAtFmt && ` le ${validatedAtFmt}`}
+          </Typography>
+        </Box>
+      )}
+
       <Box display="grid" sx={{ gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: "14px" }}>
         {/* Informations générales */}
         <Box sx={cardSx}>
@@ -411,6 +485,14 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
 
   const hasResidentMsg = !!entry?.residentNotification;
   const hasManagerMsg  = !!entry?.managerComment;
+
+  // ── Traçabilité du validateur (données serveur) ────────────────────────────
+  const serverValidated = report.validationInformation?.validated ?? false;
+  const vByObj     = report.validationInformation?.validatedBy as { name?: string } | null | undefined;
+  const vByName    = serverValidated ? (vByObj?.name ?? null) : null;
+  const vAt        = serverValidated ? findLastValidatedAt(report.validationInformation?.validationHistory) : null;
+  const vAtFmt     = formatValidationDate(vAt);
+  const vByIni     = vByName ? getInitialsFromFullName(vByName) : null;
 
   return (
     <Box
@@ -548,12 +630,44 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           </Box>
         </Box>
 
-        {/* Validate toggle — order:7 sur mobile, poussé à droite */}
-        <Box onClick={(e) => e.stopPropagation()} sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 } }}>
+        {/* Validate toggle + micro-ligne validateur — order:7 sur mobile */}
+        <Box
+          onClick={(e) => e.stopPropagation()}
+          sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 }, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}
+        >
           <ValidateToggle
             validated={isValidated}
             onChange={() => onValidationChange(report.residentId)}
           />
+          {/* Micro-ligne : initiales + date (uniquement si le serveur confirme la validation) */}
+          {serverValidated && vByIni && (
+            <Box
+              display="flex" alignItems="center" gap="5px"
+              data-testid={`validator-info-${report.residentId}`}
+            >
+              {/* Pastille initiales */}
+              <Box sx={{
+                width: 15, height: 15, borderRadius: 999, flex: "none",
+                bgcolor: theme.palette.custom.primarySoft,
+                color: "primary.main",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 8, fontWeight: 700,
+              }}>
+                {vByIni}
+              </Box>
+              {vAtFmt && (
+                <Typography sx={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  color: "text.disabled",
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
+                }}>
+                  {vAtFmt}
+                </Typography>
+              )}
+            </Box>
+          )}
         </Box>
       </Box>
 
