@@ -1470,7 +1470,9 @@ describe("Traçabilité du validateur dans l'UI", () => {
     });
   }
 
-  it("la micro-ligne de traçabilité est visible pour un MACC validé (serveur)", async () => {
+  // Spec v2 : la traçabilité (initiales + date) ne figure PAS dans la ligne
+  // repliée — elle désalignerait le toggle. Elle se lit dans le détail déplié.
+  it("aucune micro-ligne dans la ligne repliée (même si le MACCS est validé côté serveur)", async () => {
     const ALICE_VALIDATED = makeValidatedReport(ALICE.residentId, "Alice", "Dupont");
 
     mockGet.mockImplementation((url: string) => {
@@ -1481,18 +1483,7 @@ describe("Traçabilité du validateur dans l'UI", () => {
     renderGeneral();
     await waitForCards();
 
-    // La micro-ligne data-testid="validator-info-{id}" doit être présente
-    expect(screen.getByTestId(`validator-info-${ALICE.residentId}`)).toBeInTheDocument();
-    // Elle contient les initiales "BD"
-    expect(screen.getByTestId(`validator-info-${ALICE.residentId}`).textContent).toContain("BD");
-  });
-
-  it("la micro-ligne est absente pour un MACC non validé (serveur validated=false)", async () => {
-    setupNormalLoad(); // ALICE = validated: false
-    renderGeneral();
-    await waitForCards();
-
-    // Alice n'est pas validée côté serveur → pas de micro-ligne
+    // data-testid="validator-info-{id}" ne doit PAS exister dans la ligne
     expect(screen.queryByTestId(`validator-info-${ALICE.residentId}`)).not.toBeInTheDocument();
   });
 

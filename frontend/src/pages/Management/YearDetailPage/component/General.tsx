@@ -484,13 +484,7 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
   const hasResidentMsg = !!entry?.residentNotification;
   const hasManagerMsg  = !!entry?.managerComment;
 
-  // ── Traçabilité du validateur (données serveur) ────────────────────────────
-  const serverValidated = report.validationInformation?.validated ?? false;
-  const vByObj     = report.validationInformation?.validatedBy as { name?: string } | null | undefined;
-  const vByName    = serverValidated ? (vByObj?.name ?? null) : null;
-  const vAt        = serverValidated ? findLastValidatedAt(report.validationInformation?.validationHistory) : null;
-  const vAtFmt     = formatValidationDate(vAt);
-  const vByIni     = vByName ? getInitialsFromFullName(vByName) : null;
+  // (la traçabilité du validateur est lue dans ComplianceReport, pas ici)
 
   return (
     <Box
@@ -628,44 +622,17 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           </Box>
         </Box>
 
-        {/* Validate toggle + micro-ligne validateur — order:7 sur mobile */}
+        {/* Validate toggle — order:7 sur mobile.
+            La traçabilité (qui a validé) est dans le détail déplié uniquement,
+            pas ici, pour garder toutes les lignes strictement alignées. */}
         <Box
           onClick={(e) => e.stopPropagation()}
-          sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 }, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}
+          sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 } }}
         >
           <ValidateToggle
             validated={isValidated}
             onChange={() => onValidationChange(report.residentId)}
           />
-          {/* Micro-ligne : initiales + date (uniquement si le serveur confirme la validation) */}
-          {serverValidated && vByIni && (
-            <Box
-              display="flex" alignItems="center" gap="5px"
-              data-testid={`validator-info-${report.residentId}`}
-            >
-              {/* Pastille initiales */}
-              <Box sx={{
-                width: 15, height: 15, borderRadius: 999, flex: "none",
-                bgcolor: theme.palette.custom.primarySoft,
-                color: "primary.main",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 8, fontWeight: 700,
-              }}>
-                {vByIni}
-              </Box>
-              {vAtFmt && (
-                <Typography sx={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 10,
-                  color: "text.disabled",
-                  lineHeight: 1,
-                  whiteSpace: "nowrap",
-                }}>
-                  {vAtFmt}
-                </Typography>
-              )}
-            </Box>
-          )}
         </Box>
       </Box>
 
