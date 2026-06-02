@@ -27,6 +27,7 @@ import { handleApiError } from "@/services/apiError";
 import dayjs from "@/lib/dayjs";
 import MessageBox from "./ValidationView/MessageBox";
 import ConfirmLeaveDialog from "./ValidationView/ConfirmLeaveDialog";
+import UserAvatar from "../../../../components/small/UserAvatar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ export interface ResidentReport {
   residentId: number;
   residentFirstname: string;
   residentLastname: string;
+  /** Chemin de la photo de profil (null si aucune photo) */
+  avatarPath?: string | null;
   validationInformation: {
     validated: boolean;
     validatedBy?: unknown;
@@ -208,22 +211,17 @@ export function matchesFilter(
   return true;
 }
 
-// ── Avatar ────────────────────────────────────────────────────────────────────
-
-function ResidentAvatar({ first, last, index }: { first: string; last: string; index: number }) {
+// ResidentAvatar — utilise UserAvatar (photo si disponible, sinon initiales)
+function ResidentAvatar({ first, last, avatarPath, index }: { first: string; last: string; avatarPath?: string | null; index: number }) {
   return (
-    <Box
-      aria-hidden
-      sx={{
-        width: 38, height: 38,
-        borderRadius: "50%",
-        bgcolor: AV_COLORS[index % AV_COLORS.length],
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: "#fff", fontWeight: 700, fontSize: 13, flex: "none",
-      }}
-    >
-      {getInitials(first, last)}
-    </Box>
+    <UserAvatar
+      firstname={first}
+      lastname={last}
+      avatarPath={avatarPath}
+      size={38}
+      color={AV_COLORS[index % AV_COLORS.length]}
+      fontSize={13}
+    />
   );
 }
 
@@ -536,7 +534,7 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
         </Box>
 
         {/* Avatar */}
-        <ResidentAvatar first={report.residentFirstname} last={report.residentLastname} index={index} />
+        <ResidentAvatar first={report.residentFirstname} last={report.residentLastname} avatarPath={report.avatarPath} index={index} />
 
         {/* Name + email */}
         <Box flex={1} minWidth={0}>

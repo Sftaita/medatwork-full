@@ -43,20 +43,22 @@ class GetYearResidentController extends AbstractController
             $dateOfStart = $yearResident->getDateOfStart() ?? $year->getDateOfStart();
 
             $data[] = [
-                'yearResidentId'      => $yearResident->getId(),
-                'allowed'             => $yearResident->getAllowed(),
-                'residentId'          => $resident->getId(),
-                'firstname'           => $resident->getFirstname(),
-                'lastname'            => $resident->getLastname(),
-                'email'               => $resident->getEmail(),
-                'dateOfStart'         => $dateOfStart,
-                'optingOut'           => $yearResident->getOptingOut(),
-                'legalLeaves'         => $yearResident->getLegalLeaves(),
-                'paternityLeaves'     => $yearResident->getPaternityLeave(),
-                'maternityLeaves'     => $yearResident->getMaternityLeave(),
-                'unpaidLeave'         => $yearResident->getUnpaidLeave(),
-                'scientificLeaves'    => $yearResident->getScientificLeaves(),
+                'yearResidentId'         => $yearResident->getId(),
+                'allowed'                => $yearResident->getAllowed(),
+                'residentId'             => $resident->getId(),
+                'firstname'              => $resident->getFirstname(),
+                'lastname'               => $resident->getLastname(),
+                'email'                  => $resident->getEmail(),
+                'dateOfStart'            => $dateOfStart,
+                'optingOut'              => $yearResident->getOptingOut(),
+                'legalLeaves'            => $yearResident->getLegalLeaves(),
+                'paternityLeaves'        => $yearResident->getPaternityLeave(),
+                'maternityLeaves'        => $yearResident->getMaternityLeave(),
+                'unpaidLeave'            => $yearResident->getUnpaidLeave(),
+                'scientificLeaves'       => $yearResident->getScientificLeaves(),
                 'modificationOfThisData' => false,
+                // Photo de profil — null si aucune photo
+                'avatarPath'             => $resident->getAvatarPath(),
             ];
         }
 

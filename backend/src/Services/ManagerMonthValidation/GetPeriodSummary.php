@@ -468,6 +468,8 @@ class GetPeriodSummary
                 false => ['limit' => 48, 'highLimit' => 60],
                 true  => ['limit' => 60, 'highLimit' => 72],
             ][$yearsResident->getOptingOut() ?? false],
+            // Photo de profil — null si aucune photo
+            'avatarPath'        => $resident->getAvatarPath(),
         ];
     }
 

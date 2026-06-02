@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import UserAvatar from "../../../../components/small/UserAvatar";
 import { useTranslation } from "react-i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -34,6 +35,7 @@ interface Resident {
   email: string;
   lastConnection?: string;
   allowed: boolean;
+  avatarPath?: string | null;
   dateOfStart?: string;
   optingOut?: boolean;
   legalLeaves?: number;
@@ -354,14 +356,14 @@ function ResidentRow({ resident, index, isOpen, onToggle, adminRights, yearId, f
 
         {/* Avatar + Nom */}
         <Box display="flex" alignItems="center" gap={1.25} minWidth={0}>
-          <Box sx={{
-            width: 34, height: 34, borderRadius: "50%", flex: "none",
-            bgcolor: AV_COLORS[index % AV_COLORS.length],
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: 12, fontWeight: 700,
-          }}>
-            {getInitials(resident.firstname, resident.lastname)}
-          </Box>
+          <UserAvatar
+            firstname={resident.firstname}
+            lastname={resident.lastname}
+            avatarPath={resident.avatarPath}
+            size={34}
+            color={AV_COLORS[index % AV_COLORS.length]}
+            fontSize={12}
+          />
           <Typography fontWeight={600} fontSize={14} noWrap>
             {resident.firstname} {resident.lastname}
           </Typography>

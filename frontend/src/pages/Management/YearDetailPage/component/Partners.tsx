@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import useAuth from "../../../../hooks/useAuth";
+import UserAvatar from "../../../../components/small/UserAvatar";
 import { useTranslation } from "react-i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -38,6 +39,7 @@ interface ManagerEntry {
   lastname: string;
   job?: string;
   managerId?: number;
+  avatarPath?: string | null;
   admin: boolean;
   dataAccess: boolean;
   dataValidation: boolean;
@@ -348,14 +350,14 @@ function CollabCard({
       }}
     >
       {/* Avatar */}
-      <Box sx={{
-        width: 46, height: 46, borderRadius: "50%", flex: "none",
-        bgcolor: AV_COLORS[index % AV_COLORS.length],
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: "#fff", fontSize: 15, fontWeight: 700,
-      }}>
-        {getInitials(item.firstname, item.lastname)}
-      </Box>
+      <UserAvatar
+        firstname={item.firstname}
+        lastname={item.lastname}
+        avatarPath={item.avatarPath}
+        size={46}
+        color={AV_COLORS[index % AV_COLORS.length]}
+        fontSize={15}
+      />
 
       {/* Meta */}
       <Box flex={1} minWidth={0}>
