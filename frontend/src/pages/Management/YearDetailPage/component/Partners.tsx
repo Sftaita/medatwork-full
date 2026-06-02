@@ -385,22 +385,18 @@ function CollabCard({
         </Box>
       </Box>
 
-      {/* Actions */}
-      {adminRights && (
+      {/* Actions — masquées entièrement pour sa propre ligne (isSelf) */}
+      {adminRights && !isSelf && (
         <Box display="flex" gap={1} alignItems="center" flexShrink={0}>
           <SoftBtn
             danger
-            disabled={locked || isSelf}
+            disabled={locked}
             startIcon={<DeleteOutlineIcon />}
             onClick={onDelete}
           >
             {t("yearDetail.partners.delete", "Supprimer")}
           </SoftBtn>
-          <SoftBtn
-            disabled={isSelf}
-            startIcon={<EditIcon />}
-            onClick={onRights}
-          >
+          <SoftBtn startIcon={<EditIcon />} onClick={onRights}>
             {t("yearDetail.partners.rights", "Droits")}
           </SoftBtn>
         </Box>
