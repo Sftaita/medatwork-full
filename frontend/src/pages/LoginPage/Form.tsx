@@ -73,6 +73,7 @@ const Form = ({ status }) => {
       const avatarUrl = user?.avatarUrl ?? null;
       const canCreateYear = user?.canCreateYear ?? false;
       const cgvAccepted = user?.cgvAccepted ?? false;
+      const managerId = (user as any)?.managerId ?? null;
       setAuthentication({
         isAuthenticated: true,
         AccessToken,
@@ -85,6 +86,7 @@ const Form = ({ status }) => {
         avatarUrl,
         canCreateYear,
         cgvAccepted,
+        managerId,
       });
       logger.setUser({ id: user?.id ?? "unknown", role });
 

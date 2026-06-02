@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import useAuth from "../../../../hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -322,10 +323,13 @@ const PERM_CHIPS: Array<{ key: keyof ManagerEntry; icon: React.ReactNode; label:
 ];
 
 function CollabCard({
-  item, index, locked, adminRights,
+  item, index, locked, isSelf, adminRights,
   onDelete, onRights,
 }: {
-  item: ManagerEntry; index: number; locked: boolean; adminRights: boolean;
+  item: ManagerEntry; index: number; locked: boolean;
+  /** true = c'est le manager connecté lui-même → ne peut pas modifier ses propres droits */
+  isSelf: boolean;
+  adminRights: boolean;
   onDelete: () => void; onRights: () => void;
 }) {
   const { t }  = useTranslation();
@@ -355,9 +359,20 @@ function CollabCard({
 
       {/* Meta */}
       <Box flex={1} minWidth={0}>
-        <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 15.5, fontWeight: 600 }}>
-          {item.lastname} {item.firstname}
-        </Typography>
+        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+          <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 15.5, fontWeight: 600 }}>
+            {item.lastname} {item.firstname}
+          </Typography>
+          {isSelf && (
+            <Typography component="span" sx={{
+              fontSize: 11, fontWeight: 600, px: "8px", py: "2px",
+              borderRadius: 999, bgcolor: theme.palette.custom.primarySoft,
+              color: "primary.main",
+            }}>
+              Vous
+            </Typography>
+          )}
+        </Box>
         <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: "3px", mb: 1.5 }}>
           {jobList[item.job ?? ""] ?? item.job ?? ""}
         </Typography>
@@ -373,13 +388,17 @@ function CollabCard({
         <Box display="flex" gap={1} alignItems="center" flexShrink={0}>
           <SoftBtn
             danger
-            disabled={locked}
+            disabled={locked || isSelf}
             startIcon={<DeleteOutlineIcon />}
             onClick={onDelete}
           >
             {t("yearDetail.partners.delete", "Supprimer")}
           </SoftBtn>
-          <SoftBtn startIcon={<EditIcon />} onClick={onRights}>
+          <SoftBtn
+            disabled={isSelf}
+            startIcon={<EditIcon />}
+            onClick={onRights}
+          >
             {t("yearDetail.partners.rights", "Droits")}
           </SoftBtn>
         </Box>
@@ -394,6 +413,9 @@ const Partners = ({ id, adminRights }: { id: number | null; adminRights?: boolea
   const { t }    = useTranslation();
   const theme    = useTheme();
   const axiosPrivate = useAxiosPrivate();
+  const { authentication } = useAuth();
+  /** ID du manager connecté — pour bloquer la modification de ses propres droits */
+  const currentManagerId = authentication.managerId ?? null;
 
   const [managerList, setManagerList] = useState<ManagerEntry[]>([]);
   const [hospitalManagers, setHospitalManagers] = useState<ManagerEntry[]>([]);
@@ -525,6 +547,7 @@ const Partners = ({ id, adminRights }: { id: number | null; adminRights?: boolea
               item={item}
               index={index}
               locked={index === 0}
+              isSelf={currentManagerId !== null && item.managerId === currentManagerId}
               adminRights={!!adminRights}
               onDelete={() => { setSelectedMgr(item); setDeleteOpen(true); }}
               onRights={() => { setSelectedMgr(item); setRightsOpen(true); }}

@@ -10,7 +10,7 @@ const useRefreshToken = () => {
     const response = await axios.post<RefreshTokenResponse>(`${API_URL}token/refresh`, null, {
       withCredentials: true,
     });
-    const { token, firstname, lastname, role, gender, hospitalId, hospitalName, avatarUrl, canCreateYear, cgvAccepted } = response.data;
+    const { token, firstname, lastname, role, gender, hospitalId, hospitalName, avatarUrl, canCreateYear, cgvAccepted, managerId } = response.data;
     setAuthentication((prev) => ({
       ...prev,
       isAuthenticated: true,
@@ -19,11 +19,12 @@ const useRefreshToken = () => {
       lastname,
       role,
       gender,
-      hospitalId: hospitalId ?? null,
+      hospitalId:   hospitalId   ?? null,
       hospitalName: hospitalName ?? null,
-      avatarUrl: avatarUrl ?? null,
-      canCreateYear: canCreateYear ?? false,
-      cgvAccepted: cgvAccepted ?? false,
+      avatarUrl:    avatarUrl    ?? null,
+      canCreateYear:canCreateYear ?? false,
+      cgvAccepted:  cgvAccepted  ?? false,
+      managerId:    managerId    ?? null,
     }));
     return token;
   };

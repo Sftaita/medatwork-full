@@ -13,6 +13,8 @@ export interface AuthState {
   canCreateYear?: boolean;
   /** Fonction du manager (null pour les non-managers) */
   job?: string | null;
+  /** ID de l'entité Manager — utilisé pour empêcher un manager de modifier ses propres droits */
+  managerId?: number | null;
   /** false → l'utilisateur doit accepter les CGU avant d'accéder à l'app */
   cgvAccepted?: boolean;
 }
@@ -41,5 +43,6 @@ export interface RefreshTokenResponse {
   avatarUrl?: string | null;
   canCreateYear?: boolean;
   job?: string | null;
+  managerId?: number | null;
   cgvAccepted?: boolean;
 }

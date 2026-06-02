@@ -46,7 +46,8 @@ class AuthenticationSuccessListener
                 $data['canCreateYear'] = $user instanceof Manager && $user->isCanCreateYear();
             }
             if ($user instanceof Manager) {
-                $data['job'] = $user->getJob()?->value;
+                $data['job']       = $user->getJob()?->value;
+                $data['managerId'] = $user->getId();
             }
             $userType = $user instanceof Manager ? 'manager' : 'resident';
             $data['cgvAccepted'] = $this->isCguAccepted($userType, (int) $user->getId());
