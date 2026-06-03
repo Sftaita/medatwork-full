@@ -214,3 +214,111 @@ describe("useYearNotifPrefs — changement d'année", () => {
     expect(mockGet.mock.calls[1][0]).toContain("2");
   });
 });
+
+// ── P1 : branches lignes 66 et 83 (non couvertes en P0) ─────────────────────
+
+describe("useYearNotifPrefs — P1 branches manquantes", () => {
+  // H-FE12 : couvre ligne 66 — patch() quand yearId === null
+  it("H-FE12 patch() avec yearId=null retourne YEAR_NOT_FOUND sans appel API", async () => {
+    const { result } = renderHook(() => useYearNotifPrefs(null));
+
+    // Aucun GET lancé
+    expect(mockGet).not.toHaveBeenCalled();
+
+    let error: string | null = null;
+    await act(async () => {
+      error = await result.current.patch({ COMPLIANCE_ALERT: { email: false } });
+    });
+
+    expect(error).toBe("YEAR_NOT_FOUND");
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  // H-FE13 : couvre ligne 83 — erreur 404 lors du PATCH
+  it("H-FE13 patch() erreur HTTP 404 retourne YEAR_NOT_FOUND", async () => {
+    mockGet.mockResolvedValueOnce({ data: { prefs: DEFAULT_PREFS } });
+    mockPatch.mockRejectedValueOnce({ response: { status: 404 } });
+
+    const { result } = renderHook(() => useYearNotifPrefs(YEAR_ID));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let error: string | null = null;
+    await act(async () => {
+      error = await result.current.patch({ COMPLIANCE_ALERT: { email: false } });
+    });
+
+    expect(error).toBe("YEAR_NOT_FOUND");
+  });
+});
+
+// ── P1 : invalidation cache et changement d'état ──────────────────────────────
+
+describe("useYearNotifPrefs — P1 cache et état", () => {
+  // H-FE14 : après un PATCH réussi, les prefs locales sont mises à jour avec la réponse serveur
+  it("H-FE14 après PATCH réussi, prefs reflètent la réponse serveur (pas le cache client)", async () => {
+    const serverPrefsAfterPatch = {
+      ...DEFAULT_PREFS,
+      COMPLIANCE_ALERT: { email: false, push: false, sms: false, callRh: false },
+    };
+
+    mockGet.mockResolvedValueOnce({ data: { prefs: DEFAULT_PREFS } });
+    mockPatch.mockResolvedValueOnce({ data: { prefs: serverPrefsAfterPatch } });
+
+    const { result } = renderHook(() => useYearNotifPrefs(YEAR_ID));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.patch({ COMPLIANCE_ALERT: { email: false } });
+    });
+
+    // Les prefs sont celles retournées par le serveur, pas calculées côté client
+    expect(result.current.prefs?.COMPLIANCE_ALERT.email).toBe(false);
+    expect(result.current.prefs?.COMPLIANCE_ALERT.push).toBe(false);
+  });
+
+  // H-FE15 : changement de yearId → les prefs de l'ancienne année ne persistent pas
+  it("H-FE15 après changement de yearId, les prefs reflètent la nouvelle année", async () => {
+    const prefsYear1 = { ...DEFAULT_PREFS, COMPLIANCE_ALERT: { email: false, push: false, sms: false, callRh: false } };
+    const prefsYear2 = { ...DEFAULT_PREFS };
+
+    mockGet
+      .mockResolvedValueOnce({ data: { prefs: prefsYear1 } })
+      .mockResolvedValueOnce({ data: { prefs: prefsYear2 } });
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number }) => useYearNotifPrefs(id),
+      { initialProps: { id: 1 } }
+    );
+
+    await waitFor(() => expect(result.current.prefs?.COMPLIANCE_ALERT.email).toBe(false));
+
+    rerender({ id: 2 });
+
+    // Après le refetch pour l'année 2, les prefs de l'année 1 doivent avoir disparu
+    await waitFor(() => expect(result.current.prefs?.COMPLIANCE_ALERT.email).toBe(true));
+  });
+
+  // H-FE16 : loading=true pendant le refetch après changement de yearId
+  it("H-FE16 loading=true pendant le refetch après changement de yearId", async () => {
+    let resolveFetch!: (v: unknown) => void;
+    mockGet
+      .mockResolvedValueOnce({ data: { prefs: DEFAULT_PREFS } })
+      .mockReturnValueOnce(new Promise(r => { resolveFetch = r; })); // deuxième fetch suspendu
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number }) => useYearNotifPrefs(id),
+      { initialProps: { id: 1 } }
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ id: 2 });
+
+    // Pendant le 2e fetch (suspendu), loading doit être true
+    await waitFor(() => expect(result.current.loading).toBe(true));
+
+    // Résoudre le fetch suspendu
+    resolveFetch({ data: { prefs: DEFAULT_PREFS } });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+  });
+});

@@ -45,23 +45,7 @@ class UpdateYearResidentNotifications
             return;
         }
 
-        // ── Gate NotificationDecisionService ─────────────────────────────────
-        // Détermine l'événement selon le statut de validation
         $eventType = ($data['status'] === 'validate') ? 'MONTH_VALIDATION' : 'VALIDATION_REJECTED';
-
-        // Vérification globale sur le canal email pour le manager acteur.
-        // Si désactivé globalement → pas de notification in-app non plus (cohérence).
-        // P0 : gate simplifié sur email du manager acteur.
-        // P1 : vérification par canal et par destinataire.
-        if (!$this->decisionService->shouldSend(
-            'manager',
-            (int) $managerThatValidated->getId(),
-            $year,
-            $eventType,
-            'email',
-        )) {
-            return;
-        }
 
         $isValidated      = $data['status'] === 'validate';
         $validationString = $isValidated ? 'Validation' : 'Invalidation';
@@ -94,6 +78,16 @@ class UpdateYearResidentNotifications
         }
 
         foreach ($managerEntities as $manager) {
+            if (!$this->decisionService->shouldSend(
+                'manager',
+                (int) $manager->getId(),
+                $year,
+                $eventType,
+                'email',
+            )) {
+                continue;
+            }
+
             $notification = new NotificationManager();
             $notification->setObject($title);
             $notification->setBody($managerBody);
@@ -101,6 +95,17 @@ class UpdateYearResidentNotifications
             $notification->setIsRead(false);
             $notification->setManager($manager);
             $notification->setType($type);
+            $notification->setMetadata([
+                'version'      => 1,
+                'yearId'       => $year->getId(),
+                'yearTitle'    => $title,
+                'tab'          => 'general',
+                'eventType'    => $eventType,
+                'residentId'   => (int) $resident->getId(),
+                'residentName' => $residentName,
+                'month'        => $period->getMonth(),
+                'yearNb'       => $yearNb,
+            ]);
             $this->entityManager->persist($notification);
         }
 
@@ -113,14 +118,22 @@ class UpdateYearResidentNotifications
             $residentBody .= ' Notification du résident : '.$data['residentNotification'].'.';
         }
 
-        $notification = new NotificationResident();
-        $notification->setObject($title);
-        $notification->setBody($residentBody);
-        $notification->setCreatedAt(new DateTime());
-        $notification->setIsRead(false);
-        $notification->setResident($resident);
-        $notification->setType($type);
-        $this->entityManager->persist($notification);
+        if ($this->decisionService->shouldSend(
+            'resident',
+            (int) $resident->getId(),
+            $year,
+            $eventType,
+            'email',
+        )) {
+            $notification = new NotificationResident();
+            $notification->setObject($title);
+            $notification->setBody($residentBody);
+            $notification->setCreatedAt(new DateTime());
+            $notification->setIsRead(false);
+            $notification->setResident($resident);
+            $notification->setType($type);
+            $this->entityManager->persist($notification);
+        }
 
         $this->entityManager->flush();
     }

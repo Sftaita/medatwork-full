@@ -14,6 +14,7 @@ use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\ResidentRepository;
 use App\Repository\YearsResidentRepository;
+use App\Services\NotificationDecisionService;
 use App\Services\Notifications\ValidationNotifications;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -35,12 +36,18 @@ class ValidationNotificationsTest extends TestCase
         $this->managerRepo       = $this->createMock(ManagerRepository::class);
         $this->residentRepo      = $this->createMock(ResidentRepository::class);
 
+        // NDS toujours true dans ces tests — les scénarios de filtrage sont
+        // couverts dans ValidationNotificationsRecipientFilterTest.
+        $decisionService = $this->createMock(NotificationDecisionService::class);
+        $decisionService->method('shouldSend')->willReturn(true);
+
         $this->service = new ValidationNotifications(
             $this->em,
             $this->yearsResidentRepo,
             $this->managerYearsRepo,
             $this->managerRepo,
             $this->residentRepo,
+            $decisionService,
         );
     }
 

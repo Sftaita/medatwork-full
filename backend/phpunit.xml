@@ -28,6 +28,8 @@
     <coverage>
         <include>
             <directory>src/Services</directory>
+            <directory>src/DTO</directory>
+            <directory>src/Controller</directory>
         </include>
         <exclude>
             <directory>src/Services/ExcelGenerator</directory>

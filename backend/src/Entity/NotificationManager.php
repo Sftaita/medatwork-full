@@ -37,6 +37,16 @@ class NotificationManager
     #[ORM\Column(type: 'string', length: 255)]
     private string $type;
 
+    /**
+     * Contexte structuré de la notification (deep link, sévérité, entité cible).
+     * Format : { version: 1, yearId?: int, yearTitle?: string, tab?: string, severity?: string, ... }
+     * Nullable : NULL pour les notifications historiques créées avant P2-C.
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $metadata = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -122,6 +132,20 @@ class NotificationManager
     public function setType(string $type): self
     {
         $this->type = $type;
+
+        return $this;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getMetadata(): ?array
+    {
+        return $this->metadata;
+    }
+
+    /** @param array<string, mixed>|null $metadata */
+    public function setMetadata(?array $metadata): self
+    {
+        $this->metadata = $metadata;
 
         return $this;
     }

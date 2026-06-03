@@ -140,9 +140,12 @@ Voir `docs/SECURITY_AUDIT.md` pour l'audit complet.
 |---------|---------|
 | `docs/AUDIT.md` | Audit complet initial (2026-03-20) |
 | `docs/ARCHITECTURE.md` | Architecture détaillée du système |
-| `docs/SECURITY.md` | Guide de sécurité et failles connues |
+| `docs/SECURITY.md` | Guide de sécurité, failles connues, UserChecker |
 | `docs/SETUP.md` | Guide d'installation et de configuration |
 | `docs/ENTITIES.md` | Description du modèle de données |
+| `docs/NOTIFICATIONS.md` | **Système de notifications complet** — NotificationDecisionService, préférences annuelles, metadata, deep links, roadmap |
+| `docs/COMPLIANCE.md` | Conformité légale temps de travail MACCS — checkers, audit nightly |
+| `docs/USER_SETTINGS.md` | Préférences utilisateur — UserSetting, stores Zustand |
 
 ---
 

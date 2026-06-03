@@ -263,11 +263,35 @@ export interface CommUserTarget {
 
 // ─── Notifications ───────────────────────────────────────────────────────────
 
+/**
+ * Contexte structuré d'une notification (P2-C).
+ * Nullable : NULL pour les notifications créées avant P2-C.
+ *
+ * version=1 permet de gérer les évolutions futures du format.
+ */
+export interface NotificationMetadata {
+  version:    number;       // toujours 1 pour l'instant
+  yearId?:    number;       // présent si la notification concerne une année
+  yearTitle?: string;       // nom de l'année (requis pour React Router state)
+  tab?:       "general" | "residents" | "partners" | "compliance" | "staffplanner" | "realtime";
+  severity?:  "critical" | "warning";
+  residentId?: number;      // futur usage (résident spécifique)
+  [key: string]: unknown;   // extensible sans casser le type
+}
+
 export interface Notification {
   id: number;
-  message: string;
+  /** Titre court de la notification (affiché en gras) */
+  object: string;
+  /** Corps détaillé de la notification */
+  body: string;
+  /** Type métier : "compliance_alert", "validation", "year_added", etc. */
+  type: string;
   read: boolean;
+  readAt: string | null;
   createdAt: string;
+  /** Contexte pour deep link. NULL = notification historique (pré-P2-C). */
+  metadata?: NotificationMetadata | null;
 }
 
 // ─── API responses ───────────────────────────────────────────────────────────

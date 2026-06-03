@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, type MockInstance } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import * as userSettingsModule from "../../../../hooks/useUserSettings";
+import * as useYearNotifPrefsModule from "../../../../hooks/useYearNotifPrefs";
 import { ThemeProvider } from "@mui/material/styles";
 import { lightTheme } from "../../../../doc/CustomizedTheme";
 import YearNotifPrefCard from "./YearNotifPrefCard";
@@ -307,5 +308,189 @@ describe("YearNotifPrefCard — sécurité et accès", () => {
     expect(patchArg).not.toHaveProperty("userId");
     expect(patchArg).not.toHaveProperty("yearId");
     expect(patchArg).not.toHaveProperty("user_id");
+  });
+});
+
+// ── Branches non couvertes (couverture lignes/branches) ───────────────────────
+
+describe("YearNotifPrefCard — états loading et erreur", () => {
+  it("C-FE40 affiche un spinner pendant le chargement", () => {
+    vi.spyOn(useYearNotifPrefsModule, "useYearNotifPrefs").mockReturnValueOnce({
+      prefs: null, loading: true, error: null,
+      patch: mockPatch,
+    });
+    renderCard();
+    expect(document.querySelector('[role="progressbar"]')).toBeTruthy();
+  });
+
+  it("C-FE41 affiche le message d'accès refusé si error = ACCESS_DENIED", () => {
+    vi.spyOn(useYearNotifPrefsModule, "useYearNotifPrefs").mockReturnValueOnce({
+      prefs: null, loading: false, error: "ACCESS_DENIED",
+      patch: mockPatch,
+    });
+    renderCard();
+    expect(screen.getByText(/Vous n.avez pas accès/i)).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/event-row-/)).toHaveLength(0);
+  });
+
+  it("C-FE42 patch résolu avec erreur (non-null) → toast.error affiché, dirty conservé", async () => {
+    const { toast } = await import("react-toastify");
+    mockPatch.mockResolvedValueOnce("VALIDATION_ERROR");
+
+    renderCard();
+    fireEvent.click(screen.getByTestId("checkbox-COMPLIANCE_ALERT-email"));
+    await waitFor(() => screen.getByText(/Non sauvegardé/i));
+
+    fireEvent.click(screen.getByTestId("btn-save-notif-prefs"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+
+    // Dirty reste true (badge toujours présent)
+    expect(screen.getByText(/Non sauvegardé/i)).toBeInTheDocument();
+  });
+});
+
+// ── P1 : changement yearId → réinitialisation dirty ──────────────────────────
+
+describe("YearNotifPrefCard — P1 changement d'année", () => {
+  /**
+   * C-FE50 — RED attendu : le composant n'a pas de useEffect pour réinitialiser
+   * localChanges/dirty quand yearId change. Le badge "Non sauvegardé" reste visible
+   * après le changement d'année.
+   *
+   * Correction attendue : ajouter useEffect([yearId]) qui reset localChanges + dirty.
+   */
+  it("C-FE50 changement de yearId → dirty et localChanges réinitialisés", async () => {
+    const { rerender } = renderCard(42);
+
+    // Faire une modification → dirty=true
+    fireEvent.click(screen.getByTestId("checkbox-COMPLIANCE_ALERT-email"));
+    await waitFor(() => screen.getByText(/Non sauvegardé/i));
+
+    // Changer l'année → le composant reçoit un nouveau yearId
+    rerender(
+      <ThemeProvider theme={lightTheme}>
+        <YearNotifPrefCard yearId={99} />
+      </ThemeProvider>
+    );
+
+    // Après changement d'année : dirty doit être réinitialisé
+    expect(screen.queryByText(/Non sauvegardé/i)).not.toBeInTheDocument();
+  });
+});
+
+// ── P1 : messages d'erreur spécifiques ────────────────────────────────────────
+
+describe("YearNotifPrefCard — P1 messages d'erreur", () => {
+  /**
+   * C-FE51 — RED attendu : tous les erreurs affichent le même message générique
+   * "Erreur lors de l'enregistrement." Le hook retourne "ACCESS_DENIED" mais
+   * le composant ne fait pas de distinction.
+   *
+   * Correction attendue : cas spécifique pour ACCESS_DENIED dans handleSave.
+   */
+  it("C-FE51 PATCH ACCESS_DENIED → message d'accès refusé spécifique", async () => {
+    const { toast } = await import("react-toastify");
+    mockPatch.mockResolvedValueOnce("ACCESS_DENIED");
+
+    renderCard();
+    fireEvent.click(screen.getByTestId("checkbox-COMPLIANCE_ALERT-email"));
+    await waitFor(() => screen.getByText(/Non sauvegardé/i));
+
+    fireEvent.click(screen.getByTestId("btn-save-notif-prefs"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+
+    const errorMessage = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    // Le message doit mentionner l'accès refusé, pas une erreur générique d'enregistrement
+    expect(errorMessage.toLowerCase()).toContain("accès");
+  });
+});
+
+// ── P1 : comportements avec données inattendues ───────────────────────────────
+
+describe("YearNotifPrefCard — P1 données inattendues", () => {
+  it("C-FE52 événements inconnus dans prefs → composant ne crash pas", () => {
+    // Les prefs contiennent un event inconnu (AI_ALERT) que le serveur aurait pu retourner
+    vi.spyOn(useYearNotifPrefsModule, "useYearNotifPrefs").mockReturnValueOnce({
+      prefs: {
+        ...{
+          COMPLIANCE_ALERT:         { email: true,  push: true,  sms: false, callRh: false },
+          MONTH_VALIDATION:         { email: true,  push: false, sms: false, callRh: false },
+          STAFFPLANNER_EXPORT_DONE: { email: true,  push: false, sms: false, callRh: false },
+          RESIDENT_INACTIVE:        { email: true,  push: true,  sms: false, callRh: false },
+          YEAR_ENDING:              { email: true,  push: true,  sms: false, callRh: false },
+          SCHEDULE_CHANGED:         { email: false, push: true,  sms: false, callRh: false },
+          VALIDATION_REJECTED:      { email: true,  push: true,  sms: false, callRh: false },
+        },
+        AI_ALERT: { email: true, push: false, sms: false, callRh: false }, // event inconnu
+      },
+      loading: false,
+      error:   null,
+      patch:   mockPatch,
+    });
+
+    // Le composant ne doit pas crasher
+    expect(() => renderCard()).not.toThrow();
+
+    // Les 7 événements connus sont toujours affichés
+    expect(screen.getAllByTestId(/event-row-/)).toHaveLength(7);
+
+    // L'event inconnu n'est pas rendu (seuls les KNOWN_EVENTS sont itérés)
+    expect(screen.queryByTestId("event-row-AI_ALERT")).not.toBeInTheDocument();
+  });
+
+  it("C-FE53 globalSettings null → canaux non désactivés (fallback ?? true = non désactivé)", () => {
+    vi.spyOn(userSettingsModule, "useUserSettings").mockReturnValueOnce({
+      current: null,  // settings non encore chargés
+      loading: true,
+      error:   null,
+    } as ReturnType<typeof userSettingsModule.useUserSettings>);
+
+    renderCard();
+
+    // Avec globalSettings=null, isGloballyDisabled retourne false (fallback ?? true → !true = false)
+    // Les checkboxes ne doivent PAS être désactivées par le global
+    const emailCheckboxes = screen.getAllByTestId(/checkbox-.*-email/);
+    emailCheckboxes.forEach(cb => {
+      expect(cb).not.toBeDisabled();
+    });
+  });
+});
+
+// ── P1 : bouton save et navigation ────────────────────────────────────────────
+
+describe("YearNotifPrefCard — P1 save et liens", () => {
+  it("C-FE54 bouton Enregistrer désactivé quand rien n'est modifié", () => {
+    renderCard();
+
+    const saveBtn = screen.getByTestId("btn-save-notif-prefs");
+    // Sans modification (dirty=false), le bouton est disabled
+    expect(saveBtn).toBeDisabled();
+  });
+
+  it("C-FE55 dirty persiste à travers les re-renders (pas de reset involontaire)", async () => {
+    const { rerender } = renderCard(42);
+
+    fireEvent.click(screen.getByTestId("checkbox-COMPLIANCE_ALERT-email"));
+    await waitFor(() => screen.getByText(/Non sauvegardé/i));
+
+    // Re-render avec les mêmes props → dirty conservé
+    rerender(
+      <ThemeProvider theme={lightTheme}>
+        <YearNotifPrefCard yearId={42} />
+      </ThemeProvider>
+    );
+
+    // Le badge doit toujours être présent (même yearId)
+    expect(screen.getByText(/Non sauvegardé/i)).toBeInTheDocument();
+  });
+
+  it("C-FE56 lien vers les préférences globales est présent et pointe vers /profile/settings", () => {
+    renderCard();
+
+    const link = screen.getByRole("link", { name: /préférences globales/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/profile/settings");
   });
 });

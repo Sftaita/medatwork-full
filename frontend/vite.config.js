@@ -275,5 +275,18 @@ export default defineConfig({
         singleFork: true,
       },
     },
+    coverage: {
+      provider: "v8",
+      include: [
+        "src/hooks/useYearNotifPrefs.ts",
+        "src/pages/Management/YearDetailPage/component/YearNotifPrefCard.tsx",
+      ],
+      thresholds: {
+        lines: 85,
+        functions: 80,
+        branches: 80,
+        statements: 85,
+      },
+    },
   },
 });

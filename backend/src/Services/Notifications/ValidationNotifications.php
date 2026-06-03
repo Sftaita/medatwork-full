@@ -12,6 +12,7 @@ use App\Repository\ManagerRepository;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\ResidentRepository;
 use App\Repository\YearsResidentRepository;
+use App\Services\NotificationDecisionService;
 use App\Util\FrenchMonths;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
@@ -19,11 +20,12 @@ use Doctrine\ORM\EntityManagerInterface;
 class ValidationNotifications
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-        private readonly YearsResidentRepository $yearsResidentRepository,
-        private readonly ManagerYearsRepository $managerYearsRepository,
-        private readonly ManagerRepository $managerRepository,
-        private readonly ResidentRepository $residentRepository,
+        private readonly EntityManagerInterface    $entityManager,
+        private readonly YearsResidentRepository   $yearsResidentRepository,
+        private readonly ManagerYearsRepository    $managerYearsRepository,
+        private readonly ManagerRepository         $managerRepository,
+        private readonly ResidentRepository        $residentRepository,
+        private readonly NotificationDecisionService $decisionService,
     ) {
     }
 
@@ -35,7 +37,7 @@ class ValidationNotifications
      */
     public function notifyAcceptedPeriodValidation(PeriodValidation $period, Manager $managerThatValidated): void
     {
-        $this->notify($period, $managerThatValidated, 'validation', 'Validation');
+        $this->notify($period, $managerThatValidated, 'validation', 'Validation', 'MONTH_VALIDATION');
     }
 
     /**
@@ -46,11 +48,16 @@ class ValidationNotifications
      */
     public function notifyUnvalidatedPeriodValidation(PeriodValidation $period, Manager $managerThatValidated): void
     {
-        $this->notify($period, $managerThatValidated, 'validation', 'Annulation de la validation');
+        $this->notify($period, $managerThatValidated, 'validation', 'Annulation de la validation', 'VALIDATION_REJECTED');
     }
 
-    private function notify(PeriodValidation $period, Manager $managerThatValidated, string $type, string $verb): void
-    {
+    private function notify(
+        PeriodValidation $period,
+        Manager          $managerThatValidated,
+        string           $type,
+        string           $verb,
+        string           $eventType,
+    ): void {
         $year = $period->getYear();
 
         if ($year === null) {
@@ -74,6 +81,16 @@ class ValidationNotifications
         $managerEntities = $this->managerRepository->findBy(['id' => $managerIds]);
 
         foreach ($managerEntities as $manager) {
+            if (!$this->decisionService->shouldSend(
+                'manager',
+                (int) $manager->getId(),
+                $year,
+                $eventType,
+                'email',
+            )) {
+                continue;
+            }
+
             $notification = new NotificationManager();
             $notification->setObject($year->getTitle() ?? '');
             $notification->setBody($body);
@@ -81,6 +98,15 @@ class ValidationNotifications
             $notification->setIsRead(false);
             $notification->setManager($manager);
             $notification->setType($type);
+            $notification->setMetadata([
+                'version'   => 1,
+                'yearId'    => $year->getId(),
+                'yearTitle' => $year->getTitle() ?? '',
+                'tab'       => 'general',
+                'eventType' => $eventType,
+                'month'     => $period->getMonth(),
+                'yearNb'    => $yearNb,
+            ]);
             $this->entityManager->persist($notification);
         }
 
@@ -92,6 +118,16 @@ class ValidationNotifications
         $residentEntities = $this->residentRepository->findBy(['id' => $residentIds]);
 
         foreach ($residentEntities as $resident) {
+            if (!$this->decisionService->shouldSend(
+                'resident',
+                (int) $resident->getId(),
+                $year,
+                $eventType,
+                'email',
+            )) {
+                continue;
+            }
+
             $notification = new NotificationResident();
             $notification->setObject($year->getTitle() ?? '');
             $notification->setBody($body);

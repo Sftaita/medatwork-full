@@ -35,6 +35,7 @@ class NotificationManagerController extends AbstractController
             'read'      => $n->getIsRead(),
             'readAt'    => $n->getReadAt()?->format(\DateTimeInterface::ATOM),
             'createdAt' => $n->getCreatedAt()->format(\DateTimeInterface::ATOM),
+            'metadata'  => $n->getMetadata(),
         ], $notifications);
 
         return $this->json($data);

@@ -29,6 +29,13 @@ class UserChecker implements UserCheckerInterface
                     "Votre demande d'hôpital est en cours de validation par l'administrateur."
                 );
             }
+
+            // Manager manually deactivated by super-admin
+            if ($user instanceof Manager && $user->getStatus() === ManagerStatus::Inactive) {
+                throw new AccountDisabledException(
+                    "Votre compte a été désactivé. Contactez l'administrateur."
+                );
+            }
         }
 
         // HospitalAdmin invited but profile not yet completed

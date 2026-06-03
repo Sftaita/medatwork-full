@@ -4,6 +4,35 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 
 ---
 
+## [3.9.0] — 2026-06-04
+
+### Ajouts — Système de Notifications v2
+- **`NotificationDecisionService`** : porte d'entrée obligatoire pour toutes les décisions d'envoi de notification. `shouldSend(userType, userId, year, eventType, channel)` = préférences globales AND annuelles
+- **Préférences de notification annuelles** (`YearUserNotifPref`) : chaque manager peut configurer ses préférences par année et par événement. Endpoint `GET/PATCH /api/years/{id}/my-notif-prefs`
+- **Sender COMPLIANCE_ALERT** : notifications in-app agrégées lors des audits nocturnes de conformité
+- **NotificationManager v2** : champ `metadata JSON nullable` — bouton "Voir" dans la liste des notifications → page cible directement
+- **Badges visuels** : 🔴 CRITIQUE / 🟠 AVERTISSEMENT dans la liste des notifications manager
+- **Timestamp relatif** : "Il y a 5 min", "Hier à 14:12", format court lisible
+- **Tri intelligent** : critiques → avertissements → standard → lues
+- **Deep links P2-E1** : bouton "Voir" sur les notifications `validated`, `invalidated`, `validation` → onglet Général de l'année
+
+### Corrections — Sécurité
+- **Bug acteur/destinataire** (`UpdateYearResidentNotifications`) : décision d'envoi basée sur l'acteur au lieu du destinataire — corrigé : chaque destinataire évalué individuellement
+- **`ManagerStatus::Inactive`** : managers désactivés bloqués sur toutes les requêtes API (UserChecker + firewall api)
+- **Type `Notification` frontend** : `message` → `object`/`body`/`type`/`readAt` (alignement API)
+
+### Corrections — Production (2026-06-04)
+- **Table `refresh_tokens` recréée** : table disparue de la base de données production, bloquant 100% des connexions depuis une date indéterminée
+
+### Infrastructure
+- Migration `Version20260602160110` : table `year_user_notif_pref`
+- Migration `Version20260604AddNotificationMetadata` : `metadata JSON NULL` sur `notification_manager`
+- Nouveau fichier `docs/NOTIFICATIONS.md`
+- Mise à jour `docs/ENTITIES.md`, `ARCHITECTURE.md`, `SECURITY.md`, `COMPLIANCE.md`
+- Bump `3.8.0 → 3.9.0`
+
+---
+
 ## [3.8.0] — 2026-05-22 → 2026-05-28
 
 ### Ajouts

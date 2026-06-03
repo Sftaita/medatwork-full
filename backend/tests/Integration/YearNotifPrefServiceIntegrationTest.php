@@ -320,4 +320,96 @@ class YearNotifPrefServiceIntegrationTest extends KernelTestCase
         self::assertFalse($prefs['VALIDATION_REJECTED']['push']);
         self::assertFalse($prefs['VALIDATION_REJECTED']['email']);
     }
+
+    // ── YNS-P1-06 : updatedAt mis à jour après PATCH ─────────────────────────
+
+    /**
+     * Vérifie que YearUserNotifPref::updatedAt est mis à jour après un PATCH.
+     * Garantit la traçabilité des modifications de préférences.
+     *
+     * Note : SQLite tronque les datetimes à la seconde (pas de microsecondes).
+     * Les deux lectures sont faites après em->clear() pour une précision cohérente.
+     * sleep(1) garantit une seconde différente entre les deux PATCHs.
+     */
+    public function testUpdatedAtIsRefreshedAfterPatch(): void
+    {
+        $userId = (int) self::$managerA->getId();
+
+        // Premier PATCH — crée ou met à jour l'entrée
+        self::$service->patchForUser(
+            'manager',
+            $userId,
+            self::$year,
+            ['STAFFPLANNER_EXPORT_DONE' => ['email' => false]]
+        );
+
+        // Reload depuis SQLite → précision en secondes (pas de microsecondes)
+        self::$em->clear();
+        $entityBefore = self::$em->getRepository(\App\Entity\YearUserNotifPref::class)->findOneBy([
+            'userId'   => $userId,
+            'userType' => 'manager',
+            'year'     => self::$year,
+        ]);
+        self::assertNotNull($entityBefore);
+        $updatedAtBefore = $entityBefore->getUpdatedAt();
+
+        // Attente d'une seconde entière pour que SQLite enregistre un timestamp différent
+        sleep(1);
+
+        // Second PATCH sur le même utilisateur/année
+        self::$service->patchForUser(
+            'manager',
+            $userId,
+            self::$year,
+            ['STAFFPLANNER_EXPORT_DONE' => ['email' => true]]
+        );
+
+        self::$em->clear();
+        $entityAfter = self::$em->getRepository(\App\Entity\YearUserNotifPref::class)->findOneBy([
+            'userId'   => $userId,
+            'userType' => 'manager',
+            'year'     => self::$year,
+        ]);
+        self::assertNotNull($entityAfter);
+
+        self::assertGreaterThan(
+            $updatedAtBefore,
+            $entityAfter->getUpdatedAt(),
+            'updatedAt doit être plus récent après le second PATCH (précision seconde, SQLite)'
+        );
+    }
+
+    // ── YNS-P1-07 : prefs orphelines après suppression logique du userId ──────
+
+    /**
+     * YearUserNotifPref stocke userId comme entier sans FK vers Manager.
+     * Les prefs persistent même si le Manager correspondant est supprimé.
+     * Ce test documente ce comportement de conception : pas de FK = pas de cascade delete.
+     */
+    public function testPrefsRemainWhenUserIdHasNoCorrespondingManager(): void
+    {
+        $orphanUserId = 99999; // userId inexistant en DB
+
+        // Créer des prefs pour un userId qui n'existe pas (ou plus) comme Manager
+        self::$service->patchForUser(
+            'manager',
+            $orphanUserId,
+            self::$year,
+            ['COMPLIANCE_ALERT' => ['email' => false]]
+        );
+
+        self::$em->clear();
+
+        $orphanPrefs = self::$em->getRepository(\App\Entity\YearUserNotifPref::class)->findOneBy([
+            'userId'   => $orphanUserId,
+            'userType' => 'manager',
+            'year'     => self::$year,
+        ]);
+
+        self::assertNotNull(
+            $orphanPrefs,
+            'Les prefs persistent sans FK Manager — comportement attendu (pas de cascade delete)'
+        );
+        self::assertFalse($orphanPrefs->getPrefs()['COMPLIANCE_ALERT']['email']);
+    }
 }

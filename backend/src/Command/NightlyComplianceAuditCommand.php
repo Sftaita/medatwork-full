@@ -7,6 +7,7 @@ namespace App\Command;
 use App\Compliance\ResidentWorkComplianceService;
 use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsResidentRepository;
+use App\Services\ComplianceAlertNotificationService;
 use App\Services\ManagerMonthValidation\LegalPeriodsCalculator;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -32,10 +33,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class NightlyComplianceAuditCommand extends Command
 {
     public function __construct(
-        private readonly ManagerYearsRepository $managerYearsRepository,
-        private readonly YearsResidentRepository $yearsResidentRepository,
-        private readonly ResidentWorkComplianceService $complianceService,
-        private readonly LegalPeriodsCalculator $periodsCalculator,
+        private readonly ManagerYearsRepository          $managerYearsRepository,
+        private readonly YearsResidentRepository         $yearsResidentRepository,
+        private readonly ResidentWorkComplianceService   $complianceService,
+        private readonly LegalPeriodsCalculator          $periodsCalculator,
+        private readonly ComplianceAlertNotificationService $notificationService,
     ) {
         parent::__construct();
     }
@@ -93,6 +95,10 @@ final class NightlyComplianceAuditCommand extends Command
                     );
 
                     $issueCount += count($report->issues);
+
+                    if ($report->hasIssues()) {
+                        $this->notificationService->notifyForReport($report, $year, $resident);
+                    }
                 }
 
                 ++$residentCount;

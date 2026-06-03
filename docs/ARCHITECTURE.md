@@ -1,6 +1,6 @@
 # Architecture — Medatwork
 
-**Dernière mise à jour :** 2026-05-23 (v3.8.0 — internationalisation FR/EN/NL complète)
+**Dernière mise à jour :** 2026-06-04 (Système de Notifications v2 — NotificationDecisionService, préférences annuelles, deep links, UserChecker Inactive)
 
 ## Vue d'Ensemble
 
@@ -159,6 +159,7 @@ JsonResponse (array_map explicite — pas de sérialisation automatique)
 | `app:activate-server` | Active le serveur (usage interne) |
 | `app:notifications:purge` | Supprime les vieilles notifications (read > 30j, unread > 90j) |
 | `app:create-app-admin` | **Crée le premier super-admin** (AppAdmin, ROLE_SUPER_ADMIN) — à exécuter une seule fois au setup |
+| `app:compliance:audit` | **Audit de conformité nocturne** — vérifie les temps de travail de tous les résidents actifs, persiste les `ComplianceAlert`, envoie les notifications via `ComplianceAlertNotificationService`. Option `--year=N` pour un seul year. Cron recommandé : `0 2 * * *`. |
 
 Usage de la purge :
 ```bash
@@ -174,8 +175,12 @@ php bin/console app:notifications:purge --read-days=60 --unread-days=180
 | Service | Responsabilité |
 |---------|----------------|
 | `ManagerMonthValidation/` | Validation mensuelle des périodes |
-| `Notifications/ValidationNotifications` | Notifie après validation/annulation d'une période |
-| `Notifications/UpdateYearResidentNotifications` | Notifie après changement de statut résident |
+| `Notifications/ValidationNotifications` | Notifie après validation/annulation d'une période — **NDS câblé, metadata P2-E planifiée** |
+| `Notifications/UpdateYearResidentNotifications` | Notifie après changement de statut résident — **NDS câblé, metadata P2-E planifiée** |
+| `ComplianceAlertNotificationService` | Envoie une notification in-app agrégée aux managers quand un résident a des violations de conformité — **NDS câblé, metadata v2** |
+| `NotificationDecisionService` | **Porte d'entrée obligatoire** pour toute décision d'envoi de notification. `shouldSend(userType, userId, year, eventType, channel)` = AND logique entre préférences globales et annuelles. Toute nouvelle notification DOIT injecter ce service. |
+| `YearNotifPrefService` | Gère `YearUserNotifPref` : lecture avec merge EVENT_DEFAULTS, écriture par merge partiel. |
+| `UserSettingService` | Préférences utilisateur globales (thème, langue, notifications). Side-effect : synchronise `Manager.receiveComplianceEmails`. |
 | `EmailReset/` | Réinitialisation de mot de passe |
 | `ExcelGenerator/` | Génération de rapports Excel |
 | `ExcelGenerator/CallableGardeMapper` | Calcul des intervalles gardes appelables |
@@ -183,7 +188,7 @@ php bin/console app:notifications:purge --read-days=60 --unread-days=180
 | `AvatarUploadHelper` | Traitement des uploads d'avatar (validation MIME/taille, suppression ancienne photo, stockage) |
 | `Statistics/` | Calcul des statistiques |
 | `Schedule/` | Gestion des plannings |
-| `YearsManagement/YearSummaryBuilder` | Construit le résumé des années pour le WeekDispatcher : `buildForManager()` (via `ManagerYears`), `buildForHospitalAdmin()` (via `YearsRepository::findActiveYearsByHospital()`) |
+| `YearsManagement/YearSummaryBuilder` | Construit le résumé des années pour le WeekDispatcher |
 | `MonthValidation/` | Logique de validation mensuelle |
 
 ### Pattern DTO (standard depuis 2026-03-22)
@@ -281,8 +286,20 @@ $data = array_map(fn (NotificationManager $n) => [
     'read'      => $n->getIsRead(),
     'readAt'    => $n->getReadAt()?->format(\DateTimeInterface::ATOM),
     'createdAt' => $n->getCreatedAt()->format(\DateTimeInterface::ATOM),
+    'metadata'  => $n->getMetadata(),  // JSON nullable — null pour notifications historiques
 ], $notifications);
 return $this->json($data);
+```
+
+Le champ `metadata` contient le contexte structuré pour les deep links. Format standard v1 :
+```json
+{
+  "version": 1,
+  "yearId": 7,
+  "yearTitle": "Cardiologie 2025-2026",
+  "tab": "compliance",
+  "severity": "critical"
+}
 ```
 
 Ne jamais passer directement des entités avec relations bidirectionnelles à `$this->json()`.
@@ -324,6 +341,8 @@ frontend/
     │   ├── useNotifications.ts     # Polling notifications legacy (30s)
     │   ├── useCommNotifications.ts # Polling unread-count comm (30s)
     │   ├── useLogout.ts
+    │   ├── useUserSettings.ts      # Préférences utilisateur globales (GET/PATCH /api/user/settings)
+    │   ├── useYearNotifPrefs.ts    # Préférences de notification annuelles (GET/PATCH /api/years/{id}/my-notif-prefs)
     │   └── data/               # Hooks de données (React Query)
     │       ├── useManagerYears.ts
     │       └── useNotifications.ts  # Hook page notifications
@@ -862,20 +881,31 @@ Export Excel disponible
 3. **Refresh** : POST `/api/token/refresh` (refresh token en cookie) → nouveau JWT
 4. **Logout** : Suppression des cookies `REFRESH_TOKEN` + `BEARER`
 
-### Firewall Symfony
+### Firewall Symfony *(mis à jour 2026-06-03)*
 
 ```yaml
 # security.yaml (simplifié)
 firewalls:
-  public:
-    pattern: ^/api/public    # Routes publiques (activation, reset)
+  login:
+    pattern: ^/api/login
     stateless: true
+    user_checker: App\Security\UserChecker   # bloque pending_hospital, Inactive, non-validé
+    json_login: { ... }
+
+  refresh:
+    pattern: ^/api/token/refresh
+    stateless: true
+    refresh_jwt: { ... }
+    # ⚠️ Pas de user_checker ici — gap documenté (P2-D recommandé)
 
   api:
     pattern: ^/api
     stateless: true
-    jwt: ~                   # Auth via JWT
+    user_checker: App\Security\UserChecker   # ajouté P1 — bloque Inactive sur chaque requête
+    jwt: ~
 ```
+
+**`UserChecker`** bloque : `Manager.validatedAt=null`, `ManagerStatus::PendingHospital`, `ManagerStatus::Inactive`, `HospitalAdminStatus::Invited`. Voir [SECURITY.md](./SECURITY.md).
 
 ### Niveaux d'Accès
 
@@ -1321,7 +1351,7 @@ Mise à jour disponible
 | Notifications de mise à jour | ✅ `usePwaUpdate.ts` |
 | devOptions activé (test dev) | ✅ `vite.config.js` |
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-13 (Phases 1–5 UserSettings)*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-06-04 (Système de Notifications v2)*
 
 ---
 

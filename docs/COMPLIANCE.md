@@ -95,11 +95,21 @@ La période de référence est de **13 semaines consécutives** calculée depuis
 | Endpoint API dédié | `GET /api/managers/compliance/{yearId}` | `GetComplianceReport` controller |
 | Onglet Conformité frontend | `YearDetailPage > Compliance.tsx` | Affiche violations par résident/période |
 
+### ✅ Implémenté (P2-A Notifications, 2026-06-03)
+
+| Composant | Description |
+|-----------|-------------|
+| `ComplianceAlertNotificationService` | Envoie une notification in-app agrégée aux managers d'une année quand `$report->hasIssues()`. Décision per-manager via `NotificationDecisionService`. Event type : `COMPLIANCE_ALERT`. Metadata : `{version, yearId, yearTitle, tab:"compliance", severity}`. |
+| Wiring dans `NightlyComplianceAuditCommand` | Appelé après chaque `auditResident()` si `$report->hasIssues()`. |
+| Préférences annuelles | Chaque manager peut désactiver `COMPLIANCE_ALERT` pour une année spécifique via `YearUserNotifPref`. |
+| Deep link | Bouton "Voir" dans `NotificationTable` → `/manager/year-detail` onglet `compliance`. |
+
 ### ⏳ Reste à faire
 
 | Règle | Priorité | Notes |
 |-------|----------|-------|
-| `ComplianceNotificationService` | Basse | Emails aux managers opt-in (`receiveComplianceEmails`) |
+| Déduplication nocturne | Moyenne | Actuellement : une notification par run si issues. Si la violation persiste 5 nuits → 5 notifications. Envisager une déduplication "une notif par violation ouverte par semaine". |
+| `ComplianceNotificationService` email | Basse | `receiveComplianceEmails` (bool sur Manager) est synchronisé depuis UserSetting mais aucun email réel n'est encore envoyé. L'infrastructure Mailer existe. |
 
 ---
 

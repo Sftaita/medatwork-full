@@ -68,6 +68,7 @@ security:
         delete_cookies: ["REFRESH_TOKEN", "BEARER"]
       stateless: true
       provider: all_users
+      user_checker: App\Security\UserChecker
       jwt: ~
 
     main:

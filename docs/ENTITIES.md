@@ -18,6 +18,12 @@
 
 **Nouvelles entités Phase 5 V2 (2026-05-10) :** `StaffPlannerAuditEvent` (audit trail append-only lock/unlock RH).
 
+**Nouvelle entité P0 Notifications (2026-06-02) :** `YearUserNotifPref` — préférences de notification personnelles par (userType × userId × année). Voir [NOTIFICATIONS.md](./NOTIFICATIONS.md).
+
+**Modification P1 Notifications (2026-06-03) :** `NotificationManager.metadata` (JSON nullable) — contexte structuré pour deep links. Voir [NOTIFICATIONS.md](./NOTIFICATIONS.md).
+
+**Modification P1 Sécurité (2026-06-03) :** `Manager.status` — ajout de la valeur `inactive` (manager désactivé manuellement par le super-admin).
+
 > ⚠️ `StaffPlannerMonthStatus` — entité créée le 6 mai 2026 puis immédiatement remplacée par `StaffPlannerExportStatus`. Elle existe en base de données mais n'est utilisée par aucun service ni controller. Elle sera supprimée dans une prochaine migration de nettoyage.
 
 ---
@@ -226,6 +232,7 @@ Représente un médecin responsable de stage.
 **Enum `ManagerStatus` :**
 - `active` — compte actif et lié à au moins un hôpital
 - `pending_hospital` — en attente d'approbation de la demande d'hôpital → connexion bloquée
+- `inactive` — désactivé manuellement par le super-admin → connexion bloquée (JWT existant rejeté par `UserChecker`)
 
 **Statut UI en fonction des champs :**
 | `ManagerYears.invitedAt` | `token` | `validatedAt` | Chip dashboard |
@@ -410,17 +417,57 @@ Validation d'une période de formation par un manager.
 
 ---
 
-### NotificationManager / NotificationResident
-Notifications pour les managers et résidents.
+### NotificationManager
+Notifications in-app pour les managers.
 
 | Champ | Type | Description |
 |-------|------|-------------|
 | `id` | int | Clé primaire |
-| `recipient` | FK | `Manager` ou `Resident` |
-| `message` | string | Contenu |
+| `manager` | FK | `Manager` (nullable — orphan retention) |
+| `object` | varchar(255) | Titre de la notification |
+| `body` | text | Corps de la notification |
 | `isRead` | bool | Lu ou non |
+| `readAt` | datetime\|null | Date de lecture |
 | `createdAt` | datetime | Date de création |
-| `type` | string | Type de notification |
+| `type` | string | Type : `compliance_alert`, `validated`, `invalidated`, `validation`, `year_added`, `grant_create_year`, `invitation_refused` |
+| `metadata` | JSON\|null | Contexte structuré pour deep links. `NULL` pour les notifications historiques. Voir [NOTIFICATIONS.md](./NOTIFICATIONS.md). Exemple : `{"version":1,"yearId":7,"yearTitle":"Cardio 2025","tab":"compliance","severity":"critical"}` |
+
+### NotificationResident
+Notifications in-app pour les résidents.
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | int | Clé primaire |
+| `resident` | FK | `Resident` (nullable) |
+| `object` | varchar(255) | Titre de la notification |
+| `body` | text | Corps de la notification |
+| `isRead` | bool | Lu ou non |
+| `readAt` | datetime\|null | Date de lecture |
+| `createdAt` | datetime | Date de création |
+| `type` | string | Type : `validated`, `invalidated`, `validation` |
+
+> **Note P2-E (planifié) :** `NotificationResident` recevra également un champ `metadata JSON nullable` dans un prochain sprint pour les deep links côté MACCS.
+
+### YearUserNotifPref *(nouveau — P0 Notifications, 2026-06-02)*
+
+Préférences de notification personnelles par utilisateur et par année académique.
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | bigint | Clé primaire |
+| `year` | FK | `Years` (ON DELETE CASCADE) |
+| `userType` | varchar(30) | `'manager'` \| `'hospital_admin'` |
+| `userId` | int | ID de l'entité (sans FK — polymorphe) |
+| `prefs` | JSON | `{ eventType: { channel: bool } }` — ex: `{"COMPLIANCE_ALERT":{"email":false,"push":true}}` |
+| `updatedAt` | datetime_immutable | Horodatage de la dernière modification |
+
+**Contrainte unique :** `(user_type, user_id, year_id)` — une ligne par utilisateur × année.
+
+**Merge avec defaults :** `YearNotifPrefService::getForUser()` fusionne toujours les prefs stockées avec `EVENT_DEFAULTS`. Les clés absentes en base prennent la valeur du défaut.
+
+**Suppression en cascade :** supprimé automatiquement quand l'année est supprimée (`onDelete: CASCADE`).
+
+Voir documentation complète : [NOTIFICATIONS.md](./NOTIFICATIONS.md).
 
 ---
 
@@ -577,6 +624,10 @@ Enregistrement de lecture d'un message par un utilisateur (idempotent — insér
 
 **Phase 6 V2 (2026-05-11) :** `Version20260511120000` — colonnes `year_id` et `batch_id` sur `staff_planner_audit_event` + 4 nouveaux indices (year, acteur, période, batch).
 
+**P0 Notifications (2026-06-02) :** `Version20260602160110` — création de la table `year_user_notif_pref` (contrainte unique user_type×user_id×year_id, FK CASCADE vers years).
+
+**P2-C Deep Links (2026-06-04) :** `Version20260604AddNotificationMetadata` — `ADD COLUMN metadata JSON NULL` sur `notification_manager`. Rétrocompatible : toutes les lignes existantes ont `metadata = NULL`.
+
 Pour voir l'historique :
 ```bash
 symfony console doctrine:migrations:status
@@ -590,4 +641,4 @@ symfony console doctrine:migrations:migrate
 
 ---
 
-*Document créé le 2026-03-20 — mis à jour le 2026-05-11 (Phase 6 V2 — Audit Timeline RH)*
+*Document créé le 2026-03-20 — mis à jour le 2026-06-04 (P2-C Notifications — metadata deep links, YearUserNotifPref, Manager.Inactive)*

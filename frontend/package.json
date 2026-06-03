@@ -1,6 +1,6 @@
 {
   "name": "med-at-work",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "private": true,
   "dependencies": {
     "@date-io/dayjs": "^3.2.0",
@@ -94,6 +94,7 @@
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
     "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/coverage-v8": "^4.1.0",
     "@vitest/ui": "^4.1.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",

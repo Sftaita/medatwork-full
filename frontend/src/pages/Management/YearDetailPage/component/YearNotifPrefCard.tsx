@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -61,6 +61,13 @@ export default function YearNotifPrefCard({ yearId }: Props) {
   const [dirty,        setDirty]        = useState(false);
   const [saving,       setSaving]       = useState(false);
 
+  // Réinitialiser les modifications locales quand l'année change.
+  // Les functional updates évitent une re-render si l'état est déjà propre.
+  useEffect(() => {
+    setLocalChanges(prev => Object.keys(prev).length > 0 ? {} : prev);
+    setDirty(prev => prev ? false : prev);
+  }, [yearId]);
+
   // Pas de rendu si pas d'année ou erreur d'accès
   if (yearId === null) {
     return null;
@@ -120,7 +127,9 @@ export default function YearNotifPrefCard({ yearId }: Props) {
     setSaving(true);
     try {
       const err = await patch(localChanges);
-      if (err) {
+      if (err === "ACCESS_DENIED") {
+        toast.error("Accès refusé. Vous n'avez pas la permission de modifier ces paramètres.", toastError);
+      } else if (err) {
         toast.error("Erreur lors de l'enregistrement.", toastError);
       } else {
         setLocalChanges({});

@@ -38,6 +38,7 @@ class YearNotifPrefControllerSecurityTest extends WebTestCase
 
     public static function setUpBeforeClass(): void
     {
+        static::ensureKernelShutdown();
         self::$client = static::createClient();
         $container    = self::$client->getContainer();
 
@@ -331,6 +332,14 @@ class YearNotifPrefControllerSecurityTest extends WebTestCase
         }
     }
 
+    // ── I14 : PATCH année inexistante → 404 ──────────────────────────────────
+
+    public function testPatchUnknownYearReturns404(): void
+    {
+        $status = $this->patch(999999, self::$tokenManagerA, []);
+        self::assertSame(404, $status);
+    }
+
     // ── L01 : HospAdmin même hôpital → structure de réponse correcte ─────────
 
     public function testHospAdminSameHospitalGetsValidPrefStructure(): void
@@ -361,5 +370,168 @@ class YearNotifPrefControllerSecurityTest extends WebTestCase
             self::assertArrayHasKey($event, $data['prefs'], "Event {$event} missing from response");
             self::assertArrayHasKey('email', $data['prefs'][$event]);
         }
+    }
+
+    // ── CTRL-P1-01 : JSON malformé → 400 ─────────────────────────────────────
+
+    public function testPatchWithMalformedJsonReturns400(): void
+    {
+        self::$client->request('PATCH', self::BASE_URL.'/'.self::$yearId.'/my-notif-prefs', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::$tokenManagerA,
+            'CONTENT_TYPE'       => 'application/json',
+        ], '{not valid json');
+
+        self::assertSame(400, self::$client->getResponse()->getStatusCode());
+    }
+
+    // ── CTRL-P1-02 : canal inconnu → 400 ─────────────────────────────────────
+
+    public function testPatchWithUnknownChannelReturns400(): void
+    {
+        $status = $this->patch(self::$yearId, self::$tokenManagerA, [
+            'COMPLIANCE_ALERT' => ['webhook' => true],
+        ]);
+        self::assertSame(400, $status);
+    }
+
+    // ── CTRL-P1-03 : valeur non booléenne → 400 ──────────────────────────────
+
+    public function testPatchWithNonBoolValueReturns400(): void
+    {
+        self::$client->request('PATCH', self::BASE_URL.'/'.self::$yearId.'/my-notif-prefs', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::$tokenManagerA,
+            'CONTENT_TYPE'       => 'application/json',
+        ], json_encode(['COMPLIANCE_ALERT' => ['email' => 'yes']]));
+
+        self::assertSame(400, self::$client->getResponse()->getStatusCode());
+    }
+
+    // ── CTRL-P1-04 : body vide {} → 200, prefs inchangées ────────────────────
+
+    public function testPatchWithEmptyBodyReturns200AndPrefsUnchanged(): void
+    {
+        // Patcher d'abord email=false pour YEAR_ENDING (event non utilisé ailleurs dans cette classe)
+        $this->patch(self::$yearId, self::$tokenManagerA, [
+            'YEAR_ENDING' => ['email' => false],
+        ]);
+
+        // PATCH vide → ne doit pas modifier les prefs
+        $statusEmpty = $this->patch(self::$yearId, self::$tokenManagerA, []);
+        self::assertSame(200, $statusEmpty);
+
+        // Vérifier que email est toujours false
+        $this->get(self::$yearId, self::$tokenManagerA);
+        $data = json_decode(self::$client->getResponse()->getContent(), true);
+        self::assertFalse($data['prefs']['YEAR_ENDING']['email'],
+            'Un PATCH vide ne doit pas modifier les prefs existantes'
+        );
+    }
+
+    // ── CTRL-P1-05 : year_id dans le body → ignoré, 200 ─────────────────────
+
+    public function testPatchWithYearIdInBodyIsIgnoredNotUsedToChangeYear(): void
+    {
+        self::$client->request('PATCH', self::BASE_URL.'/'.self::$yearId.'/my-notif-prefs', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::$tokenManagerA,
+            'CONTENT_TYPE'       => 'application/json',
+        ], json_encode(['year_id' => 999, 'COMPLIANCE_ALERT' => ['push' => true]]));
+
+        $status = self::$client->getResponse()->getStatusCode();
+        // year_id est dans IGNORED_KEYS du DTO → ignoré → 200
+        self::assertContains($status, [200, 400],
+            'year_id doit être ignoré (200) ou refusé (400), jamais utilisé pour changer d\'année'
+        );
+
+        if ($status === 200) {
+            $data = json_decode(self::$client->getResponse()->getContent(), true);
+            self::assertArrayHasKey('prefs', $data);
+            self::assertArrayNotHasKey('year_id', $data['prefs']);
+        }
+    }
+
+    // ── CTRL-P1-06 : eventType inconnu → 200, forward-compat ────────────────
+
+    public function testPatchWithUnknownEventTypeReturns200(): void
+    {
+        $status = $this->patch(self::$yearId, self::$tokenManagerA, [
+            'AI_ALERT' => ['email' => true],
+        ]);
+        self::assertSame(200, $status,
+            'Un eventType inconnu doit être toléré (forward-compat) — pas d\'erreur 400'
+        );
+    }
+
+    // ── CTRL-P1-07 : HospAdmin + Manager prefs distinctes ───────────────────
+
+    public function testHospAdminAndManagerOnSameYearHaveIndependentPrefs(): void
+    {
+        // Manager A patche STAFFPLANNER_EXPORT_DONE email=false
+        $this->patch(self::$yearId, self::$tokenManagerA, [
+            'STAFFPLANNER_EXPORT_DONE' => ['email' => false],
+        ]);
+
+        // HospAdmin même hôpital → doit avoir le défaut (email=true)
+        $this->get(self::$yearId, self::$tokenHospAdminSameHosp);
+        $dataHospAdmin = json_decode(self::$client->getResponse()->getContent(), true);
+
+        self::assertSame(200, self::$client->getResponse()->getStatusCode());
+        self::assertTrue(
+            $dataHospAdmin['prefs']['STAFFPLANNER_EXPORT_DONE']['email'],
+            'HospAdmin doit avoir ses propres prefs (défaut=true), indépendantes du Manager'
+        );
+
+        // Manager A → doit avoir email=false
+        $this->get(self::$yearId, self::$tokenManagerA);
+        $dataManager = json_decode(self::$client->getResponse()->getContent(), true);
+        self::assertFalse(
+            $dataManager['prefs']['STAFFPLANNER_EXPORT_DONE']['email'],
+            'Manager A doit avoir email=false après son propre PATCH'
+        );
+    }
+
+    // ── CTRL-P1-08 : JWT invalide → 401 ──────────────────────────────────────
+
+    public function testRequestWithInvalidJwtReturns401(): void
+    {
+        self::$client->request('GET', self::BASE_URL.'/'.self::$yearId.'/my-notif-prefs', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer not.a.valid.jwt.string',
+        ]);
+        self::assertSame(401, self::$client->getResponse()->getStatusCode());
+    }
+
+    // ── CTRL-P1-09 : JWT expiré (signature invalide + exp passé) → 401 ───────
+
+    public function testRequestWithExpiredJwtReturns401(): void
+    {
+        // JWT structurellement valide mais signé avec une clé incorrecte et exp en 1970
+        $header  = rtrim(base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT'])), '=');
+        $payload = rtrim(base64_encode(json_encode([
+            'roles'    => ['ROLE_MANAGER'],
+            'username' => 'manager_a@test.be',
+            'iat'      => 1,
+            'exp'      => 1, // 1970-01-01 → toujours expiré
+        ])), '=');
+        $fakeJwt = $header.'.'.$payload.'.invalidsignature';
+
+        self::$client->request('GET', self::BASE_URL.'/'.self::$yearId.'/my-notif-prefs', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$fakeJwt,
+        ]);
+        self::assertSame(401, self::$client->getResponse()->getStatusCode());
+    }
+
+    // ── CTRL-P1-11 : body trop large → 400 ───────────────────────────────────
+
+    public function testPatchWithOversizedBodyReturns400(): void
+    {
+        $oversizedBody = json_encode([
+            'COMPLIANCE_ALERT' => ['email' => str_repeat('x', 3000)],
+        ]);
+
+        self::$client->request('PATCH', self::BASE_URL.'/'.self::$yearId.'/my-notif-prefs', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::$tokenManagerA,
+            'CONTENT_TYPE'       => 'application/json',
+        ], $oversizedBody);
+
+        self::assertSame(400, self::$client->getResponse()->getStatusCode());
     }
 }

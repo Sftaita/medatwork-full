@@ -231,6 +231,32 @@ Le polling de notifications toutes les 30s affichait un toast "Oups ! Une erreur
 
 ---
 
+## UserChecker — Contrôle de l'état du compte *(mis à jour 2026-06-03)*
+
+`App\Security\UserChecker` implémente `UserCheckerInterface`. Il est câblé sur deux firewalls :
+
+```yaml
+# security.yaml
+firewalls:
+  login:
+    user_checker: App\Security\UserChecker   # pré-existant
+  api:
+    user_checker: App\Security\UserChecker   # ajouté P1 (2026-06-03)
+```
+
+Le checker est appelé à chaque authentification (login ET chaque requête JWT). Il bloque :
+
+| Condition | Exception levée | HTTP |
+|---|---|---|
+| `Manager.validatedAt === null` | `AccountDisabledException` | 401 |
+| `Manager.status === ManagerStatus::PendingHospital` | `AccountDisabledException` | 401 |
+| `Manager.status === ManagerStatus::Inactive` | `AccountDisabledException` | 401 |
+| `HospitalAdmin.status === HospitalAdminStatus::Invited` | `AccountDisabledException` | 401 |
+
+**Point critique :** le firewall `refresh` (`/api/token/refresh`) n'a **pas** de `user_checker`. Un manager `Inactive` peut donc rafraîchir son token, mais le JWT obtenu sera immédiatement rejeté par le firewall `api`. Ce gap est documenté (P2-D recommandé) et testé (test SEC-P1-04).
+
+---
+
 ## Droits d'accès aux Années académiques
 
 **Mis à jour :** 2026-05-31 — Modèle refondu
@@ -338,4 +364,4 @@ L'algorithme par défaut (`auto`) utilise `bcrypt` ou `argon2id` selon la dispon
 
 ---
 
-*Document créé le 2026-03-20 — Dernière mise à jour : 2026-05-12*
+*Document créé le 2026-03-20 — Dernière mise à jour : 2026-06-03 (P1 — UserChecker Inactive + firewall api)*
