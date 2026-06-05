@@ -16,7 +16,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Stack } from "@mui/system";
 import { useNavigate } from "react-router-dom";
 import type { Notification } from "@/types/entities";
-import { formatRelativeTime, sortNotifications } from "./notificationUtils";
+import { formatRelativeTime, sortNotifications } from "@/utils/notificationUtils";
 
 // ── Sévérité extraite du préfixe texte du champ object ────────────────────────
 
