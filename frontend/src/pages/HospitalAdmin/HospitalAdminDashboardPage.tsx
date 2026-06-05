@@ -62,7 +62,6 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
@@ -391,25 +390,6 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
           {t("haDash.menuDelete")}
         </MenuItem>
       </Menu>
-
-      {/* Paramètres button — outside CardActionArea */}
-      <Divider />
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="flex-end"
-        sx={{ px: 1, py: 0.5 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Button
-          size="small"
-          startIcon={<SettingsOutlinedIcon fontSize="small" />}
-          onClick={(e) => { e.stopPropagation(); goToParams(); }}
-          sx={{ fontSize: "0.75rem", color: "text.secondary" }}
-        >
-          {t("haDash.settings")}
-        </Button>
-      </Box>
 
       {/* Token — outside CardActionArea: copy without navigating */}
       {year.token && (
@@ -1126,11 +1106,6 @@ const YearListRow = ({ year, onEdit, onDelete }: YearListRowProps) => {
         </Box>
       </TableCell>
       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-        <Tooltip title={t("haDash.settings")} placement="top" arrow>
-          <IconButton size="small" onClick={goToParams}>
-            <SettingsOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
         <IconButton size="small" onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}>
           <MoreVertIcon fontSize="small" />
         </IconButton>
