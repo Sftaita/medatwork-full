@@ -455,8 +455,15 @@
 
 /* ── Modal dépassement ────────────────────────────────────────────────────────── */
 
-.status--bad { cursor: pointer; }
-.status--bad:hover { opacity: .85; }
+.status--bad {
+  cursor: pointer;
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 2px;
+}
+.status--bad:hover {
+  background: #f8d7d5;
+  box-shadow: 0 0 0 2px #d6483f40;
+}
 
 .modal-backdrop {
   position: fixed;

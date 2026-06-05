@@ -141,6 +141,17 @@ const MaccsRow = ({ entry: m, colorIndex, weeks, onGoToSchedule }: MaccsRowProps
           >
             <span className={styles['status-dot']} />
             {STATUS_LABELS[st]}
+            {st === 'bad' && (
+              <svg
+                width="13" height="13" viewBox="0 0 20 20"
+                fill="none" stroke="currentColor" strokeWidth="2"
+                aria-hidden="true"
+                style={{ marginLeft: 4, flexShrink: 0, opacity: 0.75 }}
+              >
+                <circle cx="10" cy="10" r="8" />
+                <path d="M10 9v5M10 6.5v.5" />
+              </svg>
+            )}
           </div>
         </div>
       </div>
