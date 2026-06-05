@@ -29,20 +29,15 @@ const RealtimeTab = ({ yearId }: RealtimeTabProps) => {
   const weeks: string[]     = DEMO_WEEKS;
 
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [query,  setQuery]  = useState('');
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return maccs
-      .filter(m =>
-        (filter !== 'alert' || statusOf(m) === 'bad') &&
-        (!q || m.name.toLowerCase().includes(q))
-      )
+      .filter(m => filter !== 'alert' || statusOf(m) === 'bad')
       .sort((a, b) => {
         const rank = (s: string) => s === 'bad' ? 0 : s === 'warn' ? 1 : 2;
         return rank(statusOf(a)) - rank(statusOf(b));
       });
-  }, [maccs, filter, query]);
+  }, [maccs, filter]);
 
   const alertCount = useMemo(() => maccs.filter(m => statusOf(m) === 'bad').length,  [maccs]);
   const watchCount = useMemo(() => maccs.filter(m => statusOf(m) === 'warn').length, [maccs]);
@@ -74,26 +69,6 @@ const RealtimeTab = ({ yearId }: RealtimeTabProps) => {
 
       {/* ── Controls ───────────────────────────────────────────────────── */}
       <div className={styles.controls}>
-        <div className={styles['search-wrap']}>
-          <svg
-            className={styles['search-icon']}
-            width="14" height="14" viewBox="0 0 20 20"
-            fill="none" stroke="currentColor" strokeWidth="2"
-            aria-hidden="true"
-          >
-            <circle cx="9" cy="9" r="6" />
-            <path d="M15 15l3 3" />
-          </svg>
-          <input
-            className={styles['search-input']}
-            type="search"
-            placeholder="Rechercher un MACCS…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            aria-label="Rechercher un MACCS"
-          />
-        </div>
-
         <div className={styles.filters} role="group" aria-label="Filtrer les MACCS">
           <button
             className={`${styles['filter-btn']} ${filter === 'all' ? styles['filter-btn--on'] : ''}`}
