@@ -6,13 +6,35 @@ Historique des modifications par version. Format : `[version] — date` avec cat
 
 ## [3.9.0] — 2026-06-04
 
-### Ajouts — Système de Notifications v2
-- **`NotificationDecisionService`** : porte d'entrée obligatoire pour toutes les décisions d'envoi de notification. `shouldSend(userType, userId, year, eventType, channel)` = préférences globales AND annuelles
-- **Préférences de notification annuelles** (`YearUserNotifPref`) : chaque manager peut configurer ses préférences par année et par événement. Endpoint `GET/PATCH /api/years/{id}/my-notif-prefs`
-- **Sender COMPLIANCE_ALERT** : notifications in-app agrégées lors des audits nocturnes de conformité
-- **NotificationManager v2** : champ `metadata JSON nullable` — bouton "Voir" dans la liste des notifications → page cible directement
-- **Badges visuels** : 🔴 CRITIQUE / 🟠 AVERTISSEMENT dans la liste des notifications manager
-- **Timestamp relatif** : "Il y a 5 min", "Hier à 14:12", format court lisible
+### ✅ Système de Notifications V2 — Terminé
+
+> Ce chantier est officiellement clos. Toutes les fonctionnalités prévues sont livrées et testées.
+
+#### Architecture
+- **`NotificationDecisionService`** : porte d'entrée obligatoire pour toutes les décisions d'envoi. `shouldSend(userType, userId, year, eventType, channel)` = préférences globales AND annuelles. Garantie architecturale par tests ARCH01/02/03.
+- **`YearUserNotifPref`** : préférences de notification personnelles par (userType × userId × année). Endpoint `GET/PATCH /api/years/{id}/my-notif-prefs`. Protégé par JWT — identité jamais extraite du body.
+
+#### Senders implémentés
+- **COMPLIANCE_ALERT** (`ComplianceAlertNotificationService`) : notification in-app agrégée aux managers lors des audits nocturnes. Un message par manager par run si violations détectées.
+- **MONTH_VALIDATION / VALIDATION_REJECTED** (`ValidationNotifications`, `UpdateYearResidentNotifications`) : filtrés par NDS per-destinataire, avec metadata deep link.
+
+#### NotificationManager v2
+- Champ `metadata JSON nullable` : deep links vers la page cible. Bouton "Voir" → navigation directe.
+- Metadata livrée sur : `compliance_alert`, `validated`, `invalidated`, `validation` (côté managers).
+- Rétrocompatibilité totale : notifications historiques ont `metadata = NULL`, bouton "Voir" absent.
+
+#### UX notifications
+- Badges 🔴 CRITIQUE / 🟠 AVERTISSEMENT
+- Timestamps relatifs ("Il y a 5 min", "Hier à 14:12")
+- Tri intelligent : critiques → avertissements → standard → lues
+- Parité manager/résident (P2-F)
+- `notificationUtils` partagés (`src/utils/`)
+
+#### Corrections
+- Bug acteur/destinataire corrigé (`UpdateYearResidentNotifications`)
+- `ManagerStatus::Inactive` bloqué sur firewall `api`
+- Type `Notification` frontend aligné avec l'API
+- Table `refresh_tokens` recréée en production (bloquait 100% des connexions)
 - **Tri intelligent** : critiques → avertissements → standard → lues
 - **Deep links P2-E1** : bouton "Voir" sur les notifications `validated`, `invalidated`, `validation` → onglet Général de l'année
 
