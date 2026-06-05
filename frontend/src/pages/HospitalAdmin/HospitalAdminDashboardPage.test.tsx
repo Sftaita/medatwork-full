@@ -7,11 +7,13 @@
  * - Renders period tab label
  * - Renders location + speciality (combined in one text node)
  * - Shows "Aucune année de formation" alert when list is empty
- * - Clicking a year card navigates to /manager/year-detail via React Router state
+ * - Clicking a year card navigates to /manager/year-detail (not /manager/realtime)
+ * - Year card click passes correct state: { id, title, adminRights: true }
+ * - List row click also navigates to /manager/year-detail
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HospitalAdminDashboardPage from "./HospitalAdminDashboardPage";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
@@ -62,6 +64,12 @@ function makeQc() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
+// Stub qui expose l'id passé via location.state pour vérifier le payload de navigation
+const YearDetailStub = () => {
+  const { state } = useLocation();
+  return <div data-testid="year-detail-page">year-id:{state?.id}</div>;
+};
+
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQc()}>
@@ -69,7 +77,7 @@ function renderPage() {
         <Routes>
           <Route path="/hospital-admin/dashboard" element={<HospitalAdminDashboardPage />} />
           <Route path="/manager/realtime" element={<div>Realtime page</div>} />
-          <Route path="/manager/year-detail" element={<div>Year detail page</div>} />
+          <Route path="/manager/year-detail" element={<YearDetailStub />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -80,6 +88,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockTopbarSearch = "";
+  localStorage.removeItem("hospital_admin_dashboard_view"); // évite les fuites entre tests (vue grille/liste)
   vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue(MOCK_YEARS as any);
   vi.mocked(hospitalAdminApi.getDashboardStats).mockResolvedValue({
     maccs:    { active: 0, pending: 0, incomplete: 0, retired: 0, total: 0 },
@@ -139,13 +148,29 @@ describe("HospitalAdminDashboardPage", () => {
     );
   });
 
-  it("navigates to /manager/realtime on year card click", async () => {
-    // Le clic sur la zone principale de la carte navigue vers /manager/realtime.
-    // La navigation vers /manager/year-detail est via le bouton "Paramètres".
+  it("clic carte (vue grille) → /manager/year-detail, pas /manager/realtime", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Stage cardiologie S1"));
-    await waitFor(() => expect(screen.getByText("Realtime page")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("year-detail-page")).toBeInTheDocument());
+    expect(screen.queryByText("Realtime page")).not.toBeInTheDocument();
+  });
+
+  it("clic carte passe { id:10, adminRights:true } dans location.state", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Stage cardiologie S1"));
+    await waitFor(() => expect(screen.getByText(/year-id:10/)).toBeInTheDocument());
+  });
+
+  it("clic ligne (vue liste) → /manager/year-detail, pas /manager/realtime", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Vue liste" }));
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Stage cardiologie S1"));
+    await waitFor(() => expect(screen.getByTestId("year-detail-page")).toBeInTheDocument());
+    expect(screen.queryByText("Realtime page")).not.toBeInTheDocument();
   });
 
   it("shows 'Aucune année trouvée' when search has no match", async () => {
