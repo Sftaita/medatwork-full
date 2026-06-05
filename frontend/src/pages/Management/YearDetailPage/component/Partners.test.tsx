@@ -42,10 +42,21 @@ vi.mock("../../../../hooks/useAuth", () => ({
 }));
 
 vi.mock("./SearchDialog", () => ({
-  default: ({ handleListItemClick }: { handleListItemClick?: (id: number) => void }) => (
-    <button data-testid="add-trigger" onClick={() => handleListItemClick?.(99)}>
-      trigger-add
-    </button>
+  default: ({
+    list,
+    handleListItemClick,
+  }: {
+    list?: Array<{ id: number }>;
+    handleListItemClick?: (id: number) => void;
+  }) => (
+    <>
+      {list?.map((m) => (
+        <div key={m.id} data-testid={`search-item-${m.id}`} />
+      ))}
+      <button data-testid="add-trigger" onClick={() => handleListItemClick?.(99)}>
+        trigger-add
+      </button>
+    </>
   ),
 }));
 
@@ -213,6 +224,34 @@ describe("CollabCard — liste mixte (soi + autres)", () => {
 
     // Badge "Vous" pour SELF_MANAGER seulement
     expect(screen.getAllByText("Vous")).toHaveLength(1);
+  });
+});
+
+// ── SearchDialog — exclusion de soi-même ─────────────────────────────────────
+
+describe("SearchDialog — liste de candidats", () => {
+
+  it("n'inclut pas le manager connecté (managerId=42) dans la liste de recherche", async () => {
+    // hospital-managers retourne 2 entries : id=42 (soi-même) et id=55 (autre)
+    mockGet.mockImplementation((url: string) => {
+      if (url.includes("getYearManagers"))   return Promise.resolve({ data: [] });
+      if (url.includes("hospital-managers")) return Promise.resolve({
+        data: [
+          { id: 42, firstname: "Alice", lastname: "Dupont", job: null, sexe: "female" },
+          { id: 55, firstname: "Bob",   lastname: "Martin", job: null, sexe: "male" },
+        ],
+      });
+      return Promise.reject(new Error(`Unexpected: ${url}`));
+    });
+
+    renderPartners();
+
+    await waitFor(() => screen.getByTestId("add-trigger"));
+
+    // Le manager connecté (id=42) est exclu de la liste
+    expect(screen.queryByTestId("search-item-42")).not.toBeInTheDocument();
+    // Les autres managers apparaissent bien
+    expect(screen.getByTestId("search-item-55")).toBeInTheDocument();
   });
 });
 

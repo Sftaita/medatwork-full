@@ -565,7 +565,7 @@ const Partners = ({ id, adminRights }: { id: number | null; adminRights?: boolea
 
       {/* ── Modale ajout (SearchDialog existant) ─────────────────────── */}
       <SearchDialog
-        list={hospitalManagers.filter((m) => !managerList.some((linked) => linked.managerId === m.id || linked.id === m.id))}
+        list={hospitalManagers.filter((m) => !managerList.some((linked) => linked.managerId === m.id || linked.id === m.id) && m.id !== currentManagerId)}
         setList={setHospitalManagers}
         updateManagerList={fetchYearManagers}
         open={addOpen}
