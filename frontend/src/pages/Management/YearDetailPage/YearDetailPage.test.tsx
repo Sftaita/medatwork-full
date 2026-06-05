@@ -69,6 +69,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, fallback?: string) => {
       const map: Record<string, string> = {
+        "yearDetail.tabs.realtime":     "Temps réel",
         "yearDetail.tabs.validation":   "Validation",
         "yearDetail.tabs.maccs":        "MACCS",
         "yearDetail.tabs.partners":     "Collaborateurs",
@@ -154,6 +155,10 @@ vi.mock("./component/Compliance", () => ({
   default: () => <div data-testid="panel-compliance" />,
 }));
 
+vi.mock("./component/RealtimeTab", () => ({
+  default: () => <div data-testid="panel-realtime" />,
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function renderPage() {
@@ -207,9 +212,9 @@ describe("Redirect & initialisation", () => {
 // ── TabBar ────────────────────────────────────────────────────────────────────
 
 describe("TabBar – structure ARIA", () => {
-  it("rend 5 onglets avec role=tab", () => {
+  it("rend 6 onglets avec role=tab (Temps réel en premier)", () => {
     renderPage();
-    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(screen.getAllByRole("tab")).toHaveLength(6);
   });
 
   it("la liste d'onglets a role=tablist", () => {
@@ -217,16 +222,23 @@ describe("TabBar – structure ARIA", () => {
     expect(screen.getByRole("tablist")).toBeInTheDocument();
   });
 
-  it("affiche les 5 libellés attendus", () => {
+  it("affiche les 6 libellés attendus", () => {
     renderPage();
-    ["Validation", "MACCS", "Collaborateurs", "Paramètres", "Conformité"].forEach(
+    ["Temps réel", "Validation", "MACCS", "Collaborateurs", "Paramètres", "Conformité"].forEach(
       (label) => expect(screen.getByRole("tab", { name: label })).toBeInTheDocument()
     );
+  });
+
+  it("l'onglet Temps réel est en première position", () => {
+    renderPage();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[0]).toHaveAccessibleName("Temps réel");
   });
 
   it("chaque onglet a id='tab-{key}'", () => {
     renderPage();
     [
+      ["Temps réel",    "tab-realtime"],
       ["Validation",    "tab-general"],
       ["MACCS",         "tab-residents"],
       ["Collaborateurs","tab-partners"],
@@ -240,6 +252,7 @@ describe("TabBar – structure ARIA", () => {
   it("chaque onglet a aria-controls='tabpanel-{key}'", () => {
     renderPage();
     [
+      ["Temps réel",    "tabpanel-realtime"],
       ["Validation",    "tabpanel-general"],
       ["MACCS",         "tabpanel-residents"],
       ["Collaborateurs","tabpanel-partners"],
@@ -255,17 +268,17 @@ describe("TabBar – structure ARIA", () => {
 });
 
 describe("TabBar – état actif", () => {
-  it("l'onglet Validation est actif par défaut", () => {
+  it("l'onglet Temps réel est actif par défaut", () => {
     renderPage();
-    expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Temps réel" })).toHaveAttribute(
       "aria-selected",
       "true"
     );
   });
 
-  it("les 4 autres onglets sont inactifs par défaut", () => {
+  it("les 5 autres onglets sont inactifs par défaut", () => {
     renderPage();
-    ["MACCS", "Collaborateurs", "Paramètres", "Conformité"].forEach((label) =>
+    ["Validation", "MACCS", "Collaborateurs", "Paramètres", "Conformité"].forEach((label) =>
       expect(screen.getByRole("tab", { name: label })).toHaveAttribute(
         "aria-selected",
         "false"
@@ -344,11 +357,11 @@ describe("TabBar – interaction", () => {
 describe("TabBar – badge count", () => {
   it("le badge count est absent par défaut (count null)", () => {
     renderPage();
-    // Aucun élément contenant un nombre seul ne doit être dans les tabs
     const tabs = screen.getAllByRole("tab");
     tabs.forEach((tab) => {
-      // Le texte du tab ne doit contenir que le libellé, pas de nombre isolé
-      expect(tab.textContent).toMatch(/^(Validation|MACCS|Collaborateurs|Paramètres|Conformité)$/);
+      expect(tab.textContent).toMatch(
+        /^(Temps réel|Validation|MACCS|Collaborateurs|Paramètres|Conformité)$/
+      );
     });
   });
 });
@@ -356,13 +369,21 @@ describe("TabBar – badge count", () => {
 // ── Rendu des panneaux ────────────────────────────────────────────────────────
 
 describe("Rendu des panneaux par onglet", () => {
-  it("Validation → panel-general visible, autres absents", () => {
+  it("Temps réel → panel-realtime visible par défaut, autres absents", () => {
     renderPage();
-    expect(screen.getByTestId("panel-general")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-realtime")).toBeInTheDocument();
+    expect(screen.queryByTestId("panel-general")).not.toBeInTheDocument();
     expect(screen.queryByTestId("panel-residents")).not.toBeInTheDocument();
     expect(screen.queryByTestId("panel-partners")).not.toBeInTheDocument();
     expect(screen.queryByTestId("panel-setup")).not.toBeInTheDocument();
     expect(screen.queryByTestId("panel-compliance")).not.toBeInTheDocument();
+  });
+
+  it("Validation → panel-general visible", () => {
+    renderPage();
+    clickTab("Validation");
+    expect(screen.getByTestId("panel-general")).toBeInTheDocument();
+    expect(screen.queryByTestId("panel-realtime")).not.toBeInTheDocument();
   });
 
   it("MACCS → panel-residents visible", () => {
@@ -396,7 +417,7 @@ describe("Rendu des panneaux par onglet", () => {
   it("un seul panneau est monté à la fois", () => {
     renderPage();
     clickTab("Collaborateurs");
-    const panels = ["panel-general","panel-residents","panel-partners","panel-setup","panel-compliance"];
+    const panels = ["panel-realtime","panel-general","panel-residents","panel-partners","panel-setup","panel-compliance"];
     const visible = panels.filter((id) => screen.queryByTestId(id));
     expect(visible).toHaveLength(1);
     expect(visible[0]).toBe("panel-partners");
@@ -520,7 +541,8 @@ describe("Protection données — changement d'onglet avec dirty Validation", ()
   it("T2 — affiche la confirmation quand dirty=true et l'utilisateur change d'onglet", () => {
     renderPage();
 
-    // L'onglet Validation est actif par défaut (general)
+    // Naviguer vers Validation (le défaut est désormais Temps réel)
+    clickTab("Validation");
     expect(screen.getByTestId("panel-general")).toBeInTheDocument();
 
     // Simuler dirty=true via le bouton exposé par le mock de General
@@ -539,6 +561,7 @@ describe("Protection données — changement d'onglet avec dirty Validation", ()
 
   it("'Annuler' depuis la confirmation d'onglet → reste sur Validation", () => {
     renderPage();
+    clickTab("Validation");
     fireEvent.click(screen.getByTestId("make-dirty"));
     clickTab("MACCS");
     expect(screen.getByTestId("confirm-leave-dialog")).toBeInTheDocument();
@@ -554,6 +577,7 @@ describe("Protection données — changement d'onglet avec dirty Validation", ()
 
   it("'Quitter sans enregistrer' depuis la confirmation d'onglet → navigue vers MACCS", () => {
     renderPage();
+    clickTab("Validation");
     fireEvent.click(screen.getByTestId("make-dirty"));
     clickTab("MACCS");
     expect(screen.getByTestId("confirm-leave-dialog")).toBeInTheDocument();
@@ -568,6 +592,7 @@ describe("Protection données — changement d'onglet avec dirty Validation", ()
 
   it("pas de confirmation si dirty=false (changement normal)", () => {
     renderPage();
+    clickTab("Validation"); // aller sur Validation d'abord
     // Ne pas rendre dirty
 
     clickTab("MACCS");

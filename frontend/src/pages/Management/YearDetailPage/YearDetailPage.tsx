@@ -18,10 +18,11 @@ import ConfirmLeaveDialog from "./component/ValidationView/ConfirmLeaveDialog";
 import StaffPlanner from "./component/ParametersViews/StaffPlanner";
 import ResidentParameters from "./component/ParametersViews/ResidentParameters";
 import Compliance from "./component/Compliance";
+import RealtimeTab from "./component/RealtimeTab";
 
 // ── Tab definitions ────────────────────────────────────────────────────────────
 
-type TabKey = "general" | "residents" | "partners" | "setup" | "compliance";
+type TabKey = "realtime" | "general" | "residents" | "partners" | "setup" | "compliance";
 
 interface TabDef {
   key: TabKey;
@@ -30,6 +31,7 @@ interface TabDef {
 }
 
 const TAB_DEFS: TabDef[] = [
+  { key: "realtime",   labelKey: "yearDetail.tabs.realtime" },
   { key: "general",    labelKey: "yearDetail.tabs.validation" },
   { key: "residents",  labelKey: "yearDetail.tabs.maccs" },
   { key: "partners",   labelKey: "yearDetail.tabs.partners" },
@@ -185,7 +187,7 @@ const YearDetailPage = () => {
   }, [navigate, state]);
 
   // ── Tab state ──────────────────────────────────────────────────────────────
-  const defaultTab = (state?.defaultTab as TabKey) ?? "general";
+  const defaultTab = (state?.defaultTab as TabKey) ?? "realtime";
   const [activeLink, setActiveLink] = useState<ActiveLink>(defaultTab);
 
   const isSubView  = (SETUP_SUB_VIEWS as readonly string[]).includes(activeLink);
@@ -405,6 +407,9 @@ const YearDetailPage = () => {
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
       >
+        {activeLink === "realtime" && (
+          <RealtimeTab yearId={id} />
+        )}
         {activeLink === "general" && (
           <General
             ref={generalRef}

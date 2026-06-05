@@ -862,6 +862,7 @@
     "title": "Dashboard",
     "back": "Back",
     "tabs": {
+      "realtime": "Real time",
       "validation": "Validation",
       "maccs": "MACCS",
       "partners": "Collaborators",
