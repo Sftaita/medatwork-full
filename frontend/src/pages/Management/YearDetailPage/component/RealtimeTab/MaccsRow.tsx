@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { MaccsEntry } from './types';
 import { statusOf, maccsInitials, SERIES_COLORS, FALLBACK_AV_COLORS } from './types';
 import BarChart from './BarChart';
+import ViolationModal from './ViolationModal';
 import styles from './RealtimeTab.module.css';
 
 interface MaccsRowProps {
@@ -19,14 +20,21 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const MaccsRow = ({ entry: m, colorIndex, weeks, onGoToSchedule }: MaccsRowProps) => {
-  const [open, setOpen] = useState(false);
+  const [open,        setOpen]        = useState(false);
+  const [modalOpen,   setModalOpen]   = useState(false);
 
   const st       = statusOf(m);
   const hasPrev  = m.pct !== null;
   const tresFlag = m.tresV >= 20;
   const color    = SERIES_COLORS[m.last] ?? FALLBACK_AV_COLORS[colorIndex % FALLBACK_AV_COLORS.length];
 
+  const openModal = () => setModalOpen(true);
+  const handleStatusKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openModal(); }
+  };
+
   return (
+    <>
     <div
       className={[
         styles.row,
@@ -125,6 +133,11 @@ const MaccsRow = ({ entry: m, colorIndex, weeks, onGoToSchedule }: MaccsRowProps
           <div
             className={`${styles.status} ${styles[`status--${st}`]}`}
             data-testid={`status-${m.last}`}
+            onClick={st === 'bad' ? (e) => { e.stopPropagation(); openModal(); } : undefined}
+            role={st === 'bad' ? 'button' : undefined}
+            tabIndex={st === 'bad' ? 0 : undefined}
+            onKeyDown={st === 'bad' ? handleStatusKeyDown : undefined}
+            title={st === 'bad' ? 'Voir les violations légales' : undefined}
           >
             <span className={styles['status-dot']} />
             {STATUS_LABELS[st]}
@@ -281,6 +294,15 @@ const MaccsRow = ({ entry: m, colorIndex, weeks, onGoToSchedule }: MaccsRowProps
         </div>
       )}
     </div>
+
+    {modalOpen && (
+      <ViolationModal
+        entry={m}
+        weeks={weeks}
+        onClose={() => setModalOpen(false)}
+      />
+    )}
+    </>
   );
 };
 
