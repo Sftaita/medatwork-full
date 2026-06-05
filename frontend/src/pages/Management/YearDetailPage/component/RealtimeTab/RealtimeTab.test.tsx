@@ -114,16 +114,29 @@ describe("Statuts MACCS", () => {
     expect(screen.getByTestId("status-Michel")).toHaveTextContent("Dépassement");
   });
 
-  it("Zerouali → statut 'Conforme'", () => {
+  it("Zerouali (pic=54h) → statut 'Conforme'", () => {
     renderTab();
     expect(screen.getByTestId("status-Zerouali")).toHaveTextContent("Conforme");
+  });
+
+  it("Truong (sans prévisionnel, pic=67h > 60h) → statut 'À surveiller' — pas neutre", () => {
+    // L'absence de prévisionnel NE rend PAS le MACCS non-évaluable.
+    // Truong : pct=null, pic=67h > THRESHOLDS.max(60) → warn.
+    renderTab();
+    expect(screen.getByTestId("status-Truong")).toHaveTextContent("À surveiller");
   });
 
   it("le compteur 'En alerte' dans le résumé reflète le nombre de 'bad'", () => {
     renderTab();
     // bad : Dorenlot (pic=76h > 72), Manicone (pct=100 + pic=90), Manon (pic=80), Michel (pic=92)
-    // Truong → ok (pct=null, pic=67 ≤ 72)  /  Zerouali → ok (pic=54)
+    // Truong → warn (pct=null, pic=67h > 60h)  /  Zerouali → ok (pic=54)
     expect(screen.getByTestId("summary-alert")).toHaveTextContent("4");
+  });
+
+  it("le compteur 'À surveiller' inclut Truong malgré l'absence de prévisionnel", () => {
+    renderTab();
+    // Truong est warn → compté dans summary-watch
+    expect(screen.getByTestId("summary-watch")).toHaveTextContent("1");
   });
 });
 
