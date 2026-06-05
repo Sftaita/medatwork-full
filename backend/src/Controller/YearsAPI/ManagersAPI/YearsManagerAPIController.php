@@ -190,9 +190,6 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => 'Trop de requêtes. Réessayez dans une heure.'], 429);
         }
 
-        /** @var Manager $manager */
-        $manager = $security->getUser();
-
         try {
             $dto = AddManagerInputDTO::fromRequest($request);
         } catch (\InvalidArgumentException $e) {
@@ -210,9 +207,8 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => "L'invité a déjà accès à l'année"], 400);
         }
 
-        $relation = $managerYearsRepository->findOneBy(['manager' => $manager, 'years' => $year]);
-        if (! $relation?->getAdmin()) {
-            return new JsonResponse(['message' => 'Vous ne disposez pas des droits administrateur'], 400);
+        if (! $security->isGranted(YearAccessVoter::ADMIN, $year)) {
+            return new JsonResponse(['message' => 'Vous ne disposez pas des droits administrateur sur cette année.'], 403);
         }
 
         $managerYears = (new ManagerYears())

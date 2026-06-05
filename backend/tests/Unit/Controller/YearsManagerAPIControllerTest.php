@@ -23,6 +23,9 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\RateLimiter\LimiterInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
+use Symfony\Component\RateLimiter\RateLimit;
 
 /**
  * Unit tests for YearsManagerAPIController.
@@ -627,5 +630,236 @@ final class YearsManagerAPIControllerTest extends TestCase
         );
 
         $this->assertSame(400, $response->getStatusCode());
+    }
+
+    // ── addManager helpers ────────────────────────────────────────────────────
+
+    private function makeAddManagerRequest(array $overrides = []): Request
+    {
+        $body = array_merge([
+            'year'           => 1,
+            'guest'          => 2,
+            'dataAccess'     => false,
+            'dataValidation' => false,
+            'dataDownload'   => false,
+            'admin'          => false,
+            'agenda'         => false,
+            'schedule'       => false,
+        ], $overrides);
+
+        return new Request([], [], [], [], [], [], (string) json_encode($body));
+    }
+
+    private function makeRateLimiter(): RateLimiterFactoryInterface
+    {
+        $rateLimit = new RateLimit(100, new \DateTimeImmutable('+1 hour'), true, 100);
+
+        $limiter = $this->createMock(LimiterInterface::class);
+        $limiter->method('consume')->willReturn($rateLimit);
+
+        $factory = $this->createMock(RateLimiterFactoryInterface::class);
+        $factory->method('create')->willReturn($limiter);
+
+        return $factory;
+    }
+
+    // ── addManager tests ──────────────────────────────────────────────────────
+
+    public function testAddManagerInvalidJsonReturns400(): void
+    {
+        $request = new Request([], [], [], [], [], [], 'not-json');
+
+        $response = $this->buildController()->addManager(
+            $request,
+            $this->makeSecurity($this->createMock(Manager::class)),
+            $this->createMock(ManagerYearsRepository::class),
+            $this->createMock(ManagerRepository::class),
+            $this->createMock(YearsRepository::class),
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertStringContainsString('Invalid JSON', $data['message']);
+    }
+
+    public function testAddManagerMissingFieldReturns400(): void
+    {
+        // Seuls 3 champs sur 8 — simule l'ancien bug de Partners.tsx
+        $request = new Request([], [], [], [], [], [], (string) json_encode([
+            'year'           => 1,
+            'guest'          => 2,
+            'dataValidation' => false,
+        ]));
+
+        $response = $this->buildController()->addManager(
+            $request,
+            $this->makeSecurity($this->createMock(Manager::class)),
+            $this->createMock(ManagerYearsRepository::class),
+            $this->createMock(ManagerRepository::class),
+            $this->createMock(YearsRepository::class),
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertStringContainsString('Missing required field', $data['message']);
+    }
+
+    public function testAddManagerYearOrGuestNotFoundReturns400(): void
+    {
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn(null);
+
+        $response = $this->buildController()->addManager(
+            $this->makeAddManagerRequest(),
+            $this->makeSecurity($this->createMock(Manager::class)),
+            $this->createMock(ManagerYearsRepository::class),
+            $this->createMock(ManagerRepository::class),
+            $yearsRepo,
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertSame('Année ou manager introuvable.', $data['message']);
+    }
+
+    public function testAddManagerAlreadyHasAccessReturns400(): void
+    {
+        $year  = $this->createMock(Years::class);
+        $guest = $this->createMock(Manager::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($guest);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('checkRelation')->willReturn(true);
+
+        $response = $this->buildController()->addManager(
+            $this->makeAddManagerRequest(),
+            $this->makeSecurity($this->createMock(Manager::class)),
+            $managerYearsRepo,
+            $managerRepo,
+            $yearsRepo,
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertStringContainsString('déjà accès', $data['message']);
+    }
+
+    public function testAddManagerWithoutAdminRightsReturns403(): void
+    {
+        $year  = $this->createMock(Years::class);
+        $guest = $this->createMock(Manager::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($guest);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('checkRelation')->willReturn(false);
+
+        // isGranted = false → pas de droits admin sur l'année
+        $response = $this->buildController()->addManager(
+            $this->makeAddManagerRequest(),
+            $this->makeSecurity($this->createMock(Manager::class), false),
+            $managerYearsRepo,
+            $managerRepo,
+            $yearsRepo,
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        $this->assertStringContainsString('droits administrateur', $data['message']);
+    }
+
+    public function testAddManagerAsManagerWithAdminFlagReturns200(): void
+    {
+        $year  = $this->createMock(Years::class);
+        $guest = $this->createMock(Manager::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($guest);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('checkRelation')->willReturn(false);
+
+        // isGranted = true → YearAccessVoter::ADMIN accorde l'accès pour ce Manager
+        $response = $this->buildController()->addManager(
+            $this->makeAddManagerRequest(),
+            $this->makeSecurity($this->createMock(Manager::class), true),
+            $managerYearsRepo,
+            $managerRepo,
+            $yearsRepo,
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testAddManagerAsHospitalAdminSameHospitalReturns200(): void
+    {
+        $year  = $this->createMock(Years::class);
+        $guest = $this->createMock(Manager::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($guest);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('checkRelation')->willReturn(false);
+
+        // isGranted = true → voter confirme que HospitalAdmin appartient au même hôpital
+        $response = $this->buildController()->addManager(
+            $this->makeAddManagerRequest(),
+            $this->makeSecurity($this->createMock(HospitalAdmin::class), true),
+            $managerYearsRepo,
+            $managerRepo,
+            $yearsRepo,
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testAddManagerAsHospitalAdminDifferentHospitalReturns403(): void
+    {
+        $year  = $this->createMock(Years::class);
+        $guest = $this->createMock(Manager::class);
+
+        $yearsRepo = $this->createMock(YearsRepository::class);
+        $yearsRepo->method('findOneBy')->willReturn($year);
+
+        $managerRepo = $this->createMock(ManagerRepository::class);
+        $managerRepo->method('findOneBy')->willReturn($guest);
+
+        $managerYearsRepo = $this->createMock(ManagerYearsRepository::class);
+        $managerYearsRepo->method('checkRelation')->willReturn(false);
+
+        // isGranted = false → hôpital de l'année ≠ hôpital du HospitalAdmin
+        $response = $this->buildController()->addManager(
+            $this->makeAddManagerRequest(),
+            $this->makeSecurity($this->createMock(HospitalAdmin::class), false),
+            $managerYearsRepo,
+            $managerRepo,
+            $yearsRepo,
+            $this->makeRateLimiter(),
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
     }
 }

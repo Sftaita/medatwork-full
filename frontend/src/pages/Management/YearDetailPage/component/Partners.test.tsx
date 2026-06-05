@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { ThemeProvider } from "@mui/material/styles";
 import { lightTheme } from "../../../../doc/CustomizedTheme";
 import Partners from "./Partners";
@@ -42,7 +42,11 @@ vi.mock("../../../../hooks/useAuth", () => ({
 }));
 
 vi.mock("./SearchDialog", () => ({
-  default: () => <div data-testid="search-dialog" />,
+  default: ({ handleListItemClick }: { handleListItemClick?: (id: number) => void }) => (
+    <button data-testid="add-trigger" onClick={() => handleListItemClick?.(99)}>
+      trigger-add
+    </button>
+  ),
 }));
 
 vi.mock("../../../../components/small/UserAvatar", () => ({
@@ -209,5 +213,37 @@ describe("CollabCard — liste mixte (soi + autres)", () => {
 
     // Badge "Vous" pour SELF_MANAGER seulement
     expect(screen.getAllByText("Vous")).toHaveLength(1);
+  });
+});
+
+// ── Payload API ───────────────────────────────────────────────────────────────
+
+describe("handleAddManager — payload envoyé à l'API", () => {
+
+  it("envoie les 8 champs requis avec des valeurs conservatrices", async () => {
+    setupManagers([]);
+
+    renderPartners();
+
+    // Le SearchDialog mock rend un bouton qui appelle handleListItemClick(99).
+    // On attend qu'il soit dans le DOM (le composant affiche un spinner pendant le fetch initial).
+    const trigger = await screen.findByTestId("add-trigger");
+    fireEvent.click(trigger);
+
+    await waitFor(() => {
+      expect(stableAxios.post).toHaveBeenCalledWith(
+        "managers/years/addManager",
+        {
+          year:           10,   // id passé à <Partners id={10} />
+          guest:          99,   // id simulé par le mock SearchDialog
+          dataAccess:     false,
+          dataValidation: false,
+          dataDownload:   false,
+          admin:          false,
+          agenda:         false,
+          schedule:       false,
+        }
+      );
+    });
   });
 });

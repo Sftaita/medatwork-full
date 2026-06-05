@@ -457,7 +457,16 @@ const Partners = ({ id, adminRights }: { id: number | null; adminRights?: boolea
 
   // Ajouter un collaborateur
   const handleAddManager = async (guestId: number) => {
-    const relation = { year: id, guest: guestId, dataValidation: false };
+    const relation = {
+      year:           id,
+      guest:          guestId,
+      dataAccess:     false,
+      dataValidation: false,
+      dataDownload:   false,
+      admin:          false,
+      agenda:         false,
+      schedule:       false,
+    };
     try {
       const { method, url } = yearsApi.inviteGuest();
       await axiosPrivate[method](url, relation);
