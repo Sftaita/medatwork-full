@@ -48,7 +48,7 @@ export const FALLBACK_AV_COLORS = [
 export function statusOf(m: MaccsEntry): MaccsStatus {
   const peak = Math.max(...m.week.prest);
   if ((m.pct !== null && m.pct >= 100) || peak > THRESHOLDS.abs) return 'bad';
-  if (m.tresV >= 20 || peak > THRESHOLDS.max) return 'warn';
+  if (peak > THRESHOLDS.max) return 'warn';
   return 'ok';
 }
 

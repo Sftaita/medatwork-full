@@ -55,18 +55,34 @@ describe('statusOf — MACCS sans prévisionnel', () => {
     expect(statusOf(m({ week: { prest: [48, 73, 48, 48, 48, 48], prev: null } }))).toBe('bad');
   });
 
-  it('tresV ≥ 20h → warn même si pic ≤ 60h', () => {
+  it('tresV ≥ 20h seul, pic ≤ 60h → ok (pénibilité RH, pas un critère légal)', () => {
+    // tresV n'influence plus statusOf() — seuls les seuils horaires 60h/72h comptent
     expect(statusOf(m({
       tresV: 20,
       week: { prest: [44, 48, 46, 40, 52, 45], prev: null },
+    }))).toBe('ok');
+  });
+
+  it('tresV ≥ 20h avec pic > 60h → warn (via pic, pas via tresV)', () => {
+    expect(statusOf(m({
+      tresV: 25,
+      week: { prest: [40, 65, 42, 38, 50, 44], prev: null },
     }))).toBe('warn');
   });
 
-  it('tresV ≥ 20h ET pic > 72h → bad (pic l\'emporte)', () => {
+  it('tresV ≥ 20h avec pic > 72h → bad (via pic, pas via tresV)', () => {
     expect(statusOf(m({
       tresV: 25,
       week: { prest: [40, 80, 42, 38, 50, 44], prev: null },
     }))).toBe('bad');
+  });
+
+  it('MACCS sans prévisionnel avec tresV >= 20 mais pic normal → ok', () => {
+    // Cas clé : pénibilité élevée (dimanches/fériés) mais volume horaire légal
+    expect(statusOf(m({
+      prevH: null, pct: null, tresV: 30,
+      week: { prest: [44, 48, 46, 40, 52, 45], prev: null },
+    }))).toBe('ok');
   });
 
   it('pct=null ne déclenche jamais bad à lui seul', () => {

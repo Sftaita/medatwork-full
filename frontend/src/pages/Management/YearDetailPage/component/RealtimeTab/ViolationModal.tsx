@@ -79,13 +79,29 @@ const ViolationModal = ({ entry: m, weeks, onClose }: ViolationModalProps) => {
                 {r}
               </li>
             ))}
-            {tresWarn && (
-              <li className={styles['violation-item']}>
-                <span className={styles['violation-dot']} style={{ background: '#d99214' }} />
-                {m.tres} très inconfortables ≥ seuil 20h
-              </li>
-            )}
           </ul>
+
+          {/* Pénibilité RH — informatif, pas un critère légal */}
+          {tresWarn && (
+            <>
+              <div className={styles['modal-section-title']} style={{ marginTop: 16 }}>
+                Pénibilité RH (informatif)
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                background: '#fbf1dd', borderRadius: 8, padding: '10px 12px',
+                fontSize: 13, color: '#26222b', lineHeight: 1.4,
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d99214', flexShrink: 0, marginTop: 4 }} />
+                <span>
+                  {m.tres} travaillées les dimanches et jours fériés.{' '}
+                  <span style={{ color: '#938c9c', fontSize: 12 }}>
+                    Signal RH — non inclus dans l'évaluation légale.
+                  </span>
+                </span>
+              </div>
+            </>
+          )}
 
           {/* Tableau hebdomadaire */}
           <div className={styles['modal-section-title']} style={{ marginTop: 16 }}>
