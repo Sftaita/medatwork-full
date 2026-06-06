@@ -74,7 +74,7 @@ class ManagerYearsRepository extends ServiceEntityRepository
             ->andWhere('m.years = :val')
             ->leftJoin('m.manager', 'manager')
             ->setParameter('val', $year)
-            ->select('m.id, m.dataAccess, m.dataValidation, m.admin, m.dataDownload, m.canManageAgenda, m.hasAgendaAccess, manager.firstname, manager.lastname, manager.job, manager.id as managerId, manager.avatarPath')
+            ->select('m.id, m.dataAccess, m.dataValidation, m.admin, m.dataDownload, m.canManageAgenda, m.hasAgendaAccess, manager.firstname, manager.lastname, manager.job, manager.id as managerId, manager.avatarPath, manager.email')
             ->getQuery()
             ->getResult();
         ;

@@ -31,6 +31,7 @@ class YearNotifPrefService
         'YEAR_ENDING'              => ['email' => true,  'push' => true,  'sms' => false, 'callRh' => false],
         'SCHEDULE_CHANGED'         => ['email' => false, 'push' => true,  'sms' => false, 'callRh' => false],
         'VALIDATION_REJECTED'      => ['email' => true,  'push' => true,  'sms' => false, 'callRh' => false],
+        'REALTIME_REPORT'          => ['email' => true,  'push' => false, 'sms' => false, 'callRh' => false],
     ];
 
     public function __construct(

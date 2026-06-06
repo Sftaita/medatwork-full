@@ -10,7 +10,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class VersionController extends AbstractController
 {
-    private const VERSION = '3.9.0';
+    private const VERSION = '4.0.0';
 
     #[Route('/api/version', name: 'app_version', methods: ['GET'])]
     public function version(): JsonResponse

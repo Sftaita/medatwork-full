@@ -9,7 +9,23 @@
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 
-.header { margin-bottom: 20px; }
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+}
 
 .eyebrow {
   font-size: 11px;
@@ -445,12 +461,136 @@
   padding: 20px;
 }
 
+/* ── Boutons export ─────────────────────────────────────────────────────────── */
+
+.overview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity .15s, box-shadow .15s;
+  white-space: nowrap;
+}
+.export-btn:disabled { opacity: .55; cursor: default; }
+.export-btn:not(:disabled):hover { opacity: .88; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+
+.export-btn--outline {
+  background: #fff;
+  border-color: #e2dee8;
+  color: #5d5765;
+}
+.export-btn--outline:not(:disabled):hover { border-color: #7B3FA0; color: #7B3FA0; }
+
+.export-btn--violet {
+  background: #7B3FA0;
+  color: #fff;
+  border-color: #7B3FA0;
+}
+
+.export-btn--send {
+  background: #fff;
+  border-color: #2A6FDB;
+  color: #2A6FDB;
+}
+.export-btn--send:not(:disabled):hover { background: #eef3fd; }
+
+/* ── Month navigator ────────────────────────────────────────────────────────── */
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.month-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #e2dee8;
+  background: #fff;
+  color: #5d5765;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  flex-shrink: 0;
+}
+.month-nav-btn:hover:not(:disabled) { border-color: #7B3FA0; color: #7B3FA0; }
+.month-nav-btn:disabled { opacity: .4; cursor: default; }
+
+.month-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #26222b;
+  min-width: 110px;
+  text-align: center;
+  font-family: Inter, sans-serif;
+}
+
+/* ── Toast retour envoi email ───────────────────────────────────────────────── */
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  animation: toast-in .2s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(-4px); } }
+.toast--success { background: #e8f6ee; color: #1f7a44; border: 1px solid #c4e8d2; }
+.toast--error   { background: #fdeeed; color: #a62b24; border: 1px solid #f5c6c4; }
+
+/* ── Loading overlay ─────────────────────────────────────────────────────────── */
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #938c9c;
+  font-size: 13px;
+  gap: 10px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e2dee8;
+  border-top-color: #7B3FA0;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Overview title ─────────────────────────────────────────────────────────── */
+
 .overview-title {
   font-family: Poppins, sans-serif;
   font-size: 15px;
   font-weight: 700;
   color: #26222b;
-  margin: 0 0 16px;
+  margin: 0;
 }
 
 /* ── Modal dépassement ────────────────────────────────────────────────────────── */
