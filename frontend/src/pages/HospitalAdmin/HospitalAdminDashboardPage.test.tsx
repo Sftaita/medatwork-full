@@ -10,13 +10,16 @@
  * - Clicking a year card navigates to /manager/year-detail (not /manager/realtime)
  * - Year card click passes correct state: { id, title, adminRights: true }
  * - List row click also navigates to /manager/year-detail
+ * - YearFormDialog (edit): pre-fills all fields with existing year values
+ * - YearFormDialog (edit): blocks submit when date span > 1 calendar year
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HospitalAdminDashboardPage from "./HospitalAdminDashboardPage";
 import hospitalAdminApi from "../../services/hospitalAdminApi";
+import { toast } from "react-toastify";
 
 vi.mock("../../services/hospitalAdminApi");
 vi.mock("../../hooks/useAxiosPrivate", () => ({ default: () => {} }));
@@ -193,5 +196,64 @@ describe("HospitalAdminDashboardPage", () => {
   it("displays the enrollment token on cards that have one", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("ABC123")).toBeInTheDocument());
+  });
+});
+
+// ── YearFormDialog — edit mode ────────────────────────────────────────────────
+
+const YEAR_WITH_STATUS = {
+  ...MOCK_YEARS[0],
+  status: "active" as const,
+  managerCount: 0,
+};
+
+async function openEditDialog() {
+  vi.mocked(hospitalAdminApi.listMyYears).mockResolvedValue([YEAR_WITH_STATUS] as any);
+  renderPage();
+  await waitFor(() => expect(screen.getByText("Stage cardiologie S1")).toBeInTheDocument());
+  fireEvent.click(screen.getByTestId("year-menu-btn-10"));
+  await waitFor(() => screen.getByRole("menuitem", { name: "Modifier" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Modifier" }));
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+}
+
+describe("YearFormDialog — mode édition", () => {
+  it("pré-remplit le titre avec la valeur existante de l'année", async () => {
+    await openEditDialog();
+    expect(screen.getByDisplayValue("Stage cardiologie S1")).toBeInTheDocument();
+  });
+
+  it("pré-remplit les dates au format YYYY-MM-DD", async () => {
+    await openEditDialog();
+    expect(screen.getByDisplayValue("2025-09-01")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2026-02-28")).toBeInTheDocument();
+  });
+
+  it("pré-remplit la spécialité", async () => {
+    await openEditDialog();
+    expect(screen.getByDisplayValue("Cardiologie")).toBeInTheDocument();
+  });
+
+  it("bloque le submit et affiche une erreur si la durée dépasse 2 ans civils", async () => {
+    await openEditDialog();
+    const endInput = screen.getByDisplayValue("2026-02-28");
+    fireEvent.change(endInput, { target: { value: "2028-02-28" } });
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /enregistrer/i }));
+    expect((toast.error as Mock)).toHaveBeenCalledWith(
+      "Une année académique ne peut pas s'étendre sur plus de deux années civiles."
+    );
+    expect(vi.mocked(hospitalAdminApi.updateYear)).not.toHaveBeenCalled();
+  });
+
+  it("n'affiche pas l'erreur de span si la durée est valide (≤ 1 an civil d'écart)", async () => {
+    await openEditDialog();
+    const endInput = screen.getByDisplayValue("2026-02-28");
+    fireEvent.change(endInput, { target: { value: "2026-08-31" } });
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /enregistrer/i }));
+    expect((toast.error as Mock)).not.toHaveBeenCalledWith(
+      "Une année académique ne peut pas s'étendre sur plus de deux années civiles."
+    );
   });
 });

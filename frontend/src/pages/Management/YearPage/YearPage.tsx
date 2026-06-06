@@ -16,6 +16,7 @@ import dayjs from "dayjs";
 import { API_URL } from "../../../config";
 import { C } from "../../../styles/tableStyles";
 import { tokens as themeTokens } from "../../../doc/CustomizedTheme";
+import { computeAcademicPeriod } from "../../../utils/academicPeriod";
 
 // Icons
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -68,9 +69,14 @@ export const buildValidationSchema = (t: any) =>
       .string()
       .required(t("yearCreate.errTitleRequired"))
       .min(2, t("yearCreate.errTooShort")),
-    period: yup.string().required(t("yearCreate.errPeriodRequired")),
     dateOfStart: yup.mixed().required(t("yearCreate.errDateStartRequired")),
-    dateOfEnd: yup.mixed().required(t("yearCreate.errDateEndRequired")),
+    dateOfEnd: yup.mixed()
+      .required(t("yearCreate.errDateEndRequired"))
+      .test("span", t("yearCreate.errDateSpan"), function (value) {
+        const { dateOfStart } = this.parent;
+        if (!dateOfStart || !value) return true;
+        return dayjs(value).year() - dayjs(dateOfStart).year() <= 1;
+      }),
   });
 
 // ── Atoms ─────────────────────────────────────────────────────────────────────
@@ -383,9 +389,12 @@ function LivePreview({ values, dur, specialityLabel, hospital, isMaster, t }: Li
   const title = values.title?.trim() || specialityLabel || t("yearCreate.titlePlaceholder");
   const startDate = values.dateOfStart ? dayjs(values.dateOfStart).format("DD/MM/YYYY") : "JJ/MM/AAAA";
   const endDate = values.dateOfEnd ? dayjs(values.dateOfEnd).format("DD/MM/YYYY") : "JJ/MM/AAAA";
-  const sy = values.dateOfStart ? dayjs(values.dateOfStart).year() : null;
-  const ey = values.dateOfEnd ? dayjs(values.dateOfEnd).year() : null;
-  const yearRange = (sy && ey) ? (sy === ey ? String(sy) : `${sy} – ${ey}`) : "— – —";
+  const yearRange = (values.dateOfStart && values.dateOfEnd)
+    ? (computeAcademicPeriod(
+        dayjs(values.dateOfStart).format("YYYY-MM-DD"),
+        dayjs(values.dateOfEnd).format("YYYY-MM-DD"),
+      ).replace("-", " – ") || "— – —")
+    : "— – —";
 
   return (
     <Box sx={{
@@ -498,11 +507,6 @@ const YearPage = () => {
   const [editing, setEditing] = useState(false);
   const [isMaster, setIsMaster] = useState(true);
 
-  const currentYear = new Date().getFullYear();
-  const periodOptions = [
-    `${currentYear}-${currentYear + 1}`,
-    `${currentYear - 1}-${currentYear}`,
-  ];
 
   const initialValues = {
     hospitalId: "" as number | "",
@@ -592,16 +596,16 @@ const YearPage = () => {
     enableReinitialize: true,
   });
 
-  // Auto-deduce period from start/end dates (e.g. Nov 2025 → Oct 2026 → "2025-2026")
+  // Compute period from dates (non-editable)
   useEffect(() => {
     const s = formik.values.dateOfStart;
     const e = formik.values.dateOfEnd;
     if (!s || !e) return;
-    const sy = dayjs(s).year();
-    const ey = dayjs(e).year();
-    const deduced = sy === ey ? String(sy) : `${sy}-${ey}`;
-    if (formik.values.period !== deduced) {
-      formik.setFieldValue("period", deduced);
+    const ds = dayjs(s), de = dayjs(e);
+    if (!ds.isValid() || !de.isValid()) return;
+    const period = computeAcademicPeriod(ds.format("YYYY-MM-DD"), de.format("YYYY-MM-DD"));
+    if (formik.values.period !== period) {
+      formik.setFieldValue("period", period, false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formik.values.dateOfStart, formik.values.dateOfEnd]);
@@ -628,9 +632,9 @@ const YearPage = () => {
     const s = formik.values.dateOfStart;
     const e = formik.values.dateOfEnd;
     if (!s || !e) return "";
-    const sy = dayjs(s).year();
-    const ey = dayjs(e).year();
-    return sy === ey ? String(sy) : `${sy}–${ey}`;
+    const ds = dayjs(s), de = dayjs(e);
+    if (!ds.isValid() || !de.isValid()) return "";
+    return computeAcademicPeriod(ds.format("YYYY-MM-DD"), de.format("YYYY-MM-DD")).replace("-", "–");
   }, [formik.values.dateOfStart, formik.values.dateOfEnd]);
 
   const suggestions = useMemo(() => {
@@ -647,11 +651,6 @@ const YearPage = () => {
     [hospitals, formik.values.hospitalId],
   );
 
-  const allPeriodOptions = useMemo(() => {
-    const p = formik.values.period;
-    if (p && !periodOptions.includes(p)) return [p, ...periodOptions];
-    return periodOptions;
-  }, [formik.values.period]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -740,26 +739,15 @@ const YearPage = () => {
             )}
 
             <Box>
-              <FieldLabel error={formik.touched.period && Boolean(formik.errors.period)}>
-                {t("yearCreate.periodLabel")}
-              </FieldLabel>
-              <FormControl fullWidth error={formik.touched.period && Boolean(formik.errors.period)}>
-                <Select
-                  name="period"
-                  value={formik.values.period}
-                  onChange={formik.handleChange}
-                  displayEmpty
-                  sx={{ borderRadius: "12px" }}
-                >
-                  <MenuItem value="" disabled>
-                    <em style={{ color: C.ink4 }}>—</em>
-                  </MenuItem>
-                  {allPeriodOptions.map(p => (
-                    <MenuItem key={p} value={p}>{p}</MenuItem>
-                  ))}
-                </Select>
-                <FormHelperText>{formik.touched.period && formik.errors.period}</FormHelperText>
-              </FormControl>
+              <FieldLabel>{t("yearCreate.periodLabel")}</FieldLabel>
+              <TextField
+                value={formik.values.period || "—"}
+                fullWidth
+                size="small"
+                InputProps={{ readOnly: true }}
+                helperText={t("yearCreate.periodAuto")}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+              />
             </Box>
 
             <FormSectionDivider />

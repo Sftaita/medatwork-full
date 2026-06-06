@@ -137,6 +137,13 @@ const yearsApi = {
     };
   },
 
+  addResidentToYear(yearId: number): ApiCall {
+    return {
+      method: "post",
+      url: `managers/years/${yearId}/add-resident`,
+    };
+  },
+
   getYearsWeekIntervals(): ApiCall {
     return {
       method: "get",

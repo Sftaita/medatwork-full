@@ -27,6 +27,7 @@ use App\Repository\YearsResidentRepository;
 use App\Services\EmailReset\PasswordResetServiceInterface;
 use App\Services\HospitalAdminAuditService;
 use App\Services\YearForceDeleteService;
+use App\Services\YearsManagement\AcademicPeriodHelper;
 use App\Services\YearsManagement\YearCreationInput;
 use App\Services\YearsManagement\YearCreationService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -1405,10 +1406,14 @@ class HospitalAdminController extends AbstractController
             return new JsonResponse(['errors' => $errors], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $startDate = new \DateTime($data['dateOfStart']);
+        $endDate   = new \DateTime($data['dateOfEnd']);
+        $period    = AcademicPeriodHelper::compute($startDate, $endDate);
+
         $input = new YearCreationInput(
             title:       trim($data['title']),
             speciality:  isset($data['speciality']) ? trim($data['speciality']) : '',
-            period:      trim($data['period'] ?? ''),
+            period:      $period,
             dateOfStart: $data['dateOfStart'],
             dateOfEnd:   $data['dateOfEnd'],
             hospital:    $hospital,
@@ -1454,7 +1459,6 @@ class HospitalAdminController extends AbstractController
         $data = json_decode($request->getContent(), true) ?? [];
 
         if (isset($data['title']))       { $year->setTitle(trim($data['title'])); }
-        if (isset($data['period']))      { $year->setPeriod(trim($data['period'])); }
         // Empty string → null for nullable fields
         if (array_key_exists('speciality', $data)) {
             $s = is_string($data['speciality']) ? trim($data['speciality']) : '';
@@ -1466,12 +1470,51 @@ class HospitalAdminController extends AbstractController
         }
         if (isset($data['dateOfStart'])) { $year->setDateOfStart(new \DateTime($data['dateOfStart'])); }
         if (isset($data['dateOfEnd']))   { $year->setDateOfEnd(new \DateTime($data['dateOfEnd'])); }
+
+        if (isset($data['dateOfStart']) || isset($data['dateOfEnd'])) {
+            $year->setPeriod(AcademicPeriodHelper::compute(
+                $year->getDateOfStart(),
+                $year->getDateOfEnd(),
+            ));
+        }
+
+        $startY = (int) $year->getDateOfStart()->format('Y');
+        $endY   = (int) $year->getDateOfEnd()->format('Y');
+        if ($endY - $startY > 1) {
+            return new JsonResponse(
+                ['errors' => ["Une année académique ne peut pas s'étendre sur plus de deux années civiles."]],
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+
         if (isset($data['status'])) {
             try {
-                $year->setStatus(YearStatus::from($data['status']));
+                $newStatus = YearStatus::from($data['status']);
             } catch (\ValueError) {
                 return new JsonResponse(['message' => 'Statut invalide (draft|active|closed|archived)'], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
+
+            $current = $year->getStatus();
+            if ($newStatus !== $current) {
+                $allowed = match ($current) {
+                    YearStatus::Draft    => [YearStatus::Active],
+                    YearStatus::Active   => [YearStatus::Closed],
+                    YearStatus::Closed   => [YearStatus::Active, YearStatus::Archived],
+                    YearStatus::Archived => [],
+                };
+                if (!in_array($newStatus, $allowed, true)) {
+                    return new JsonResponse(
+                        ['message' => sprintf(
+                            'Transition de statut non autorisée : %s → %s',
+                            $current->value,
+                            $newStatus->value
+                        )],
+                        Response::HTTP_UNPROCESSABLE_ENTITY
+                    );
+                }
+            }
+
+            $year->setStatus($newStatus);
         }
 
         $actor = $this->getUser();
@@ -1767,9 +1810,14 @@ class HospitalAdminController extends AbstractController
         if (empty($data['dateOfEnd'] ?? '')) {
             $errors[] = 'La date de fin est requise';
         }
-        if (!empty($data['dateOfStart']) && !empty($data['dateOfEnd'])
-            && new \DateTime($data['dateOfStart']) >= new \DateTime($data['dateOfEnd'])) {
-            $errors[] = 'La date de fin doit être après la date de début';
+        if (!empty($data['dateOfStart']) && !empty($data['dateOfEnd'])) {
+            $start = new \DateTime($data['dateOfStart']);
+            $end   = new \DateTime($data['dateOfEnd']);
+            if ($start >= $end) {
+                $errors[] = 'La date de fin doit être après la date de début';
+            } elseif ((int) $end->format('Y') - (int) $start->format('Y') > 1) {
+                $errors[] = "Une année académique ne peut pas s'étendre sur plus de deux années civiles.";
+            }
         }
         if (isset($data['status'])) {
             try {

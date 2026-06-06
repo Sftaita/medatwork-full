@@ -42,7 +42,7 @@ class CreateYearInputDTOTest extends TestCase
     {
         $body = array_merge($this->validBody(), [
             'comment'    => 'Commentaire',
-            'period'     => '6',
+            'period'     => 'ignored-by-server',
             'hospitalId' => 3,
         ]);
         $dto = CreateYearInputDTO::fromRequest($this->makeRequest($body));
@@ -51,7 +51,7 @@ class CreateYearInputDTOTest extends TestCase
         $this->assertSame('Commentaire', $dto->comment);
         $this->assertSame('2025-09-01', $dto->dateOfStart);
         $this->assertSame('2026-08-31', $dto->dateOfEnd);
-        $this->assertSame('6', $dto->period);
+        $this->assertSame('2025-2026', $dto->period, 'period must be computed from dates, not taken from body');
         $this->assertSame('Chirurgie', $dto->speciality);
         $this->assertFalse($dto->isMaster);
         $this->assertSame(3, $dto->hospitalId);
@@ -64,7 +64,7 @@ class CreateYearInputDTOTest extends TestCase
 
         $this->assertSame('Stage 2025-2026', $dto->title);
         $this->assertSame('', $dto->comment);
-        $this->assertSame('', $dto->period);
+        $this->assertSame('2025-2026', $dto->period, 'period computed from 2025-09-01 → 2026-08-31');
         $this->assertSame(1, $dto->hospitalId);
     }
 
@@ -84,11 +84,31 @@ class CreateYearInputDTOTest extends TestCase
         $this->assertSame('', $dto->comment);
     }
 
-    public function testEmptyPeriodIsAccepted(): void
+    public function testPeriodIsComputedFromDatesIgnoringBody(): void
     {
-        $body = array_merge($this->validBody(), ['period' => '']);
+        $body = array_merge($this->validBody(), ['period' => 'client-value-should-be-ignored']);
         $dto  = CreateYearInputDTO::fromRequest($this->makeRequest($body));
-        $this->assertSame('', $dto->period);
+        $this->assertSame('2025-2026', $dto->period, 'period is computed from 2025-09-01 → 2026-08-31, body value ignored');
+    }
+
+    /**
+     * @dataProvider academicPeriodDTOProvider
+     */
+    public function testPeriodAcademicBascule(string $start, string $end, string $expected): void
+    {
+        $body = array_merge($this->validBody(), ['dateOfStart' => $start, 'dateOfEnd' => $end]);
+        $dto  = CreateYearInputDTO::fromRequest($this->makeRequest($body));
+        $this->assertSame($expected, $dto->period, "Period({$start} → {$end})");
+    }
+
+    public static function academicPeriodDTOProvider(): array
+    {
+        return [
+            'Jun→Oct same year → 2025-2026' => ['2026-06-05', '2026-10-25', '2025-2026'],
+            'Sep30→Oct5 → 2025-2026'        => ['2026-09-30', '2026-10-05', '2025-2026'],
+            'Oct1→Oct25 → 2026-2027'        => ['2026-10-01', '2026-10-25', '2026-2027'],
+            'Oct1→Sep30 cross-year'         => ['2026-10-01', '2027-09-30', '2026-2027'],
+        ];
     }
 
     public function testMissingHospitalIdThrows(): void

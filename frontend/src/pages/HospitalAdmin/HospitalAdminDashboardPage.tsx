@@ -259,6 +259,8 @@ const YearCard = ({ year, searchQuery, onEdit, onDelete }: YearCardProps) => {
             <Chip label={getStatusLabel(year.status, t)} color={STATUS_COLOR[year.status]} size="small" sx={{ flexShrink: 0, mt: 0.25 }} />
             <IconButton
               size="small"
+              data-testid={`year-menu-btn-${year.id}`}
+              aria-label="Options"
               sx={{ flexShrink: 0, mt: -0.5, mr: -0.5 }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -478,34 +480,44 @@ const SPECIALITIES = [
   "Urologie",
 ];
 
-// ── Period options ────────────────────────────────────────────────────────────
-
-function getCurrentAcademicYear(): string {
-  const now = new Date();
-  const baseYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  return `${baseYear}-${baseYear + 1}`;
-}
-
-function buildPeriodOptions(extraPeriod?: string): string[] {
-  const now = new Date();
-  // Academic year starts in the second half of the calendar year (≥ July)
-  const baseYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  const options: string[] = [];
-  for (let i = -1; i <= 3; i++) {
-    const y = baseYear + i;
-    options.push(`${y}-${y + 1}`);
-  }
-  // If an existing period is not in the generated range, prepend it
-  if (extraPeriod && !options.includes(extraPeriod)) {
-    options.unshift(extraPeriod);
-  }
-  return options;
-}
+import { computeAcademicPeriod } from "../../utils/academicPeriod";
 
 // ── Year form dialog ──────────────────────────────────────────────────────────
 
+const STATUS_OPTS: Array<{
+  value: YearStatus;
+  labelKey: string;
+  borderColor: string;
+  bgColor: string;
+  textColor: string;
+}> = [
+  { value: "active",   labelKey: "haDash.status.active",   borderColor: "#2f9e5b", bgColor: "#e8f6ee", textColor: "#1f7a44" },
+  { value: "draft",    labelKey: "haDash.status.draft",    borderColor: "#7B3FA0", bgColor: "#f4ecf9", textColor: "#6a338c" },
+  { value: "closed",   labelKey: "haDash.status.closed",   borderColor: "#d99214", bgColor: "#fbf1dd", textColor: "#a36d0f" },
+  { value: "archived", labelKey: "haDash.status.archived", borderColor: "#938c9c", bgColor: "#f0eef3", textColor: "#5d5765" },
+];
+
+const DLG_LABEL_SX = {
+  fontSize: 11, fontWeight: 700, letterSpacing: ".08em",
+  textTransform: "uppercase" as const, color: "#938c9c", mb: "7px", display: "block",
+};
+
+const DLG_SUB_LABEL_SX = {
+  fontSize: 12, fontWeight: 600, color: "#5d5765", mb: "6px", display: "block",
+};
+
+const DLG_FIELD_SX = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "12px",
+    "& fieldset": { borderColor: "#e2dee8" },
+    "&:hover fieldset": { borderColor: "#bbb" },
+    "&.Mui-focused fieldset": { borderColor: "#7B3FA0" },
+    "&.Mui-focused": { boxShadow: "0 0 0 3px rgba(123,63,160,.12)" },
+  },
+};
+
 const EMPTY_FORM: YearInput = {
-  title: "", period: getCurrentAcademicYear(),
+  title: "", period: "",
   dateOfStart: "", dateOfEnd: "",
   speciality: "", comment: "", status: "active",
 };
@@ -516,171 +528,345 @@ interface YearFormDialogProps {
   isPending: boolean;
   onClose: () => void;
   onSave: (data: YearInput) => void;
-  /** Pré-remplit le champ "Lieu" avec le nom de l'hôpital lors de la création. */
   defaultLocation?: string;
 }
 
 const YearFormDialog = ({ open, initial, isPending, onClose, onSave, defaultLocation: _defaultLocation }: YearFormDialogProps) => {
   const { t } = useTranslation();
-  const emptyForm: YearInput = { ...EMPTY_FORM };
+  const [form, setForm] = useState<YearInput>(EMPTY_FORM);
 
-  const [form, setForm] = useState<YearInput>(() =>
-    initial
-      ? {
-          title:       initial.title,
-          period:      initial.period,
-          dateOfStart: initial.dateOfStart,
-          dateOfEnd:   initial.dateOfEnd,
-          speciality:  initial.speciality ?? "",
-          comment:     initial.comment ?? "",
-          status:      initial.status,
-        }
-      : emptyForm
-  );
+  useEffect(() => {
+    if (open) {
+      setForm(initial ? {
+        title:       initial.title,
+        period:      computeAcademicPeriod(initial.dateOfStart, initial.dateOfEnd),
+        dateOfStart: initial.dateOfStart,
+        dateOfEnd:   initial.dateOfEnd,
+        speciality:  initial.speciality ?? "",
+        comment:     initial.comment ?? "",
+        status:      initial.status,
+      } : { ...EMPTY_FORM });
+    }
+  }, [open, initial]);
 
-  const periodOptions = buildPeriodOptions(initial?.period);
-  // If editing a year with a speciality not in the standard list, include it
+  useEffect(() => {
+    setForm(prev => ({ ...prev, period: computeAcademicPeriod(form.dateOfStart, form.dateOfEnd) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.dateOfStart, form.dateOfEnd]);
+
   const specialityOptions = useMemo(() => {
     const extra = initial?.speciality;
-    if (extra && !SPECIALITIES.includes(extra)) {
-      return [extra, ...SPECIALITIES];
-    }
+    if (extra && !SPECIALITIES.includes(extra)) return [extra, ...SPECIALITIES];
     return SPECIALITIES;
   }, [initial?.speciality]);
 
   const set = (field: keyof YearInput) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  const handleClose = () => {
-    setForm(emptyForm);
-    onClose();
-  };
+  // ── Derived display values ────────────────────────────────────────────────────
+  const datesPresent = !!form.dateOfStart && !!form.dateOfEnd;
+  const datesValid   = datesPresent && form.dateOfEnd > form.dateOfStart;
+
+  const { periodDisplay, dWeeks, dMonths } = useMemo(() => {
+    if (!datesValid) return { periodDisplay: "—", dWeeks: "—", dMonths: "" };
+    const s = new Date(form.dateOfStart);
+    const e = new Date(form.dateOfEnd);
+    const days   = Math.round((e.getTime() - s.getTime()) / 86_400_000);
+    const weeks  = Math.round(days / 7);
+    const months = Math.max(1, Math.round(days / 30.44));
+    const academic = computeAcademicPeriod(form.dateOfStart, form.dateOfEnd);
+    const [y1, y2] = academic.split("-");
+    return {
+      periodDisplay: `${y1}–${y2}`,
+      dWeeks:  t("haDash.form.durationWeeks",  { count: weeks }),
+      dMonths: t("haDash.form.durationMonths", { count: months }),
+    };
+  }, [form.dateOfStart, form.dateOfEnd, datesValid, t]);
+
+  // ── Transition matrix ─────────────────────────────────────────────────────────
+  const allowedStatuses = useMemo((): YearStatus[] => {
+    if (!initial) return ["draft", "active"];
+    switch (initial.status as YearStatus) {
+      case "draft":    return ["draft", "active"];
+      case "active":   return ["active", "closed"];
+      case "closed":   return ["active", "closed", "archived"];
+      case "archived": return ["archived"];
+      default:         return ["draft", "active", "closed", "archived"];
+    }
+  }, [initial]);
+
+  const spanOk = useMemo(() => {
+    if (!datesValid) return true;
+    return new Date(form.dateOfEnd).getFullYear() - new Date(form.dateOfStart).getFullYear() <= 1;
+  }, [form.dateOfStart, form.dateOfEnd, datesValid]);
+
+  const canSave = form.title.trim() !== "" && datesValid && spanOk;
+
+  const handleClose = () => { setForm({ ...EMPTY_FORM }); onClose(); };
 
   const handleSave = () => {
     if (!form.title.trim() || !form.dateOfStart || !form.dateOfEnd) {
-      toast.error(t("haDash.form.errRequired"));
-      return;
+      toast.error(t("haDash.form.errRequired")); return;
     }
-    if (form.dateOfStart && form.dateOfEnd && form.dateOfEnd < form.dateOfStart) {
-      toast.error(t("haDash.form.errEndDate"));
-      return;
-    }
+    if (!datesValid) { toast.error(t("haDash.form.errEndDate")); return; }
+    if (!spanOk)     { toast.error(t("haDash.form.errDateSpan")); return; }
     onSave(form);
   };
 
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{initial ? t("haDash.form.editYear") : t("haDash.form.newYear")}</DialogTitle>
-      <DialogContent dividers>
-        <Grid container spacing={2}>
+  // ── Derived panel colors ──────────────────────────────────────────────────────
+  const amber       = !datesPresent || !datesValid || !spanOk;
+  const dBorder     = amber ? "#f0dcae" : "#ece2f5";
+  const dBg         = amber ? "#fbf1dd" : "#faf6fd";
+  const dCapBg      = amber ? "rgba(217,146,20,.07)" : "rgba(123,63,160,.035)";
+  const dCapColor   = amber ? "#8a5e08" : "#5d5765";
+  const dValColor   = amber ? "#d99214" : "#26222b";
+  const dIconColor  = amber ? "#d99214" : "#7B3FA0";
+  const dCapText    = !datesPresent
+    ? t("haDash.form.derivedHint")
+    : !datesValid
+    ? t("haDash.form.derivedInvalid")
+    : !spanOk
+    ? t("haDash.form.errDateSpan")
+    : t("haDash.form.derivedAuto");
 
-          {/* Titre — pleine largeur */}
-          <Grid item xs={12}>
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: "22px", overflow: "hidden", boxShadow: "0 40px 90px -30px rgba(30,20,40,.55), 0 0 0 1px rgba(40,30,50,.04)" } }}
+    >
+      {/* ── Header ── */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: "14px", p: "24px 26px 18px", borderBottom: "1px solid #ececef" }}>
+        <Box sx={{ width: 42, height: 42, flexShrink: 0, borderRadius: "13px", bgcolor: "#f4ecf9", color: "#7B3FA0", display: "grid", placeItems: "center" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <rect x="3" y="5" width="18" height="16" rx="2.5"/>
+            <path d="M3 9.5h18M8 3v4M16 3v4"/>
+            <path d="M8.5 14.5l2.2 2.2 4-4.4"/>
+          </svg>
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontFamily: "'Poppins', 'Inter', sans-serif", fontSize: 19, fontWeight: 600, letterSpacing: "-.01em", color: "#26222b", lineHeight: 1.25 }}>
+            {initial ? t("haDash.form.editYear") : t("haDash.form.newYear")}
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: "#938c9c", mt: "3px", lineHeight: 1.4 }}>
+            {t("haDash.form.editSubtitle")}
+          </Typography>
+        </Box>
+        <IconButton
+          onClick={(e) => { (e.currentTarget as HTMLElement).blur(); handleClose(); }}
+          size="small"
+          aria-label="Fermer"
+          sx={{ width: 36, height: 36, borderRadius: "10px", bgcolor: "#f7f5fa", color: "#5d5765", flexShrink: 0, "&:hover": { bgcolor: "#efebf2" } }}
+        >
+          <CloseIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Box>
+
+      {/* ── Body ── */}
+      <DialogContent sx={{ p: 0, overflowY: "auto" }}>
+        <Box sx={{ p: "22px 26px", display: "flex", flexDirection: "column", gap: "18px" }}>
+
+          {/* Titre */}
+          <Box>
+            <Typography component="label" htmlFor="yfd-title" sx={DLG_LABEL_SX}>
+              {t("haDash.form.titleField").replace(" *", "")} <Box component="span" sx={{ color: "#7B3FA0" }}>*</Box>
+            </Typography>
             <TextField
-              label={t("haDash.form.titleField")}
+              id="yfd-title"
               value={form.title}
               onChange={set("title")}
               fullWidth
               size="small"
+              sx={DLG_FIELD_SX}
             />
-          </Grid>
+          </Box>
 
-          {/* Période */}
-          <Grid item xs={12} sm={6}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>{t("haDash.form.period")}</InputLabel>
-              <Select
-                value={form.period}
-                label={t("haDash.form.period")}
-                onChange={(e) => setForm((prev) => ({ ...prev, period: e.target.value }))}
-              >
-                {periodOptions.map((p) => (
-                  <MenuItem key={p} value={p}>{p}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
+          {/* Dates du stage */}
+          <Box>
+            <Typography component="span" sx={DLG_LABEL_SX}>
+              {t("haDash.form.datesGroup")} <Box component="span" sx={{ color: "#7B3FA0" }}>*</Box>
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", "@media (max-width: 440px)": { gridTemplateColumns: "1fr" } }}>
+              <Box>
+                <Typography component="label" htmlFor="yfd-start" sx={DLG_SUB_LABEL_SX}>
+                  {t("haDash.form.startShort")}
+                </Typography>
+                <TextField
+                  id="yfd-start"
+                  type="date"
+                  value={form.dateOfStart}
+                  onChange={set("dateOfStart")}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  sx={DLG_FIELD_SX}
+                />
+              </Box>
+              <Box>
+                <Typography component="label" htmlFor="yfd-end" sx={DLG_SUB_LABEL_SX}>
+                  {t("haDash.form.endShort")}
+                </Typography>
+                <TextField
+                  id="yfd-end"
+                  type="date"
+                  value={form.dateOfEnd}
+                  onChange={set("dateOfEnd")}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  sx={DLG_FIELD_SX}
+                />
+              </Box>
+            </Box>
 
-          {/* Dates */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t("haDash.form.startDate")}
-              type="date"
-              value={form.dateOfStart}
-              onChange={set("dateOfStart")}
-              fullWidth
-              size="small"
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t("haDash.form.endDate")}
-              type="date"
-              value={form.dateOfEnd}
-              onChange={set("dateOfEnd")}
-              fullWidth
-              size="small"
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
+            {/* Panneau déduit */}
+            <Box sx={{
+              mt: "12px", background: dBg, border: `1px solid ${dBorder}`,
+              borderRadius: "14px", display: "grid", gridTemplateColumns: "1fr 1fr",
+              overflow: "hidden", "@media (max-width: 440px)": { gridTemplateColumns: "1fr" },
+            }}>
+              {/* Période */}
+              <Box sx={{ p: "13px 15px", display: "flex", flexDirection: "column", gap: "5px" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: "6px", fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#6a338c" }}>
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+                    <path d="M4 8h12M4 12h12M7 4v12"/>
+                  </svg>
+                  {t("haDash.form.periodCellLabel")}
+                </Box>
+                <Box sx={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace", fontSize: 17, fontWeight: 600, color: dValColor, letterSpacing: "-.01em" }}>
+                  {periodDisplay}
+                </Box>
+                <Box sx={{ fontSize: 11, color: "#938c9c" }}>{t("haDash.form.periodSub")}</Box>
+              </Box>
+
+              {/* Durée */}
+              <Box sx={{ p: "13px 15px", display: "flex", flexDirection: "column", gap: "5px", borderLeft: `1px solid ${dBorder}`, "@media (max-width: 440px)": { borderLeft: "none", borderTop: `1px solid ${dBorder}` } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: "6px", fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#6a338c" }}>
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+                    <circle cx="10" cy="10" r="7"/>
+                    <path d="M10 6v4l3 2"/>
+                  </svg>
+                  {t("haDash.form.durationLabel")}
+                </Box>
+                <Box sx={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace", fontSize: 17, fontWeight: 600, color: dValColor, letterSpacing: "-.01em" }}>
+                  {dWeeks}
+                </Box>
+                <Box sx={{ fontSize: 11, color: "#938c9c" }}>{dMonths}</Box>
+              </Box>
+
+              {/* Légende */}
+              <Box sx={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: "7px", p: "9px 15px", borderTop: `1px solid ${dBorder}`, bgcolor: dCapBg }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke={dIconColor} strokeWidth="1.7" style={{ flexShrink: 0 }}>
+                  <rect x="4" y="9" width="12" height="8" rx="2"/>
+                  <path d="M7 9V7a3 3 0 016 0v2"/>
+                </svg>
+                <Box component="span" sx={{ fontSize: 11.5, color: dCapColor }}>{dCapText}</Box>
+              </Box>
+            </Box>
+          </Box>
 
           {/* Spécialité */}
-          <Grid item xs={12}>
+          <Box>
+            <Typography component="span" sx={DLG_LABEL_SX}>{t("haDash.form.speciality")}</Typography>
             <Autocomplete
               options={specialityOptions}
               value={form.speciality || null}
-              onChange={(_, newValue) =>
-                setForm((prev) => ({ ...prev, speciality: newValue ?? "" }))
-              }
-              renderInput={(params) => (
-                <TextField {...params} label={t("haDash.form.speciality")} size="small" />
-              )}
+              onChange={(_, v) => setForm(p => ({ ...p, speciality: v ?? "" }))}
+              renderInput={params => <TextField {...params} size="small" sx={DLG_FIELD_SX} />}
               fullWidth
               noOptionsText={t("haDash.form.noSpeciality")}
             />
-          </Grid>
+          </Box>
 
           {/* Commentaire */}
-          <Grid item xs={12}>
+          <Box>
+            <Typography component="span" sx={DLG_LABEL_SX}>{t("haDash.form.comment")}</Typography>
             <TextField
-              label={t("haDash.form.comment")}
               value={form.comment ?? ""}
               onChange={set("comment")}
               fullWidth
-              size="small"
               multiline
               rows={2}
+              size="small"
+              placeholder={t("haDash.form.commentPlaceholder")}
+              sx={DLG_FIELD_SX}
             />
-          </Grid>
+          </Box>
 
           {/* Statut — édition uniquement */}
           {initial && (
-            <Grid item xs={12}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>{t("haDash.form.statusField")}</InputLabel>
-                <Select
-                  value={form.status ?? "active"}
-                  label={t("haDash.form.statusField")}
-                  onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as YearStatus }))}
-                >
-                  <MenuItem value="draft">{t("haDash.status.draft")}</MenuItem>
-                  <MenuItem value="active">{t("haDash.status.active")}</MenuItem>
-                  <MenuItem value="closed">{t("haDash.status.closed")}</MenuItem>
-                  <MenuItem value="archived">{t("haDash.status.archived")}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <Box>
+              <Typography component="span" sx={DLG_LABEL_SX}>{t("haDash.form.statusField")}</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "6px", "@media (min-width: 480px)": { gridTemplateColumns: "repeat(4, 1fr)" } }}>
+                {STATUS_OPTS.map(opt => {
+                  const isOn      = form.status === opt.value;
+                  const isDisabled = !allowedStatuses.includes(opt.value);
+                  return (
+                    <Tooltip key={opt.value} title={isDisabled ? t("haDash.form.transitionForbidden") : ""} placement="top" arrow>
+                      <Box component="span" sx={{ display: "block" }}>
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={() => !isDisabled && setForm(p => ({ ...p, status: opt.value }))}
+                          sx={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                            height: 44, borderRadius: "11px", width: "100%",
+                            border: `1.5px solid ${isOn ? opt.borderColor : "#e2dee8"}`,
+                            background: isOn ? opt.bgColor : "#fff",
+                            fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+                            color: isOn ? opt.textColor : "#5d5765",
+                            cursor: isDisabled ? "not-allowed" : "pointer",
+                            opacity: isDisabled ? 0.42 : 1,
+                            transition: "border-color .12s, background .12s, color .12s",
+                            "&:hover": isDisabled ? {} : { background: isOn ? opt.bgColor : "#f7f5fa" },
+                          }}
+                        >
+                          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: isOn ? opt.textColor : "#938c9c", opacity: isOn ? 1 : 0.55 }} />
+                          {t(opt.labelKey)}
+                        </Box>
+                      </Box>
+                    </Tooltip>
+                  );
+                })}
+              </Box>
+            </Box>
           )}
 
-        </Grid>
+        </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={isPending}>{t("haDash.cancel")}</Button>
-        <Button variant="contained" onClick={handleSave} disabled={isPending}>
-          {isPending ? <CircularProgress size={16} /> : initial ? t("haDash.form.save") : t("haDash.form.create")}
+
+      {/* ── Footer ── */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: "12px", p: "16px 26px", borderTop: "1px solid #ececef", bgcolor: "#fcfbfd" }}>
+        {initial?.token && (
+          <Typography sx={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace", fontSize: 11, color: "#938c9c", letterSpacing: ".04em", flexShrink: 0 }}>
+            {String(initial.token).toUpperCase()}
+          </Typography>
+        )}
+        <Button
+          onClick={handleClose}
+          disabled={isPending}
+          sx={{ ml: "auto", color: "#5d5765", fontWeight: 600, borderRadius: "10px", "&:hover": { bgcolor: "#f7f5fa" } }}
+        >
+          {t("haDash.cancel")}
         </Button>
-      </DialogActions>
+        <Button
+          onClick={handleSave}
+          disabled={isPending || !canSave}
+          variant="contained"
+          sx={{
+            bgcolor: "#7B3FA0", borderRadius: "12px", fontWeight: 700,
+            boxShadow: "0 6px 16px -5px rgba(123,63,160,.5)",
+            "&:hover": { bgcolor: "#6a338c" },
+            "&.Mui-disabled": { bgcolor: "#c5a8d9", color: "#fff" },
+          }}
+        >
+          {isPending
+            ? <CircularProgress size={16} sx={{ color: "#fff" }} />
+            : initial ? t("haDash.form.save") : t("haDash.form.create")}
+        </Button>
+      </Box>
     </Dialog>
   );
 };

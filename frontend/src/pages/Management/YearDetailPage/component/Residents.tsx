@@ -8,6 +8,9 @@ import InputBase from "@mui/material/InputBase";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import Tooltip from "@mui/material/Tooltip";
@@ -481,6 +484,113 @@ function ResidentRow({ resident, index, isOpen, onToggle, adminRights, yearId, f
   );
 }
 
+// ── Add MACCS dialog ──────────────────────────────────────────────────────────
+
+interface AddMaccsDialogProps {
+  open: boolean;
+  yearId: number;
+  onClose: () => void;
+  onAdded: () => void;
+}
+
+function AddMaccsDialog({ open, yearId, onClose, onAdded }: AddMaccsDialogProps) {
+  const { t }         = useTranslation();
+  const axiosPrivate  = useAxiosPrivate();
+  const [firstname, setFirstname] = useState("");
+  const [lastname,  setLastname]  = useState("");
+  const [email,     setEmail]     = useState("");
+  const [saving,    setSaving]    = useState(false);
+
+  const reset = () => { setFirstname(""); setLastname(""); setEmail(""); };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      const { method, url } = yearsApi.addResidentToYear(yearId);
+      await axiosPrivate[method](url, { firstname, lastname, email });
+      toast.success(t("yearDetail.residents.addSuccess", "MACCS ajouté avec succès"), toastSuccess);
+      reset();
+      onAdded();
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg ?? t("yearDetail.residents.addError", "Erreur lors de l'ajout"), toastError);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSubmit = firstname.trim() !== "" && lastname.trim() !== "" && /\S+@\S+\.\S+/.test(email);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: "16px" } }}
+    >
+      <Box sx={{ p: "22px 24px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Box sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 17, fontWeight: 600 }}>
+          {t("yearDetail.residents.addTitle", "Ajouter un MACCS")}
+        </Box>
+        <IconButton
+          size="small"
+          onClick={(e) => { (e.currentTarget as HTMLElement).blur(); handleClose(); }}
+          aria-label="Fermer"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </IconButton>
+      </Box>
+      <DialogContent sx={{ pt: "18px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        <TextField
+          label={t("yearDetail.residents.firstname", "Prénom")}
+          value={firstname}
+          onChange={(e) => setFirstname(e.target.value)}
+          size="small"
+          fullWidth
+          autoFocus
+          inputProps={{ "data-testid": "add-maccs-firstname" }}
+        />
+        <TextField
+          label={t("yearDetail.residents.lastname", "Nom")}
+          value={lastname}
+          onChange={(e) => setLastname(e.target.value)}
+          size="small"
+          fullWidth
+          inputProps={{ "data-testid": "add-maccs-lastname" }}
+        />
+        <TextField
+          label={t("yearDetail.residents.email", "Email")}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          size="small"
+          fullWidth
+          inputProps={{ "data-testid": "add-maccs-email" }}
+        />
+      </DialogContent>
+      <DialogActions sx={{ p: "12px 24px 20px", gap: 1 }}>
+        <Button variant="text" onClick={handleClose} disabled={saving}>
+          {t("common.cancel", "Annuler")}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!canSubmit || saving}
+          data-testid="add-maccs-submit"
+        >
+          {saving ? <CircularProgress size={18} color="inherit" /> : t("yearDetail.residents.addConfirm", "Ajouter")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const Residents = ({ yearId, adminRights }: { yearId: number | null; adminRights?: boolean | null; setActiveLink?: (k: string) => void }) => {
@@ -493,6 +603,7 @@ const Residents = ({ yearId, adminRights }: { yearId: number | null; adminRights
   const [filter,    setFilter]    = useState<FilterKey>("all");
   const [query,     setQuery]     = useState("");
   const [openSet,   setOpenSet]   = useState<Set<number>>(new Set());
+  const [addOpen,   setAddOpen]   = useState(false);
 
   const fetchResidentList = useCallback(async () => {
     if (!yearId) return;
@@ -594,6 +705,8 @@ const Residents = ({ yearId, adminRights }: { yearId: number | null; adminRights
             <Button
               variant="contained"
               startIcon={<AddIcon />}
+              onClick={() => setAddOpen(true)}
+              data-testid="add-maccs-btn"
               sx={{ height: 42, whiteSpace: "nowrap", flexShrink: 0, width: { xs: "100%", sm: "auto" } }}
             >
               {t("yearDetail.residents.add", "Ajouter un MACCS")}
@@ -647,6 +760,15 @@ const Residents = ({ yearId, adminRights }: { yearId: number | null; adminRights
           ))
         )}
       </Box>
+
+      {yearId !== null && (
+        <AddMaccsDialog
+          open={addOpen}
+          yearId={yearId}
+          onClose={() => setAddOpen(false)}
+          onAdded={fetchResidentList}
+        />
+      )}
     </Box>
   );
 };

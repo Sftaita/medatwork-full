@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
+use App\Services\YearsManagement\AcademicPeriodHelper;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -55,9 +56,11 @@ final class AdminCreateYearInputDTO
             throw new \InvalidArgumentException('dateOfEnd must be after dateOfStart');
         }
 
-        $period = isset($data['period']) && is_string($data['period']) && $data['period'] !== ''
-            ? $data['period']
-            : $dateStart->format('Y') . '-' . $dateEnd->format('Y');
+        if ((int) $dateEnd->format('Y') - (int) $dateStart->format('Y') > 1) {
+            throw new \InvalidArgumentException("Une année académique ne peut pas s'étendre sur plus de deux années civiles.");
+        }
+
+        $period = AcademicPeriodHelper::compute($dateStart, $dateEnd);
 
         $comment    = isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : null;
         $speciality = isset($data['speciality']) && is_string($data['speciality']) && $data['speciality'] !== ''

@@ -173,11 +173,15 @@ class YearsManagerAPIController extends AbstractController
             return new JsonResponse(['message' => $e->getMessage()], 400);
         }
 
-        $updateYear->updateYear($dto->yearId, $manager, [
-            'yearId'   => $dto->yearId,
-            'target'   => $dto->target,
-            'newValue' => $dto->newValue,
-        ]);
+        try {
+            $updateYear->updateYear($dto->yearId, $manager, [
+                'yearId'   => $dto->yearId,
+                'target'   => $dto->target,
+                'newValue' => $dto->newValue,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['errors' => [$e->getMessage()]], 422);
+        }
 
         return new JsonResponse(['message' => 'ok'], 200);
     }

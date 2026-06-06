@@ -11,6 +11,7 @@ use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
 use App\Repository\YearsWeekIntervalsRepository;
 use App\Security\Voter\YearAccessVoter;
+use App\Services\YearsManagement\AcademicPeriodHelper;
 use DateTime;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
@@ -63,8 +64,13 @@ class UpdateYear
             $updateWeekIntervals = true;
         }
 
-        if ($target === 'period') {
-            $year->setPeriod($data['newValue']);
+        if ($updateWeekIntervals) {
+            $startY = (int) $year->getDateOfStart()->format('Y');
+            $endY   = (int) $year->getDateOfEnd()->format('Y');
+            if ($endY - $startY > 1) {
+                throw new \InvalidArgumentException("Une année académique ne peut pas s'étendre sur plus de deux années civiles.");
+            }
+            $year->setPeriod(AcademicPeriodHelper::compute($year->getDateOfStart(), $year->getDateOfEnd()));
         }
 
         if ($target === 'title') {

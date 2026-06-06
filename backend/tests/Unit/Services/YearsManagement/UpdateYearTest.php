@@ -126,15 +126,19 @@ class UpdateYearTest extends TestCase
         $this->assertNotNull($result, 'updateYear ne doit pas retourner null pour un target inconnu');
     }
 
-    public function testUpdatesPeriodField(): void
+    public function testTargetPeriodIsIgnoredClientCannotOverridePeriod(): void
     {
+        // period is now computed server-side from dates — client value must be ignored
         $year = new Years();
+        $year->setDateOfStart(new \DateTime('2026-01-01'));
+        $year->setDateOfEnd(new \DateTime('2026-12-31'));
+        $year->setPeriod('2026-2026');
         $this->yearsRepo->method('findOneBy')->willReturn($year);
         $this->authChecker->method('isGranted')->willReturn(true);
 
-        $this->service->updateYear(1, $this->makeManager(), ['target' => 'period', 'newValue' => 'semester']);
+        $this->service->updateYear(1, $this->makeManager(), ['target' => 'period', 'newValue' => 'should-be-ignored']);
 
-        $this->assertSame('semester', $year->getPeriod());
+        $this->assertSame('2026-2026', $year->getPeriod(), 'period must not be overwritten by client value');
     }
 
     public function testDateOfStartUpdateTriggersWeekIntervalRebuild(): void

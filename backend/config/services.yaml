@@ -81,6 +81,10 @@ services:
       $apiUrl:          '%env(API_URL)%'
       $uploadsBaseUrl:  '%env(UPLOADS_BASE_URL)%'
 
+  App\Controller\YearsAPI\ManagersAPI\ManagerAddResidentController:
+    arguments:
+      $frontendUrl: '%env(FRONTEND_URL)%'
+
   App\Controller\AdminController:
     arguments:
       $apiUrl: '%env(API_URL)%'

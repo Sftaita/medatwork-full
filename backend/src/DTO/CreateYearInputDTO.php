@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
+use App\Services\YearsManagement\AcademicPeriodHelper;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -55,12 +56,27 @@ final class CreateYearInputDTO
             throw new \InvalidArgumentException('hospitalId must be a positive integer');
         }
 
+        $dateStart = \DateTime::createFromFormat('Y-m-d', $data['dateOfStart']);
+        $dateEnd   = \DateTime::createFromFormat('Y-m-d', $data['dateOfEnd']);
+        if ($dateStart !== false && $dateEnd !== false) {
+            if ($dateEnd <= $dateStart) {
+                throw new \InvalidArgumentException('La date de fin doit être après la date de début');
+            }
+            if ((int) $dateEnd->format('Y') - (int) $dateStart->format('Y') > 1) {
+                throw new \InvalidArgumentException("Une année académique ne peut pas s'étendre sur plus de deux années civiles.");
+            }
+        }
+
+        $period = ($dateStart !== false && $dateEnd !== false)
+            ? AcademicPeriodHelper::compute($dateStart, $dateEnd)
+            : '';
+
         return new self(
             title:       $data['title'],
             comment:     isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : '',
             dateOfStart: $data['dateOfStart'],
             dateOfEnd:   $data['dateOfEnd'],
-            period:      isset($data['period']) && is_string($data['period']) ? $data['period'] : '',
+            period:      $period,
             speciality:  $data['speciality'],
             isMaster:    $data['isMaster'],
             hospitalId:  (int) $data['hospitalId'],
