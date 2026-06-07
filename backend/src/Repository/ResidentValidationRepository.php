@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
+use App\Entity\PeriodValidation;
 use App\Entity\Resident;
 use App\Entity\ResidentValidation;
 use App\Entity\Years;
@@ -91,6 +92,28 @@ class ResidentValidationRepository extends ServiceEntityRepository
         ;
     }
     */
+
+    /**
+     * Load all ResidentValidations for one period in a single query,
+     * indexed by residentId for O(1) lookup per resident in list views.
+     *
+     * @return array<int, bool> residentId => validated
+     */
+    public function findValidatedMapForPeriod(PeriodValidation $period): array
+    {
+        $rows = $this->createQueryBuilder('rv')
+            ->select('IDENTITY(rv.resident) AS residentId, rv.validated')
+            ->where('rv.periodValidation = :period')
+            ->setParameter('period', $period)
+            ->getQuery()
+            ->getArrayResult();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row['residentId']] = (bool) $row['validated'];
+        }
+        return $map;
+    }
 
     /**
      * Load all ResidentValidations for a given year in a single query,

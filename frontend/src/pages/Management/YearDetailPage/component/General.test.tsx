@@ -204,6 +204,8 @@ function makeReport(overrides: Partial<ResidentReport> = {}): ResidentReport {
     residentId:               1,
     residentFirstname:        "Alice",
     residentLastname:         "Dupont",
+    accountActivated:         true,
+    hasActivity:              true,
     validationInformation:    { validated: false },
     optingOut:                false,
     limits:                   { limit: 48, highLimit: 60 },

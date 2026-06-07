@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controller\ResidentsAPI\ManagersAPI;
 
-use App\Repository\ManagerYearsRepository;
 use App\Repository\YearsRepository;
+use App\Security\Voter\YearAccessVoter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
@@ -15,21 +14,18 @@ use Symfony\Component\Routing\Attribute\Route;
 class GetYearResidentController extends AbstractController
 {
     #[Route('/api/managers/GetYearResidents/{yearId}', name: 'getYearResidents', methods: ['GET'])]
-    public function getList(int $yearId, Security $security, YearsRepository $yearsRepository, ManagerYearsRepository $managerYearsRepository): JsonResponse
+    public function getList(int $yearId, YearsRepository $yearsRepository): JsonResponse
     {
         $year = $yearsRepository->findOneBy(['id' => $yearId]);
         if ($year === null) {
             throw new NotFoundHttpException('Année introuvable.');
         }
 
-        $manager  = $security->getUser();
-        $relation = $managerYearsRepository->findOneBy(['manager' => $manager, 'years' => $year]);
-
-        if ($relation === null) {
-            return new JsonResponse(['message' => "Vous n'avez pas accès à cette année."], 403);
-        }
-
-        if (!$relation->getDataAccess() && !$relation->getAdmin()) {
+        // Délégation au YearAccessVoter : gère Manager (ManagerYears), Manager promu
+        // hospital_admin (adminHospital), et HospitalAdmin (hospital.id === year.hospital.id).
+        if (!$this->isGranted(YearAccessVoter::DATA_ACCESS, $year)
+            && !$this->isGranted(YearAccessVoter::ADMIN, $year)
+        ) {
             return new JsonResponse(['message' => "Vous n'avez pas les droits de consultation pour cette année."], 403);
         }
 
@@ -45,6 +41,8 @@ class GetYearResidentController extends AbstractController
             $data[] = [
                 'yearResidentId'         => $yearResident->getId(),
                 'allowed'                => $yearResident->getAllowed(),
+                // true = compte activé (validatedAt set); false = invitation envoyée, jamais activée.
+                'accountActivated'       => $resident->getValidatedAt() !== null,
                 'residentId'             => $resident->getId(),
                 'firstname'              => $resident->getFirstname(),
                 'lastname'               => $resident->getLastname(),
@@ -57,7 +55,6 @@ class GetYearResidentController extends AbstractController
                 'unpaidLeave'            => $yearResident->getUnpaidLeave(),
                 'scientificLeaves'       => $yearResident->getScientificLeaves(),
                 'modificationOfThisData' => false,
-                // Photo de profil — null si aucune photo
                 'avatarPath'             => $resident->getAvatarPath(),
             ];
         }

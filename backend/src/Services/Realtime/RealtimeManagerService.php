@@ -7,6 +7,8 @@ namespace App\Services\Realtime;
 use App\Entity\Years;
 use App\Repository\AbsenceRepository;
 use App\Repository\GardeRepository;
+use App\Repository\PeriodValidationRepository;
+use App\Repository\ResidentValidationRepository;
 use App\Repository\ResidentYearCalendarRepository;
 use App\Repository\TimesheetRepository;
 use App\Repository\YearsResidentRepository;
@@ -24,14 +26,16 @@ use App\Services\Utils\Tools;
 class RealtimeManagerService
 {
     public function __construct(
-        private readonly YearsResidentRepository       $yearsResidentRepository,
-        private readonly TimesheetRepository           $timesheetRepository,
-        private readonly GardeRepository               $gardeRepository,
-        private readonly AbsenceRepository             $absenceRepository,
+        private readonly YearsResidentRepository        $yearsResidentRepository,
+        private readonly TimesheetRepository            $timesheetRepository,
+        private readonly GardeRepository                $gardeRepository,
+        private readonly AbsenceRepository              $absenceRepository,
         private readonly ResidentYearCalendarRepository $residentYearCalendarRepository,
-        private readonly StatisticTools                $statisticTools,
-        private readonly ResidentStatisticsBuilder     $statsBuilder,
-        private readonly Tools                         $tools,
+        private readonly StatisticTools                 $statisticTools,
+        private readonly ResidentStatisticsBuilder      $statsBuilder,
+        private readonly Tools                          $tools,
+        private readonly PeriodValidationRepository     $periodValidationRepository,
+        private readonly ResidentValidationRepository   $residentValidationRepository,
     ) {
     }
 
@@ -45,6 +49,13 @@ class RealtimeManagerService
         $weekLabels = array_map(static fn(int $k): string => "S{$k}", $weekKeys);
 
         $yearResidents = $this->yearsResidentRepository->findBy(['year' => $year, 'allowed' => true]);
+
+        // One query to map residentId → validated for this period.
+        // If no PeriodValidation exists yet for this month, everyone defaults to "À valider".
+        $periodValidation      = $this->periodValidationRepository->findOneBy(['year' => $year, 'month' => $month]);
+        $residentValidationMap = $periodValidation !== null
+            ? $this->residentValidationRepository->findValidatedMapForPeriod($periodValidation)
+            : [];
 
         $maccs = [];
         foreach ($yearResidents as $yr) {
@@ -61,11 +72,18 @@ class RealtimeManagerService
             $monthStats        = $this->statsBuilder->computeMonthStats($timesheets, $gardes, $absences, $scheduledCalendar, $dates);
             $scheduledAbsences = $this->statsBuilder->buildScheduledAbsences($yr);
 
+            $residentId = $resident->getId();
+            $validated  = ($residentId !== null && isset($residentValidationMap[$residentId]))
+                ? $residentValidationMap[$residentId]
+                : false;
+
             $maccs[] = $this->buildEntry(
                 (string) $resident->getFirstname(),
                 (string) $resident->getLastname(),
                 $monthStats,
                 $scheduledAbsences,
+                $resident->getValidatedAt(),
+                $validated,
             );
         }
 
@@ -79,8 +97,9 @@ class RealtimeManagerService
     /**
      * Map flat statistics arrays to the MaccsEntry shape expected by the frontend.
      *
-     * @param array<string, mixed> $monthStats       Output of ResidentStatisticsBuilder::computeMonthStats()
-     * @param array<string, mixed> $scheduledAbsences Output of ResidentStatisticsBuilder::buildScheduledAbsences()
+     * @param array<string, mixed>       $monthStats        Output of ResidentStatisticsBuilder::computeMonthStats()
+     * @param array<string, mixed>       $scheduledAbsences Output of ResidentStatisticsBuilder::buildScheduledAbsences()
+     * @param \DateTimeInterface|null    $validatedAt       Resident::getValidatedAt() — null if account not yet confirmed
      * @return array<string, mixed>
      */
     private function buildEntry(
@@ -88,6 +107,8 @@ class RealtimeManagerService
         string $lastname,
         array $monthStats,
         array $scheduledAbsences,
+        ?\DateTimeInterface $validatedAt,
+        bool $validated,
     ): array {
         $totalHours     = (float) $monthStats['totalHours'];
         $scheduledMonth = (float) $monthStats['scheduledMonth'];
@@ -106,20 +127,30 @@ class RealtimeManagerService
             ? array_map(static fn($v): int => (int) round((float) $v), array_values($monthStats['scheduledWeek']))
             : null;
 
+        // ── hasActivity : true si le résident a encodé au moins une donnée ce mois ──
+        // Null coalescing : si les clés sont absentes du tableau, retourner 0 sans crash.
+        $actTotalHours = (float) ($monthStats['totalHours']           ?? 0);
+        $actGardeHours = (float) ($monthStats['hospitalGardeHoursNb'] ?? 0);
+        $actCallable   = (int)   ($monthStats['callableGardeNb']      ?? 0);
+        $actAbsences   = (int)   ($monthStats['monthNbOfAbsences']    ?? 0);
+
         return [
-            'name'    => trim("{$firstname} {$lastname}"),
-            'last'    => $lastname,
-            'prevH'   => $prevH,
-            'totH'    => $this->hoursStr($totalHours),
-            'totVal'  => round($totalHours, 2),
-            'pct'     => $pct,
-            'inconf'  => $this->hoursStr($vhH),
-            'inconfV' => round($vhH, 2),
-            'tres'    => $this->hoursStr($hH),
-            'tresV'   => round($hH, 2),
-            'app'     => (int) $monthStats['callableGardeNb'],
-            'place'   => $this->hoursStr((float) $monthStats['hospitalGardeHoursNb']),
-            'conge'   => [
+            'name'             => trim("{$firstname} {$lastname}"),
+            'last'             => $lastname,
+            'prevH'            => $prevH,
+            'totH'             => $this->hoursStr($totalHours),
+            'totVal'           => round($totalHours, 2),
+            'pct'              => $pct,
+            'inconf'           => $this->hoursStr($vhH),
+            'inconfV'          => round($vhH, 2),
+            'tres'             => $this->hoursStr($hH),
+            'tresV'            => round($hH, 2),
+            'app'              => (int) $monthStats['callableGardeNb'],
+            'place'            => $this->hoursStr((float) $monthStats['hospitalGardeHoursNb']),
+            'hasActivity'      => $actTotalHours > 0 || $actGardeHours > 0 || $actCallable > 0 || $actAbsences > 0,
+            'accountActivated' => $validatedAt !== null,
+            'validated'        => $validated,
+            'conge'            => [
                 'used'  => (int) $monthStats['monthNbOfAbsences'],
                 'total' => (int) $scheduledAbsences['totalScheduledLeaves'],
                 'items' => [
@@ -130,7 +161,7 @@ class RealtimeManagerService
                     ['nm' => 'Non rémunéré',  'a' => 0, 'b' => (int) $scheduledAbsences['unpaidLeave']],
                 ],
             ],
-            'week' => [
+            'week'             => [
                 'prest' => $weekPrest,
                 'prev'  => $weekPrev,
             ],

@@ -5,6 +5,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { useThemeStore } from "./store/themeStore";
 import { lightTheme, darkTheme } from "./doc/CustomizedTheme";
 import ManagerRoute from "./routes/ManagerRoute";
+import ManagerYearsRoute from "./routes/ManagerYearsRoute";
 import CanCreateYearRoute from "./routes/CanCreateYearRoute";
 import ResidentRoute from "./routes/ResidentRoute";
 import SuperAdminRoute from "./routes/SuperAdminRoute";
@@ -455,16 +456,19 @@ function App() {
                     />
                   </Route>
 
-                  {/* Manager routes — accessible to managers and hospital admins */}
+                  {/* Manager routes — accessible aux managers et hospital_admin */}
                   <Route element={<ManagerRoute />}>
-                    <Route
-                      path="/manager/years"
-                      element={
-                        <Suspense fallback={<PageSkeleton />}>
-                          <ManagerYears />
-                        </Suspense>
-                      }
-                    />
+                    {/* /manager/years : redirige les hospital_admin vers leur dashboard */}
+                    <Route element={<ManagerYearsRoute />}>
+                      <Route
+                        path="/manager/years"
+                        element={
+                          <Suspense fallback={<PageSkeleton />}>
+                            <ManagerYears />
+                          </Suspense>
+                        }
+                      />
+                    </Route>
                     <Route
                       path="/manager/year-detail"
                       element={

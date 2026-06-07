@@ -38,6 +38,8 @@ interface Resident {
   email: string;
   lastConnection?: string;
   allowed: boolean;
+  /** true = compte activé (validatedAt set côté backend); false = invitation envoyée, non activée */
+  accountActivated?: boolean;
   avatarPath?: string | null;
   dateOfStart?: string;
   optingOut?: boolean;
@@ -48,7 +50,7 @@ interface Resident {
   unpaidLeavesLeaves?: number;
 }
 
-type FilterKey = "all" | "ok" | "pending";
+type FilterKey = "all" | "ok" | "invited" | "blocked";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -63,32 +65,43 @@ function getInitials(first: string, last: string): string {
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 
-function StatusPill({ allowed }: { allowed: boolean }) {
-  const theme = useTheme();
-  const isOk = allowed;
-  const color  = isOk ? theme.palette.success.dark  : theme.palette.warning.main;
-  const bgRing = isOk ? alpha(theme.palette.success.main, 0.12) : alpha(theme.palette.warning.main, 0.12);
+type AccountStatus = "active" | "invited" | "blocked";
+
+function resolveStatus(allowed: boolean, accountActivated?: boolean): AccountStatus {
+  if (!allowed) return "blocked";
+  if (!accountActivated) return "invited";
+  return "active";
+}
+
+function StatusPill({ allowed, accountActivated }: { allowed: boolean; accountActivated?: boolean }) {
+  const theme  = useTheme();
+  const status = resolveStatus(allowed, accountActivated);
+
+  const cfg = {
+    active:  { color: theme.palette.success.dark,  bg: alpha(theme.palette.success.main, 0.12), icon: <CheckIcon sx={{ fontSize: 13 }} />,       label: "Actif" },
+    invited: { color: theme.palette.info.dark,     bg: alpha(theme.palette.info.main,    0.12), icon: <AccessTimeIcon sx={{ fontSize: 13 }} />,  label: "Invitation envoyée" },
+    blocked: { color: theme.palette.warning.main,  bg: alpha(theme.palette.warning.main, 0.12), icon: <AccessTimeIcon sx={{ fontSize: 13 }} />,  label: "Bloqué" },
+  }[status];
 
   return (
     <Box
       component="span"
+      data-testid={`resident-status-${status}`}
       sx={{
         display: "inline-flex", alignItems: "center", gap: "7px",
-        fontSize: 12.5, fontWeight: 600, color,
+        fontSize: 12.5, fontWeight: 600, color: cfg.color,
         whiteSpace: "nowrap",
       }}
     >
       <Box sx={{
         width: 22, height: 22, borderRadius: 999,
-        bgcolor: bgRing, color,
+        bgcolor: cfg.bg, color: cfg.color,
         display: "flex", alignItems: "center", justifyContent: "center",
         flex: "none",
       }}>
-        {isOk
-          ? <CheckIcon sx={{ fontSize: 13 }} />
-          : <AccessTimeIcon sx={{ fontSize: 13 }} />}
+        {cfg.icon}
       </Box>
-      {isOk ? "Validé" : "En attente"}
+      {cfg.label}
     </Box>
   );
 }
@@ -137,18 +150,20 @@ function OptingToggle({ value, onChange }: { value: boolean; onChange: () => voi
 
 function FChip({ label, count, active, countVariant = "neutral", onClick }: {
   label: string; count: number; active: boolean;
-  countVariant?: "neutral" | "ok" | "pending";
+  countVariant?: "neutral" | "ok" | "info" | "pending";
   onClick: () => void;
 }) {
   const theme = useTheme();
   const badgeBg =
-    active             ? alpha("#fff", 0.22) :
+    active                     ? alpha("#fff", 0.22) :
     countVariant === "ok"      ? alpha(theme.palette.success.main, 0.1) :
+    countVariant === "info"    ? alpha(theme.palette.info.main,    0.1) :
     countVariant === "pending" ? alpha(theme.palette.warning.main, 0.1) :
     theme.palette.background.default;
   const badgeColor =
-    active             ? "#fff" :
+    active                     ? "#fff" :
     countVariant === "ok"      ? theme.palette.success.dark :
+    countVariant === "info"    ? theme.palette.info.dark :
     countVariant === "pending" ? theme.palette.warning.main :
     theme.palette.text.secondary;
 
@@ -384,7 +399,7 @@ function ResidentRow({ resident, index, isOpen, onToggle, adminRights, yearId, f
 
         {/* Statut */}
         <Box>
-          <StatusPill allowed={resident.allowed} />
+          <StatusPill allowed={resident.allowed} accountActivated={resident.accountActivated} />
         </Box>
 
         {/* Dernière connexion — masquée sur mobile */}
@@ -629,19 +644,21 @@ const Residents = ({ yearId, adminRights }: { yearId: number | null; adminRights
     });
   };
 
-  // Counts
+  // Counts — 4 catégories mutuellement exclusives
   const counts = useMemo(() => ({
     all:     residents.length,
-    ok:      residents.filter((r) => r.allowed).length,
-    pending: residents.filter((r) => !r.allowed).length,
+    ok:      residents.filter((r) =>  r.allowed && r.accountActivated).length,
+    invited: residents.filter((r) =>  r.allowed && !r.accountActivated).length,
+    blocked: residents.filter((r) => !r.allowed).length,
   }), [residents]);
 
   // Filtered list
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return residents.filter((r) => {
-      if (filter === "ok"      && !r.allowed)  return false;
-      if (filter === "pending" &&  r.allowed)  return false;
+      if (filter === "ok"      && !(r.allowed && r.accountActivated))  return false;
+      if (filter === "invited" && !(r.allowed && !r.accountActivated)) return false;
+      if (filter === "blocked" &&   r.allowed)                         return false;
       if (q && !`${r.firstname} ${r.lastname}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -727,9 +744,10 @@ const Residents = ({ yearId, adminRights }: { yearId: number | null; adminRights
           pb:           { xs: "2px", sm: 0 },
         }}
       >
-        <FChip label="Tous"       count={counts.all}     active={filter === "all"}     onClick={() => setFilter("all")}     />
-        <FChip label="Validés"    count={counts.ok}      active={filter === "ok"}      countVariant="ok"      onClick={() => setFilter("ok")}      />
-        <FChip label="En attente" count={counts.pending}  active={filter === "pending"} countVariant="pending" onClick={() => setFilter("pending")} />
+        <FChip label="Tous"               count={counts.all}     active={filter === "all"}     onClick={() => setFilter("all")}     />
+        <FChip label="Actifs"             count={counts.ok}      active={filter === "ok"}      countVariant="ok"      onClick={() => setFilter("ok")}      />
+        <FChip label="Invitation envoyée" count={counts.invited} active={filter === "invited"} countVariant="info"    onClick={() => setFilter("invited")} />
+        <FChip label="Bloqués"            count={counts.blocked} active={filter === "blocked"} countVariant="pending" onClick={() => setFilter("blocked")} />
       </Box>
 
       {/* ── Table ─────────────────────────────────────────────────────── */}

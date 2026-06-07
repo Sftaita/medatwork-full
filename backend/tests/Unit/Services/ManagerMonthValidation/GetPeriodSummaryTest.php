@@ -107,14 +107,18 @@ class GetPeriodSummaryTest extends TestCase
         $resident->method('getId')->willReturn($id);
         $resident->method('getFirstname')->willReturn($firstname);
         $resident->method('getLastname')->willReturn($lastname);
+        $resident->method('getAvatarPath')->willReturn(null);
+        // validatedAt=null par défaut → accountActivated=false dans la réponse
+        $resident->method('getValidatedAt')->willReturn(null);
         return $resident;
     }
 
-    private function makeYearsResident(Resident $resident, bool $optingOut = false): YearsResident&MockObject
+    private function makeYearsResident(Resident $resident, bool $optingOut = false, bool $allowed = true): YearsResident&MockObject
     {
         $yr = $this->createMock(YearsResident::class);
         $yr->method('getResident')->willReturn($resident);
         $yr->method('getOptingOut')->willReturn($optingOut);
+        $yr->method('getAllowed')->willReturn($allowed);
         return $yr;
     }
 

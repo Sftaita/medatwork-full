@@ -26,6 +26,12 @@ export interface MaccsEntry {
     prest: number[];
     prev: number[] | null;
   };
+  /** true = au moins un encodage ce mois-ci. Absent → fallback true (compat API prod) */
+  hasActivity?: boolean;
+  /** true = période validée par le manager. Absent → fallback false (compat API prod) */
+  validated?: boolean;
+  /** Compte résident activé (email confirmé). Réservé pour affichage futur. */
+  accountActivated?: boolean;
 }
 
 export type MaccsStatus = 'ok' | 'warn' | 'bad';

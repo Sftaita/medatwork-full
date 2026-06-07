@@ -184,6 +184,10 @@ class GetPeriodSummary
             if ($residentEntity === null) {
                 continue;
             }
+            // Résidents retirés de l'année (allowed=false) — exclus de la validation
+            if (!$resident->getAllowed()) {
+                continue;
+            }
 
             $residentSummary    = $this->getResidentInformation($resident);
             $legalIntervals     = $this->legalPeriodsCalculator->getLegalPeriods($currentYear, $residentSummary['residentId']);
@@ -258,6 +262,16 @@ class GetPeriodSummary
 
             $residentValidation = $this->validationService->getOrCreateResidentValidation($periodId, $residentEntity);
 
+            // Détermine si le résident a commencé à encoder des données sur la période
+            $totalHoursInPeriod = 0;
+            foreach ($raw['periodData'] as $pData) {
+                $totalHoursInPeriod += array_sum($pData['hoursPerWeek']);
+            }
+            $hasActivity = $totalHoursInPeriod > 0
+                || $raw['hospitalGarde'] > 0
+                || $raw['callableGarde'] > 0
+                || count($filteredAbsences) > 0;
+
             $residentSummary['daysOfLeaves']       = $this->countAbsencesByType($filteredAbsences);
             $residentSummary['hospital']            = $raw['hospitalGarde'];
             $residentSummary['callable']            = $raw['callableGarde'];
@@ -265,6 +279,7 @@ class GetPeriodSummary
             $residentSummary['warningHours']        = $warningHours;
             $residentSummary['IllegalHours']        = $illegalHours;
             $residentSummary['warnings']            = $errors;
+            $residentSummary['hasActivity']         = $hasActivity;
             $residentSummary['shiftOverlap']        = [];
             $history = $residentValidation->getValidationHistory() ?? [];
 
@@ -303,6 +318,9 @@ class GetPeriodSummary
 
         // Check for overlapping shifts (per-resident comparison with overlap duration)
         foreach ($residentsYear as $resident) {
+            if (!$resident->getAllowed() || $resident->getResident() === null) {
+                continue;
+            }
             $residentInformation = $this->getResidentInformation($resident);
             $residentId          = $residentInformation['residentId'];
 
@@ -470,6 +488,8 @@ class GetPeriodSummary
             ][$yearsResident->getOptingOut() ?? false],
             // Photo de profil — null si aucune photo
             'avatarPath'        => $resident->getAvatarPath(),
+            // true = compte activé (validatedAt défini) ; false = invitation non encore acceptée
+            'accountActivated'  => $resident->getValidatedAt() !== null,
         ];
     }
 

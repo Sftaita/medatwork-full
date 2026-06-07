@@ -19,14 +19,28 @@ const STATUS_LABELS: Record<string, string> = {
   ok:   'Conforme',
 };
 
+const ACTIVITY_CFG = {
+  active:   { bg: '#e8f6ee', color: '#1f7a44', label: 'Données encodées' },
+  inactive: { bg: '#f0edf5', color: '#938c9c', label: 'Aucun encodage'   },
+} as const;
+
+const WORKFLOW_CFG = {
+  validated:   { bg: '#eef3fd', color: '#1a5ab8', label: 'Validé'   },
+  unvalidated: { bg: '#fbf1dd', color: '#a06a08', label: 'À valider' },
+} as const;
+
 const MaccsRow = ({ entry: m, colorIndex, weeks, onGoToSchedule }: MaccsRowProps) => {
   const [open,        setOpen]        = useState(false);
   const [modalOpen,   setModalOpen]   = useState(false);
 
-  const st       = statusOf(m);
-  const hasPrev  = m.pct !== null;
-  const tresFlag = m.tresV >= 20;
-  const color    = SERIES_COLORS[m.last] ?? FALLBACK_AV_COLORS[colorIndex % FALLBACK_AV_COLORS.length];
+  const st          = statusOf(m);
+  const hasPrev     = m.pct !== null;
+  const tresFlag    = m.tresV >= 20;
+  const color       = SERIES_COLORS[m.last] ?? FALLBACK_AV_COLORS[colorIndex % FALLBACK_AV_COLORS.length];
+  const hasActivity = m.hasActivity ?? true;
+  const isValidated = m.validated   ?? false;
+  const actCfg      = hasActivity ? ACTIVITY_CFG.active   : ACTIVITY_CFG.inactive;
+  const wfCfg       = isValidated ? WORKFLOW_CFG.validated : WORKFLOW_CFG.unvalidated;
 
   const openModal = () => setModalOpen(true);
   const handleStatusKeyDown = (e: React.KeyboardEvent) => {
@@ -130,6 +144,27 @@ const MaccsRow = ({ entry: m, colorIndex, weeks, onGoToSchedule }: MaccsRowProps
             </div>
             <div className={styles.val}>{m.conge.used}</div>
           </div>
+          {/* ── Activité ──────────────────────────────────────────────── */}
+          <div
+            className={styles.status}
+            style={{ background: actCfg.bg, color: actCfg.color }}
+            data-testid={`activity-${m.last}`}
+          >
+            <span className={styles['status-dot']} />
+            {actCfg.label}
+          </div>
+
+          {/* ── Workflow validation ───────────────────────────────────── */}
+          <div
+            className={styles.status}
+            style={{ background: wfCfg.bg, color: wfCfg.color }}
+            data-testid={`workflow-${m.last}`}
+          >
+            <span className={styles['status-dot']} />
+            {wfCfg.label}
+          </div>
+
+          {/* ── Conformité (inchangé) ─────────────────────────────────── */}
           <div
             className={`${styles.status} ${styles[`status--${st}`]}`}
             data-testid={`status-${m.last}`}

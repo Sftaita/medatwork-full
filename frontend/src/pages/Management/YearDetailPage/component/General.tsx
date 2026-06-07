@@ -89,6 +89,10 @@ export interface ResidentReport {
   residentLastname: string;
   /** Chemin de la photo de profil (null si aucune photo) */
   avatarPath?: string | null;
+  /** true = compte résident activé (validatedAt set côté backend) */
+  accountActivated?: boolean;
+  /** true = au moins une donnée encodée sur la période (timesheet, garde ou absence) */
+  hasActivity?: boolean;
   validationInformation: {
     validated: boolean;
     validatedBy?: unknown;
@@ -187,6 +191,11 @@ export function legalAlertCount(warnings: Warning[]): number {
   return warnings.filter((w) => w.warningType !== "minLimit").length;
 }
 
+/** Un résident est éligible à la validation uniquement s'il a activé son compte ET encodé des données. */
+export function isEligibleForValidation(r: ResidentReport): boolean {
+  return !!r.accountActivated && !!r.hasActivity;
+}
+
 export function priority(report: ResidentReport, validationData: ValidationEntry[]): 0 | 1 | 2 {
   if (hasLegalAlert(report.warnings)) return 0;
   const entry = validationData.find((d) => d.residentId === report.residentId);
@@ -199,16 +208,19 @@ export function matchesFilter(
   filter: string,
   validationData: ValidationEntry[]
 ): boolean {
-  if (filter === "alert") return hasLegalAlert(report.warnings);
+  // Les filtres alert/todo/done n'affichent que les résidents éligibles à la validation
+  if (filter === "alert") return isEligibleForValidation(report) && hasLegalAlert(report.warnings);
   if (filter === "todo") {
+    if (!isEligibleForValidation(report)) return false;
     const entry = validationData.find((d) => d.residentId === report.residentId);
     return !entry || entry.status === "invalidate";
   }
   if (filter === "done") {
+    if (!isEligibleForValidation(report)) return false;
     const entry = validationData.find((d) => d.residentId === report.residentId);
     return entry?.status === "validate";
   }
-  return true;
+  return true; // "all" — affiche tout le monde
 }
 
 // ResidentAvatar — utilise UserAvatar (photo si disponible, sinon initiales)
@@ -550,7 +562,26 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           onClick={(e) => e.stopPropagation()}
           sx={{ order: { xs: 5, sm: 0 }, flexBasis: { xs: "100%", sm: "auto" }, ml: { xs: 0, sm: "4px" } }}
         >
-          {isLegal ? (
+          {!report.accountActivated ? (
+            <Box component="span" data-testid={`chip-invited-${report.residentId}`} sx={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              fontSize: 11, fontWeight: 600, px: "9px", py: "4px", borderRadius: 999,
+              bgcolor: alpha(theme.palette.info.main, 0.1),
+              color: "info.main",
+            }}>
+              Invitation envoyée
+            </Box>
+          ) : !report.hasActivity ? (
+            <Box component="span" data-testid={`chip-no-activity-${report.residentId}`} sx={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              fontSize: 11, fontWeight: 600, px: "9px", py: "4px", borderRadius: 999,
+              bgcolor: alpha(theme.palette.text.secondary, 0.06),
+              border: `1px dashed ${theme.palette.divider}`,
+              color: "text.disabled",
+            }}>
+              Aucun encodage
+            </Box>
+          ) : isLegal ? (
             <Box component="span" data-testid={`chip-alert-${report.residentId}`} sx={{
               display: "inline-flex", alignItems: "center", gap: "5px",
               fontSize: 11, fontWeight: 600, px: "9px", py: "4px", borderRadius: 999,
@@ -622,18 +653,19 @@ export function MaccCard({ report, index, isOpen, onToggle, validationData, onVa
           </Box>
         </Box>
 
-        {/* Validate toggle — order:7 sur mobile.
-            La traçabilité (qui a validé) est dans le détail déplié uniquement,
-            pas ici, pour garder toutes les lignes strictement alignées. */}
-        <Box
-          onClick={(e) => e.stopPropagation()}
-          sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 } }}
-        >
-          <ValidateToggle
-            validated={isValidated}
-            onChange={() => onValidationChange(report.residentId)}
-          />
-        </Box>
+        {/* Validate toggle — masqué pour les non-éligibles (invitation envoyée ou sans encodage).
+            La traçabilité (qui a validé) est dans le détail déplié uniquement. */}
+        {isEligibleForValidation(report) && (
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            sx={{ order: { xs: 7, sm: 0 }, ml: { xs: "auto", sm: 0 } }}
+          >
+            <ValidateToggle
+              validated={isValidated}
+              onChange={() => onValidationChange(report.residentId)}
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Compliance report */}
@@ -874,9 +906,10 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
         }))
       );
 
-      // Compute status for rail dot
-      const hasLegal = data.some((r) => hasLegalAlert(r.warnings));
-      const allDone  = data.every((r) => r.validationInformation?.validated);
+      // Compute status for rail dot — seuls les résidents éligibles entrent dans le calcul
+      const eligibleData = data.filter(isEligibleForValidation);
+      const hasLegal = eligibleData.some((r) => hasLegalAlert(r.warnings));
+      const allDone  = eligibleData.length > 0 && eligibleData.every((r) => r.validationInformation?.validated);
       const status: MonthStatus = hasLegal ? "alert" : allDone ? "ok" : "pending";
       setPeriodStatuses((prev) => new Map(prev).set(pid, status));
     } catch (error) {
@@ -943,7 +976,7 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
     let count = 0;
     const updated = data.map((d) => {
       const report = periodReport.find((r) => r.residentId === d.residentId);
-      if (!report) return d;
+      if (!report || !isEligibleForValidation(report)) return d;
       if (!hasLegalAlert(report.warnings) && d.status === "invalidate") {
         count++;
         return { ...d, status: "validate" as const };
@@ -1019,20 +1052,28 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
   // ── Derived counts & filtered list ────────────────────────────────────────
   const validationData = residentValidationData as ValidationEntry[];
 
+  // Résidents éligibles à la validation : compte activé ET données encodées
+  const validationEligible = useMemo(
+    () => periodReport.filter(isEligibleForValidation),
+    [periodReport]
+  );
+
   const counts = useMemo(() => ({
     all:   periodReport.length,
-    alert: periodReport.filter((r) => hasLegalAlert(r.warnings)).length,
-    todo:  periodReport.filter((r) => {
+    // Les compteurs alert/todo/done n'incluent que les résidents éligibles
+    alert: validationEligible.filter((r) => hasLegalAlert(r.warnings)).length,
+    todo:  validationEligible.filter((r) => {
       const e = validationData.find((d) => d.residentId === r.residentId);
       return !e || e.status === "invalidate";
     }).length,
-    done:  periodReport.filter((r) => {
+    done:  validationEligible.filter((r) => {
       const e = validationData.find((d) => d.residentId === r.residentId);
       return e?.status === "validate";
     }).length,
-  }), [periodReport, validationData]);
+  }), [periodReport, validationEligible, validationData]);
 
   const validatedCount = counts.done;
+  const eligibleCount  = validationEligible.length;
   const total          = counts.all;
 
   const filteredSorted = useMemo(() => {
@@ -1048,7 +1089,8 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
       );
   }, [periodReport, filter, query, validationData]);
 
-  const conformesLeft = periodReport.filter((r) => {
+  // Conformes non encore validés — seuls les éligibles comptent
+  const conformesLeft = validationEligible.filter((r) => {
     const e = validationData.find((d) => d.residentId === r.residentId);
     return !hasLegalAlert(r.warnings) && (!e || e.status === "invalidate");
   }).length;
@@ -1077,9 +1119,9 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
   const getRailSubLabel = (idx: number, pid: number): string => {
     if (idx === selectedIndex && periodReport.length > 0) {
       const alertCount = counts.alert;
-      if (alertCount > 0) return `${counts.all} MACCS · ${alertCount} alerte${alertCount > 1 ? "s" : ""}`;
-      if (counts.done === counts.all && counts.all > 0) return `${counts.all} validé${counts.all > 1 ? "s" : ""}`;
-      return `${counts.done} / ${counts.all} validé${counts.done > 1 ? "s" : ""}`;
+      if (alertCount > 0) return `${eligibleCount} MACCS · ${alertCount} alerte${alertCount > 1 ? "s" : ""}`;
+      if (counts.done === eligibleCount && eligibleCount > 0) return `${eligibleCount} validé${eligibleCount > 1 ? "s" : ""}`;
+      return `${counts.done} / ${eligibleCount} validé${counts.done > 1 ? "s" : ""}`;
     }
     const s = periodStatuses.get(pid);
     if (s === "alert")   return "Alertes";
@@ -1165,7 +1207,7 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
             {total} MACCS
           </Box>
           <Box flex={1} />
-          {total > 0 && (
+          {eligibleCount > 0 && (
             <Box
               display="flex" alignItems="center" gap={1}
               fontSize={12.5} color="text.secondary" fontWeight={500}
@@ -1173,10 +1215,10 @@ const General = forwardRef<GeneralHandle, GeneralProps>(function General({ yearI
             >
               <Typography fontSize="inherit" color="inherit" fontWeight="inherit">Validés</Typography>
               <Box sx={{ height: 6, flex: 1, minWidth: 80, maxWidth: { xs: "unset", sm: 120 }, borderRadius: 999, bgcolor: alpha(theme.palette.primary.main, 0.12), overflow: "hidden" }}>
-                <Box sx={{ height: "100%", width: `${(validatedCount / total) * 100}%`, bgcolor: theme.palette.success.main, borderRadius: 999, transition: theme.transitions.create("width") }} />
+                <Box sx={{ height: "100%", width: `${(validatedCount / eligibleCount) * 100}%`, bgcolor: theme.palette.success.main, borderRadius: 999, transition: theme.transitions.create("width") }} />
               </Box>
               <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "inherit", color: "inherit", flex: "none" }}>
-                {validatedCount} / {total}
+                {validatedCount} / {eligibleCount}
               </Typography>
             </Box>
           )}
