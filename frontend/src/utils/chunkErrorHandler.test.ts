@@ -20,14 +20,33 @@ function makeStorage(initial: Record<string, string> = {}): Pick<Storage, "getIt
   };
 }
 
+function makeThrowingGetStorage(): Pick<Storage, "getItem" | "setItem"> {
+  return {
+    getItem:  ()           => { throw new DOMException("SecurityError", "SecurityError"); },
+    setItem:  (_k, _v)     => { /* never reached */ },
+  };
+}
+
+function makeThrowingSetStorage(): Pick<Storage, "getItem" | "setItem"> {
+  const store: Record<string, string> = {};
+  return {
+    getItem:  (k: string)  => store[k] ?? null,
+    setItem:  ()           => { throw new DOMException("QuotaExceededError", "QuotaExceededError"); },
+  };
+}
+
 // ── Tests : isChunkLoadError ──────────────────────────────────────────────────
 
 describe("isChunkLoadError", () => {
+  // strings (window.error path)
   it.each([
     "Importing a module script failed.",
     "Failed to fetch dynamically imported module: https://example.com/chunk-abc.js",
+    "error loading dynamically imported module: https://example.com/chunk-abc.js",
     "Unable to preload CSS for https://example.com/assets/index.css",
-  ])("retourne true pour : %s", (msg) => {
+    "Loading chunk 42 failed.",
+    "ChunkLoadError: Loading chunk 42 failed.",
+  ])("retourne true pour string : %s", (msg) => {
     expect(isChunkLoadError(msg)).toBe(true);
   });
 
@@ -36,8 +55,36 @@ describe("isChunkLoadError", () => {
     "ReferenceError: foo is not defined",
     "Network Error",
     "",
-  ])("retourne false pour : %s", (msg) => {
+  ])("retourne false pour string : %s", (msg) => {
     expect(isChunkLoadError(msg)).toBe(false);
+  });
+
+  // Error objects (ErrorBoundary path)
+  it("retourne true pour TypeError avec message de chunk (iOS Safari)", () => {
+    expect(isChunkLoadError(new TypeError("Importing a module script failed."))).toBe(true);
+  });
+
+  it("retourne true pour TypeError avec message de chunk (Chrome)", () => {
+    expect(isChunkLoadError(new TypeError("Failed to fetch dynamically imported module: /chunk.js"))).toBe(true);
+  });
+
+  it("retourne true pour une erreur dont le name est ChunkLoadError", () => {
+    const err = Object.assign(new Error("Loading chunk 5 failed."), { name: "ChunkLoadError" });
+    expect(isChunkLoadError(err)).toBe(true);
+  });
+
+  it("retourne false pour une Error ordinaire", () => {
+    expect(isChunkLoadError(new Error("Something went wrong"))).toBe(false);
+  });
+
+  it("retourne false pour undefined", () => {
+    expect(isChunkLoadError(undefined)).toBe(false);
+  });
+
+  it("retourne true pour TypeError avec message Firefox", () => {
+    expect(
+      isChunkLoadError(new TypeError("error loading dynamically imported module: /chunk.js"))
+    ).toBe(true);
   });
 });
 
@@ -91,6 +138,7 @@ describe("handleChunkLoadError", () => {
     const messages = [
       "Importing a module script failed.",
       "Failed to fetch dynamically imported module: /chunk.js",
+      "error loading dynamically imported module: /chunk.js",
       "Unable to preload CSS for /assets/style.css",
     ];
 
@@ -100,6 +148,29 @@ describe("handleChunkLoadError", () => {
       handleChunkLoadError(makeErrorEvent(msg), storage);
       expect(reloadSpy).toHaveBeenCalledOnce();
     }
+  });
+
+  it("ne recharge PAS et ne plante PAS si storage.getItem lance une exception", () => {
+    handleChunkLoadError(
+      makeErrorEvent("Importing a module script failed."),
+      makeThrowingGetStorage()
+    );
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it("ne recharge PAS et ne plante PAS si storage.setItem lance une exception", () => {
+    handleChunkLoadError(
+      makeErrorEvent("Importing a module script failed."),
+      makeThrowingSetStorage()
+    );
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it("ne pose pas la clé si setItem lance (pas de boucle infinie possible)", () => {
+    const storage = makeThrowingSetStorage();
+    handleChunkLoadError(makeErrorEvent("Importing a module script failed."), storage);
+    // getItem still works — key was never written
+    expect(storage.getItem(CHUNK_RELOAD_KEY)).toBeNull();
   });
 });
 

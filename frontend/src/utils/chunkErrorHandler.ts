@@ -8,11 +8,24 @@
 
 export const CHUNK_RELOAD_KEY = "chunk_reload_attempt";
 
-export function isChunkLoadError(message: string): boolean {
+export function isChunkLoadError(error: unknown): boolean {
+  let msg: string;
+  if (error instanceof Error) {
+    // Include the error name so "ChunkLoadError" is matched even when the
+    // message alone says "Loading chunk X failed."
+    msg = `${error.name} ${error.message}`;
+  } else if (typeof error === "string") {
+    msg = error;
+  } else {
+    msg = String(error ?? "");
+  }
   return (
-    message.includes("Importing a module script failed") ||
-    message.includes("Failed to fetch dynamically imported module") ||
-    message.includes("Unable to preload CSS")
+    msg.includes("Importing a module script failed") ||
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("error loading dynamically imported module") ||
+    msg.includes("Unable to preload CSS") ||
+    msg.includes("Loading chunk") ||
+    msg.includes("ChunkLoadError")
   );
 }
 
@@ -23,11 +36,15 @@ export function handleChunkLoadError(
   const msg = event.message ?? "";
   if (!isChunkLoadError(msg)) return;
 
-  const alreadyRetried = storage.getItem(CHUNK_RELOAD_KEY) === "1";
-  if (!alreadyRetried) {
+  try {
+    if (storage.getItem(CHUNK_RELOAD_KEY) === "1") return;
     storage.setItem(CHUNK_RELOAD_KEY, "1");
-    window.location.reload();
+  } catch {
+    // Storage unavailable (SecurityError, QuotaExceededError) — skip reload
+    // to avoid an unguarded infinite-reload loop.
+    return;
   }
+  window.location.reload();
 }
 
 export function registerChunkErrorHandler(
